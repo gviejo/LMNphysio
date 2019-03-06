@@ -107,7 +107,7 @@ def loadSpikeData(path, index=None, fs = 20000):
     for i,j in spikes:
         toreturn[j] = nts.Ts(t=spikes[(i,j)].replace(0,np.nan).dropna().index.values, time_units = 's')
 
-    shank = spikes.columns.get_level_values(0).values[:,np.newaxis]
+    shank = spikes.columns.get_level_values(0).values[:,np.newaxis].flatten()
 
     return toreturn, shank
 
@@ -189,7 +189,7 @@ def downsampleDatFile(path, n_channels, fs):
 
 	for n in range(n_channels):		
 		# Loading
-		rawchannel = np.zeros(n_samples, np.int16)		
+		rawchannel = np.zeros(n_samples, np.int16)
 		count = 0
 		while count < n_samples:
 			f 			= open(new_path, 'rb')
@@ -437,36 +437,6 @@ def loadEpoch(path, epoch):
 					stop = np.where(index == -1)[0]
 					return nts.IntervalSet(start, stop, time_units = 's', expect_fix=True).drop_short_intervals(0.0)
 
-def loadPosition(path, file, ep = None, names = ['x', 'y', 'ry', 'rx', 'rz']):
-	"""
-	load the position from the csv file contains in path
-
-	Notes:
-		The order of the columns in the csv file is assumed to be
-			['x', 'y', 'ry', 'rx', 'rz']	
-	Args:
-		path: string
-		epoch: string
-
-	Returns:
-		neuroseries.IntervalSet
-	"""		
-	if not os.path.exists(path):
-		print("The path "+path+" doesn't exist; Exiting ...")
-		sys.exit()		
-	if '.csv' not in file:
-		print("The file is not .csv; The wrappers does not support other format yet; Exiting ...")
-		sys.exit()
-	position = pd.read_csv(os.path.join(path, 'Tracking_data.csv'), header = None, index_col = 0, names = names)
-	position = position[~position.index.duplicated(keep='first')]
-	position = nts.TsdFrame(t = position.index.values, d = position.values, time_units = 's', columns = names)
-	position[['ry', 'rx', 'rz']] *= (np.pi/180)
-	position[['ry', 'rx', 'rz']] += 2*np.pi
-	position[['ry', 'rx', 'rz']] %= 2*np.pi
-	if ep is not None:
-		position = position.restrict(ep)
-	return position
-
 def loadPosition(path):
     """
     load the position contained in /Analysis/Position.h5
@@ -514,6 +484,59 @@ def loadTTLPulse(file, n_channels = 1, fs = 20000):
     peaks+=1
     ttl = pd.Series(index = timestep[peaks], data = data[peaks])    
     return ttl
+
+def loadAuxiliary(path, fs = 20000):
+	"""
+	Extract the acceleration from the auxiliary.dat for each epochs
+
+	Args:
+	    path: string
+	    epochs_ids: list        
+	Return: 
+	    TsdArray
+	""" 	
+	if not os.path.exists(path):
+		print("The path "+path+" doesn't exist; Exiting ...")
+		sys.exit()
+	if 'Acceleration.h5' in os.listdir(os.path.join(path, 'Analysis')):
+		accel_file = os.path.join(path, 'Analysis', 'Acceleration.h5')
+		store = pd.HDFStore(accel_file, 'r')
+		accel = store['acceleration'] 
+		store.close()
+		return accel
+	else:
+		aux_files = np.sort([f for f in os.listdir(path) if 'auxiliary' in f])
+		if len(aux_files)==0:
+			print("Could not find "+f+'_auxiliary.dat; Exiting ...')
+			sys.exit()
+
+		accel = []
+		sample_size = []
+		for i, f in enumerate(aux_files):
+			new_path 	= os.path.join(path, f)
+			f 			= open(new_path, 'rb')
+			startoffile = f.seek(0, 0)
+			endoffile 	= f.seek(0, 2)
+			bytes_size 	= 2
+			n_samples 	= int((endoffile-startoffile)/3/bytes_size)
+			duration 	= n_samples/fs		
+			f.close()
+			tmp 		= np.fromfile(open(new_path, 'rb'), np.uint16).reshape(n_samples,3)
+			accel.append(tmp)
+			sample_size.append(n_samples)
+
+		accel = np.concatenate(accel)	
+		factor = 37.4e-6
+		# timestep = np.arange(0, len(accel))/fs
+		# accel = pd.DataFrame(index = timestep, data= accel*37.4e-6)
+		tmp = scipy.signal.resample_poly(accel*factor, 1, 16)
+		timestep = np.arange(0, len(tmp))/(fs/16)
+		tmp = pd.DataFrame(index = timestep, data = tmp)
+		accel_file = os.path.join(path, 'Analysis', 'Acceleration.h5')
+		store = pd.HDFStore(accel_file, 'w')
+		store['acceleration'] = tmp
+		store.close()
+		return tmp
 
 ##########################################################################################################
 # TODO
