@@ -4,7 +4,8 @@ import scipy.io
 import neuroseries as nts
 import pandas as pd
 import scipy.signal
-
+from numba import jit
+from tqdm import tqdm
 '''
 Wrappers should be able to distinguish between raw data or matlab processed data
 '''
@@ -152,65 +153,6 @@ def loadXML(path):
 		shank_to_channel[i] = np.sort([int(child.firstChild.data) for child in groups[i].getElementsByTagName('channel')])
 	return int(nChannels), int(fs), shank_to_channel
 
-def downsampleDatFile(path, n_channels, fs):
-	"""
-	downsample .dat file to .eeg 1/16 (20000 -> 1250 Hz)
-	
-	Since .dat file can be very big, the strategy is to load one channel at the time,
-	downsample it, and free the memory.
-
-	Args:
-		path: string
-		n_channel: int
-		fs: int
-	Return: 
-		none
-	"""	
-	if not os.path.exists(path):
-		print("The path "+path+" doesn't exist; Exiting ...")
-		sys.exit()
-	listdir 	= os.listdir(path)
-	datfile 	= [f for f in listdir if f.endswith('.dat')]
-	if not len(datfile):
-		print("Folder contains no xml files; Exiting ...")
-		sys.exit()
-	new_path = os.path.join(path, datfile[0])
-
-	f 			= open(new_path, 'rb')
-	startoffile = f.seek(0, 0)
-	endoffile 	= f.seek(0, 2)
-	bytes_size 	= 2
-	n_samples 	= int((endoffile-startoffile)/n_channels/bytes_size)
-	duration 	= n_samples/fs
-	f.close()
-
-	chunksize 	= 100000
-	eeg 		= np.zeros((int(n_samples/16),n_channels))
-
-	for n in range(n_channels):		
-		# Loading
-		rawchannel = np.zeros(n_samples, np.int16)
-		count = 0
-		while count < n_samples:
-			f 			= open(new_path, 'rb')
-			seekstart 	= count*n_channels*bytes_size
-			f.seek(seekstart)
-			block 		= np.fromfile(f, np.int16, n_channels*np.minimum(chunksize, n_samples-count))
-			f.close()
-			block 		= block.reshape(np.minimum(chunksize, n_samples-count), n_channels)
-			rawchannel[count:count+np.minimum(chunksize, n_samples-count)] = np.copy(block[:,n])
-			count 		+= chunksize
-		# Downsampling		
-		eeg[:,n] 	= scipy.signal.resample_poly(rawchannel, 1, 16)
-		del rawchannel		
-	
-	# Saving
-	eeg_path 	= os.path.join(path, os.path.splitext(datfile[0])[0]+'.eeg')
-	with open(eeg_path, 'wb') as f:
-		eeg.astype('int16').tofile(f)
-		
-	return
-
 def makeEpochs(path, order, file = None, start=None, end = None, time_units = 's'):
 	"""
 	The pre-processing pipeline should spit out a csv file containing all the successive epoch of sleep/wake
@@ -348,7 +290,7 @@ def makePositions(path, file_order, names = ['ry', 'rx', 'rz', 'x', 'y', 'z'], u
     
     return
 
-def loadEpoch(path, epoch):
+def loadEpoch(path, epoch, episodes = None):
 	"""
 	load the epoch contained in path	
 	If the path contains a folder analysis, the function will load either the BehavEpochs.mat or the BehavEpochs.h5
@@ -361,16 +303,18 @@ def loadEpoch(path, epoch):
 	Returns:
 		neuroseries.IntervalSet
 	"""			
-	if not os.path.exists(path):
+	if not os.path.exists(path): # Check for path
 		print("The path "+path+" doesn't exist; Exiting ...")
 		sys.exit()		
 	filepath 	= os.path.join(path, 'Analysis')
-	listdir		= os.listdir(filepath)
-	file 		= [f for f in listdir if 'BehavEpochs' in f]
-	if len(file) == 0:
-		print("Couldn't find a BehavEpochs file in "+filepath+"; Exiting ...")
-		sys.exit()
-	elif file[0] == 'BehavEpochs.h5':
+	if os.path.exists(filepath): # Check for path/Analysis/	
+		listdir		= os.listdir(filepath)
+		file 		= [f for f in listdir if 'BehavEpochs' in f]
+	if len(file) == 0: # Running makeEpochs		
+		makeEpochs(path, episodes, file = 'Epoch_TS.csv')
+		listdir		= os.listdir(filepath)
+		file 		= [f for f in listdir if 'BehavEpochs' in f]
+	if file[0] == 'BehavEpochs.h5':
 		new_file = os.path.join(filepath, 'BehavEpochs.h5')
 		store 		= pd.HDFStore(new_file, 'r')
 		if '/'+epoch in store.keys():
@@ -437,7 +381,7 @@ def loadEpoch(path, epoch):
 					stop = np.where(index == -1)[0]
 					return nts.IntervalSet(start, stop, time_units = 's', expect_fix=True).drop_short_intervals(0.0)
 
-def loadPosition(path):
+def loadPosition(path, events = None):
     """
     load the position contained in /Analysis/Position.h5
 
@@ -450,20 +394,23 @@ def loadPosition(path):
     Returns:
         neuroseries.TsdFrame
     """        
-    if not os.path.exists(path):
+    if not os.path.exists(path): # Checking for path
         print("The path "+path+" doesn't exist; Exiting ...")
         sys.exit()
         
     file = os.path.join(path, 'Analysis', 'Position.h5')
     if not os.path.exists(file):
-        print("Could not find Analysis/Position.h5; Exiting ...")        
+        makePositions(path, events)
         sys.exit()
-
-    store = pd.HDFStore(file, 'r')
-    position = store['position']
-    store.close()
-    position = nts.TsdFrame(t = position.index.values, d = position.values, columns = position.columns, time_units = 's')
-    return position
+    if os.path.exists(file):
+    	store = pd.HDFStore(file, 'r')
+    	position = store['position']
+    	store.close()
+    	position = nts.TsdFrame(t = position.index.values, d = position.values, columns = position.columns, time_units = 's')
+    	return position
+    else:
+    	print("Cannot find "+file+" for loading position")
+    	sys.exit()    	
 
 def loadTTLPulse(file, n_channels = 1, fs = 20000):
     """
@@ -537,6 +484,66 @@ def loadAuxiliary(path, fs = 20000):
 		store['acceleration'] = tmp
 		store.close()
 		return tmp
+
+def downsampleDatFile(path, n_channels = 32, fs = 20000):
+	"""
+	downsample .dat file to .eeg 1/16 (20000 -> 1250 Hz)
+	
+	Since .dat file can be very big, the strategy is to load one channel at the time,
+	downsample it, and free the memory.
+
+	Args:
+		path: string
+		n_channel: int
+		fs: int
+	Return: 
+		none
+	"""	
+	if not os.path.exists(path):
+		print("The path "+path+" doesn't exist; Exiting ...")
+		sys.exit()
+	listdir 	= os.listdir(path)
+	datfile 	= os.path.basename(path) + '.dat'
+	if datfile not in listdir:
+		print("Folder contains no " + datfile + " file; Exiting ...")
+		sys.exit()
+
+	new_path = os.path.join(path, datfile)
+
+	f 			= open(new_path, 'rb')
+	startoffile = f.seek(0, 0)
+	endoffile 	= f.seek(0, 2)
+	bytes_size 	= 2
+	n_samples 	= int((endoffile-startoffile)/n_channels/bytes_size)
+	duration 	= n_samples/fs
+	f.close()
+
+	chunksize 	= 100000
+	eeg 		= np.zeros((int(n_samples/16),n_channels), dtype = np.int16)
+
+	for n in tqdm(range(n_channels)):
+		# Loading		
+		rawchannel = np.zeros(n_samples, np.int16)
+		count = 0
+		while count < n_samples:
+			f 			= open(new_path, 'rb')
+			seekstart 	= count*n_channels*bytes_size
+			f.seek(seekstart)
+			block 		= np.fromfile(f, np.int16, n_channels*np.minimum(chunksize, n_samples-count))
+			f.close()
+			block 		= block.reshape(np.minimum(chunksize, n_samples-count), n_channels)
+			rawchannel[count:count+np.minimum(chunksize, n_samples-count)] = np.copy(block[:,n])
+			count 		+= chunksize
+		# Downsampling		
+		eeg[:,n] 	= scipy.signal.resample_poly(rawchannel, 1, 16).astype(np.int16)
+		del rawchannel
+	
+	# Saving
+	eeg_path 	= os.path.join(path, os.path.splitext(datfile)[0]+'.eeg')
+	with open(eeg_path, 'wb') as f:
+		eeg.tofile(f)
+		
+	return
 
 ##########################################################################################################
 # TODO
@@ -634,26 +641,3 @@ def loadBunch_Of_LFP(path,  start, stop, n_channels=90, channel=64, frequency=12
 		timestep = np.arange(0, len(data))/frequency		
 		return nts.TsdFrame(timestep, data[:,channel], time_units = 's')
 
-
-# def loadTTLPulse(path, n_channels = 2, fs = 20000, file = 'analogin.dat'):
-# 	if not os.path.exists(path):
-# 		print("The path "+path+" doesn't exist; Exiting ...")
-# 		sys.exit()		
-# 	files = os.listdir(path)
-# 	if 'analogin.dat' not in files:
-# 		print("Couldn't find the analogin.dat file; Exiting ...")
-
-# 	new_file = os.path.join(path, 'analogin.dat')
-# 	f = open(new_file, 'rb')
-# 	startoffile = f.seek(0, 0)
-# 	endoffile = f.seek(0, 2)
-# 	bytes_size = 2		
-# 	n_samples = int((endoffile-startoffile)/n_channels/bytes_size)
-# 	duration = n_samples/fs
-# 	interval = 1/fs
-# 	f.close()
-# 	with open(new_file, 'rb') as f:
-# 		data = np.fromfile(f, np.uint16).reshape((n_samples, n_channels))
-# 	timestep = np.arange(0, len(data))/fs
-# 	print("Assuming two channels here and taking the second one")
-# 	return pd.Series(index = timestep, data = data[:,1])
