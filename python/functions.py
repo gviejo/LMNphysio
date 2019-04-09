@@ -102,7 +102,7 @@ def xcrossCorr_fast(t1, t2, binsize, nbins, nbiter, jitter, confInt):
 	HeS 			= np.NaN	
 	return (H0, Hm, HeI, HeS, Hstd, times)	
 
-def compute_AutoCorrs(spks, ep, binsize = 5, nbins = 400):
+def compute_AutoCorrs(spks, ep, binsize = 5, nbins = 200):
 	# First let's prepare a pandas dataframe to receive the data
 	times = np.arange(0, binsize*(nbins+1), binsize) - (nbins*binsize)/2	
 	autocorrs = pd.DataFrame(index = times, columns = np.arange(len(spks)))
@@ -127,15 +127,47 @@ def compute_AutoCorrs(spks, ep, binsize = 5, nbins = 400):
 #########################################################
 # VARIOUS
 #########################################################
+def computeLMNAngularTuningCurves(spikes, angle, ep, nb_bins = 180, frequency = 120.0):
+	tmp 			= pd.Series(index = angle.index.values, data = np.unwrap(angle.values))	
+	tmp2 			= tmp.rolling(window=50,win_type='gaussian',center=True,min_periods=1).mean(std=10.0)	
+	bin_size 		= 100000
+	time_bins		= np.arange(tmp.index[0], tmp.index[-1]+bin_size, bin_size) # assuming microseconds
+	index 			= np.digitize(tmp2.index.values, time_bins)
+	tmp3 			= tmp2.groupby(index).mean()
+	tmp3.index 		= time_bins[np.unique(index)-1]+bin_size/2
+	tmp3 			= nts.Tsd(tmp3)
+	tmp4			= np.diff(tmp3.values)/np.diff(tmp3.as_units('s').index.values)
+	velocity 		= nts.Tsd(t=tmp3.index.values[1:], d = tmp4)
+	velocity 		= velocity.restrict(ep)	
+	velo_spikes 	= {}	
+	for k in spikes: velo_spikes[k]	= velocity.realign(spikes[k].restrict(ep))
+	bins_velocity	= np.array([velocity.min(), -0.5, 0.5, velocity.max()+0.001])
+	idx_velocity 	= {k:np.digitize(velo_spikes[k].values, bins_velocity)-1 for k in spikes}
+	bins 			= np.linspace(0, 2*np.pi, nb_bins)
+	idx 			= bins[0:-1]+np.diff(bins)/2	
+	tuning_curves 	= {i:pd.DataFrame(index = idx, columns = np.arange(len(spikes))) for i in range(3)}	
+
+	for i in range(3):
+		for k in spikes:
+			spks 			= spikes[k].restrict(ep)			
+			spks 			= spks[idx_velocity[k] == i]
+			angle_spike 	= angle.restrict(ep).realign(spks)
+			spike_count, bin_edges = np.histogram(angle_spike, bins)
+			occupancy, _ 	= np.histogram(angle, bins)
+			spike_count 	= spike_count/occupancy		
+			tuning_curves[i][k] = spike_count*frequency
+
+	return tuning_curves, velocity, bins_velocity
+
 def computeAngularTuningCurves(spikes, angle, ep, nb_bins = 180, frequency = 120.0):
 	bins 			= np.linspace(0, 2*np.pi, nb_bins)
 	idx 			= bins[0:-1]+np.diff(bins)/2
 	tuning_curves 	= pd.DataFrame(index = idx, columns = np.arange(len(spikes)))	
 	angle 			= angle.restrict(ep)
 	# Smoothing the angle here
-	# tmp 			= pd.Series(index = angle.index.values, data = np.unwrap(angle.values))
-	# tmp2 			= tmp.rolling(window=50,win_type='gaussian',center=True,min_periods=1).mean(std=10.0)
-	# angle			= nts.Tsd(tmp2%(2*np.pi))
+	tmp 			= pd.Series(index = angle.index.values, data = np.unwrap(angle.values))
+	tmp2 			= tmp.rolling(window=50,win_type='gaussian',center=True,min_periods=1).mean(std=10.0)
+	angle			= nts.Tsd(tmp2%(2*np.pi))
 	for k in spikes:
 		spks 			= spikes[k]
 		# true_ep 		= nts.IntervalSet(start = np.maximum(angle.index[0], spks.index[0]), end = np.minimum(angle.index[-1], spks.index[-1]))		
@@ -159,7 +191,7 @@ def findHDCells(tuning_curves):
 	stat = pd.DataFrame(index = tuning_curves.columns, columns = ['pval', 'z'])
 	for k in tuning_curves:
 		stat.loc[k] = rayleigh(tuning_curves[k].index.values, tuning_curves[k].values)
-	cond2 = np.logical_and(stat['pval']<0.001,stat['z']>100)
+	cond2 = np.logical_and(stat['pval']<0.05,stat['z']>1)
 	tokeep = np.where(np.logical_and(cond1, cond2))[0]
 	return tokeep, stat
 
@@ -255,6 +287,26 @@ def computeAngularVelocityTuningCurves(spikes, angle, ep, nb_bins = 20):
 		velo_curves[k] = spike_count*(1/(bin_size*1e-6))
 
 	return velo_curves
+
+def smoothAngularTuningCurves(tuning_curves, window = 20, deviation = 3.0):
+	for i in tuning_curves.columns:
+		tcurves = tuning_curves[i]
+		padded 	= pd.Series(index = np.hstack((tcurves.index.values-(2*np.pi),
+												tcurves.index.values,
+												tcurves.index.values+(2*np.pi))),
+							data = np.hstack((tcurves.values, tcurves.values, tcurves.values)))
+		smoothed = padded.rolling(window=window,win_type='gaussian',center=True,min_periods=1).mean(std=deviation)		
+		tuning_curves[i] = smoothed[tcurves.index]
+
+	return tuning_curves
+
+def computeMeanFiringRate(spikes, epochs, name):
+	mean_frate = pd.DataFrame(index = spikes.keys(), columns = name)
+	for n, ep in zip(name, epochs):
+		for k in spikes:
+			mean_frate.loc[k,n] = len(spikes[k].restrict(ep))/ep.tot_length('s')
+	return mean_frate
+
 
 #########################################################
 # LFP FUNCTIONS

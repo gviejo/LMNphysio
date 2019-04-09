@@ -203,7 +203,7 @@ def makeEpochs(path, order, file = None, start=None, end = None, time_units = 's
 
 	return None
 
-def makePositions(path, file_order, names = ['ry', 'rx', 'rz', 'x', 'y', 'z'], update_wake_epoch = True):
+def makePositions(path, file_order, episodes, names = ['ry', 'rx', 'rz', 'x', 'y', 'z'], update_wake_epoch = True):
     """
     Assuming that makeEpochs has been runned and a file BehavEpochs.h5 can be 
     found in /Analysis/, this function will look into path  for analogin file 
@@ -229,21 +229,19 @@ def makePositions(path, file_order, names = ['ry', 'rx', 'rz', 'x', 'y', 'z'], u
     for f in file_order:
         if not np.any([f+'.csv' in g for g in files]):
             print("Could not find "+f+'.csv; Exiting ...')
-            sys.exit()
-    if 'Analysis' not in files:
-        print("Could not find /Analysis/ Folder; Exiting")
-        sys.exit()
+            sys.exit()    
+    new_path = os.path.join(path, 'Analysis/')
+    if not os.path.exists(new_path): os.makedirs(new_path)                
     file_epoch = os.path.join(path, 'Analysis', 'BehavEpochs.h5')
     if os.path.exists(file_epoch):
         wake_ep = loadEpoch(path, 'wake')
-        if len(wake_ep) != len(file_order):
-            print("Number of wake episodes doesn't match; Exiting...")
-            sys.exit()            
     else:
-        print("Could not find /Analysis/BehavEpochs.h5")
-        print("Please run makeEpochs before; Exiting ...")
+    	makeEpochs(path, episodes, file = 'Epoch_TS.csv')
+    	wake_ep = loadEpoch(path, 'wake')
+    if len(wake_ep) != len(file_order):
+        print("Number of wake episodes doesn't match; Exiting...")
         sys.exit()
-    
+
     frames = []
     
     for i, f in enumerate(file_order):
@@ -381,7 +379,7 @@ def loadEpoch(path, epoch, episodes = None):
 					stop = np.where(index == -1)[0]
 					return nts.IntervalSet(start, stop, time_units = 's', expect_fix=True).drop_short_intervals(0.0)
 
-def loadPosition(path, events = None):
+def loadPosition(path, events = None, episodes = None):
     """
     load the position contained in /Analysis/Position.h5
 
@@ -397,11 +395,11 @@ def loadPosition(path, events = None):
     if not os.path.exists(path): # Checking for path
         print("The path "+path+" doesn't exist; Exiting ...")
         sys.exit()
-        
+    new_path = os.path.join(path, 'Analysis')
+    if not os.path.exists(new_path): os.mkdir(new_path)
     file = os.path.join(path, 'Analysis', 'Position.h5')
     if not os.path.exists(file):
-        makePositions(path, events)
-        sys.exit()
+        makePositions(path, events, episodes)
     if os.path.exists(file):
     	store = pd.HDFStore(file, 'r')
     	position = store['position']
