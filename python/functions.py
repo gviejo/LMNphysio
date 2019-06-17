@@ -3,6 +3,7 @@ from numba import jit
 import pandas as pd
 import neuroseries as nts
 import sys
+import scipy
 
 '''
 Utilities functions
@@ -137,25 +138,28 @@ def computeLMNAngularTuningCurves(spikes, angle, ep, nb_bins = 180, frequency = 
 	tmp3.index 		= time_bins[np.unique(index)-1]+bin_size/2
 	tmp3 			= nts.Tsd(tmp3)
 	tmp4			= np.diff(tmp3.values)/np.diff(tmp3.as_units('s').index.values)
+	newangle 		= nts.Tsd(t = tmp3.index.values, d = tmp3.values%(2*np.pi))
 	velocity 		= nts.Tsd(t=tmp3.index.values[1:], d = tmp4)
 	velocity 		= velocity.restrict(ep)	
 	velo_spikes 	= {}	
 	for k in spikes: velo_spikes[k]	= velocity.realign(spikes[k].restrict(ep))
-	bins_velocity	= np.array([velocity.min(), -0.5, 0.5, velocity.max()+0.001])
+	bins_velocity	= np.array([velocity.min(), -2*np.pi/3, -np.pi/6, np.pi/6, 2*np.pi/3, velocity.max()+0.001])
 	idx_velocity 	= {k:np.digitize(velo_spikes[k].values, bins_velocity)-1 for k in spikes}
+
 	bins 			= np.linspace(0, 2*np.pi, nb_bins)
 	idx 			= bins[0:-1]+np.diff(bins)/2	
 	tuning_curves 	= {i:pd.DataFrame(index = idx, columns = np.arange(len(spikes))) for i in range(3)}	
 
-	for i in range(3):
+	for i,j in zip(range(3),range(0,6,2)):
 		for k in spikes:
 			spks 			= spikes[k].restrict(ep)			
-			spks 			= spks[idx_velocity[k] == i]
-			angle_spike 	= angle.restrict(ep).realign(spks)
+			spks 			= spks[idx_velocity[k] == j]
+			angle_spike 	= newangle.restrict(ep).realign(spks)
 			spike_count, bin_edges = np.histogram(angle_spike, bins)
-			occupancy, _ 	= np.histogram(angle, bins)
-			spike_count 	= spike_count/occupancy		
-			tuning_curves[i][k] = spike_count*frequency
+			tmp 			= newangle.loc[velocity.index[np.logical_and(velocity.values>bins_velocity[j], velocity.values<bins_velocity[j+1])]]
+			occupancy, _ 	= np.histogram(tmp, bins)
+			spike_count 	= spike_count/occupancy	
+			tuning_curves[i][k] = spike_count*(1/(bin_size*1e-6))
 
 	return tuning_curves, velocity, bins_velocity
 
@@ -186,12 +190,11 @@ def findHDCells(tuning_curves):
 		and Rayleigh test p<0.001 & z > 100
 	"""
 	cond1 = tuning_curves.max()>1.0
-	
 	from pycircstat.tests import rayleigh
 	stat = pd.DataFrame(index = tuning_curves.columns, columns = ['pval', 'z'])
 	for k in tuning_curves:
 		stat.loc[k] = rayleigh(tuning_curves[k].index.values, tuning_curves[k].values)
-	cond2 = np.logical_and(stat['pval']<0.05,stat['z']>1)
+	cond2 = np.logical_and(stat['pval']<0.05,stat['z']>5)
 	tokeep = np.where(np.logical_and(cond1, cond2))[0]
 	return tokeep, stat
 
@@ -207,11 +210,21 @@ def decodeHD(tuning_curves, spikes, ep, bin_size = 200, px = None):
 	if len(ep) == 1:
 		bins = np.arange(ep.as_units('ms').start.iloc[0], ep.as_units('ms').end.iloc[-1], bin_size)
 	else:
-		print("TODO, more than one epoch")
+		# ep2 = nts.IntervalSet(ep.copy().as_units('ms'))
+		# ep2 = ep2.drop_short_intervals(bin_size*2)
+		# bins = []
+		# for i in ep2.index:
+		# 	bins.append(np.arange())
+		# bins = np.arange(ep2.start.iloc[0], ep.end.iloc[-1], bin_size)
+		print("TODO")
 		sys.exit()
+
+
+	order = tuning_curves.columns.values
+	# TODO CHECK MATCH
 	
-	spike_counts = pd.DataFrame(index = bins[0:-1]+np.diff(bins)/2, columns = spikes.keys())
-	for k in spikes:
+	spike_counts = pd.DataFrame(index = bins[0:-1]+np.diff(bins)/2, columns = order)
+	for k in spike_counts:
 		spks = spikes[k].restrict(ep).as_units('ms').index.values
 		spike_counts[k], _ = np.histogram(spks, bins)
 
@@ -224,7 +237,7 @@ def decodeHD(tuning_curves, spikes, ep, bin_size = 200, px = None):
 		part2 = px
 	else:
 		part2 = np.ones(tuning_curves.shape[0])
-		# part2 = np.histogram(position['ry'], np.linspace(0, 2*np.pi, 61), weights = np.ones_like(position['ry'])/float(len(position['ry'])))[0]
+	#part2 = np.histogram(position['ry'], np.linspace(0, 2*np.pi, 61), weights = np.ones_like(position['ry'])/float(len(position['ry'])))[0]
 	
 	for i in range(len(proba_angle)):
 		part3 = np.prod(tcurves_array**spike_counts_array[i], 1)
@@ -307,8 +320,51 @@ def computeMeanFiringRate(spikes, epochs, name):
 			mean_frate.loc[k,n] = len(spikes[k].restrict(ep))/ep.tot_length('s')
 	return mean_frate
 
+def refineSleepFromAccel(acceleration, sleep_ep):
+	tmp = acceleration[0].restrict(sleep_ep)
+	tmp = tmp.as_series().diff().abs().dropna()
+	a, _ = scipy.signal.find_peaks(tmp, 0.05)
+	peaks = nts.Tsd(tmp.iloc[a])
+	duration = np.diff(peaks.as_units('s').index.values)
+	interval = nts.IntervalSet(start = peaks.index.values[0:-1], end = peaks.index.values[1:])
+	newsleep_ep = interval.iloc[duration>10.0]
+	newsleep_ep = newsleep_ep.reset_index(drop=True)
+	newsleep_ep = newsleep_ep.merge_close_intervals(100000, time_units ='us')
+	sleep_ep = sleep_ep.intersect(newsleep_ep)
+	return sleep_ep
 
 #########################################################
 # LFP FUNCTIONS
 #########################################################
-# def 
+def butter_bandpass(lowcut, highcut, fs, order=5):
+	from scipy.signal import butter
+	nyq = 0.5 * fs
+	low = lowcut / nyq
+	high = highcut / nyq
+	b, a = butter(order, [low, high], btype='band')
+	return b, a
+
+def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
+	from scipy.signal import lfilter
+	b, a = butter_bandpass(lowcut, highcut, fs, order=order)
+	y = lfilter(b, a, data)
+	return y
+
+
+#########################################################
+# INTERPOLATION
+#########################################################
+def interpolate(z, x, y, inter, bbox = None):	
+	import scipy.interpolate
+	xnew = np.arange(x.min(), x.max()+inter, inter)
+	ynew = np.arange(y.min(), y.max()+inter, inter)
+	if bbox == None:
+		f = scipy.interpolate.RectBivariateSpline(y, x, z)
+	else:
+		f = scipy.interpolate.RectBivariateSpline(y, x, z, bbox = bbox)
+	znew = f(ynew, xnew)
+	return (xnew, ynew, znew)
+
+def filter_(z, n):
+	from scipy.ndimage import gaussian_filter	
+	return gaussian_filter(z, n)
