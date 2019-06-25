@@ -5,7 +5,6 @@ import neuroseries as nts
 import pandas as pd
 import scipy.signal
 from numba import jit
-from tqdm import tqdm
 '''
 Wrappers should be able to distinguish between raw data or matlab processed data
 '''
@@ -519,7 +518,7 @@ def downsampleDatFile(path, n_channels = 32, fs = 20000):
 	chunksize 	= 100000
 	eeg 		= np.zeros((int(n_samples/16),n_channels), dtype = np.int16)
 
-	for n in tqdm(range(n_channels)):
+	for n in range(n_channels):
 		# Loading		
 		rawchannel = np.zeros(n_samples, np.int16)
 		count = 0

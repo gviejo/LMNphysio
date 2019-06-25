@@ -262,10 +262,9 @@ def computeOccupancy(position_tsd, nb_bins = 100):
     occupancy, _, _ = np.histogram2d(ypos, xpos, [ybins,xbins])
     return occupancy
 
-def computeAngularVelocityTuningCurves(spikes, angle, ep, nb_bins = 20):
+def computeAngularVelocityTuningCurves(spikes, angle, ep, nb_bins = 20, bin_size = 100000):
 	tmp 			= pd.Series(index = angle.index.values, data = np.unwrap(angle.values))	
-	tmp2 			= tmp.rolling(window=100,win_type='gaussian',center=True,min_periods=1).mean(std=30.0)	
-	bin_size 		= 500000
+	tmp2 			= tmp.rolling(window=100,win_type='gaussian',center=True,min_periods=1).mean(std=30.0)		
 	time_bins		= np.arange(tmp.index[0], tmp.index[-1]+bin_size, bin_size) # assuming microseconds
 	index 			= np.digitize(tmp2.index.values, time_bins)
 	tmp3 			= tmp2.groupby(index).mean()
@@ -274,7 +273,7 @@ def computeAngularVelocityTuningCurves(spikes, angle, ep, nb_bins = 20):
 	tmp4			= np.diff(tmp3.values)/np.diff(tmp3.as_units('s').index.values)
 	velocity 		= nts.Tsd(t=tmp3.index.values[1:], d = tmp4)
 	velocity 		= velocity.restrict(ep)
-	bins 			= np.linspace(velocity.min(), velocity.max()+0.00001, nb_bins)
+	bins 			= np.linspace(-3*np.pi/2, 3*np.pi/2, nb_bins)
 	idx 			= bins[0:-1]+np.diff(bins)/2
 	velo_curves		= pd.DataFrame(index = idx, columns = np.arange(len(spikes)))
 	for k in spikes:
@@ -307,6 +306,27 @@ def computeMeanFiringRate(spikes, epochs, name):
 			mean_frate.loc[k,n] = len(spikes[k].restrict(ep))/ep.tot_length('s')
 	return mean_frate
 
+def computeSpeedTuningCurves(spikes, position, ep, bin_size = 0.1, nb_bins = 20, speed_max = 0.4):
+	time_bins 	= np.arange(position.index[0], position.index[-1]+bin_size*1e6, bin_size*1e6)
+	index 		= np.digitize(position.index.values, time_bins)
+	tmp 		= position.groupby(index).mean()
+	tmp.index 	= time_bins[np.unique(index)-1]+(bin_size*1e6)/2
+	distance	= np.sqrt(np.power(np.diff(tmp['x']), 2) + np.power(np.diff(tmp['z']), 2))
+	speed 		= nts.Tsd(t = tmp.index.values[0:-1]+ bin_size/2, d = distance/bin_size)
+	speed 		= speed.restrict(ep)
+	bins 		= np.linspace(0, speed_max, nb_bins)
+	idx 		= bins[0:-1]+np.diff(bins)/2
+	speed_curves = pd.DataFrame(index = idx,columns = np.arange(len(spikes)))
+	for k in spikes:
+		spks 	= spikes[k]
+		spks 	= spks.restrict(ep)
+		speed_spike = speed.realign(spks)
+		spike_count, bin_edges = np.histogram(speed_spike, bins)
+		occupancy, _ = np.histogram(speed, bins)
+		spike_count = spike_count/(occupancy+1)
+		speed_curves[k] = spike_count/bin_size
+
+	return speed_curves
 
 #########################################################
 # LFP FUNCTIONS
