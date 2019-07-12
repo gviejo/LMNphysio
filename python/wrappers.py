@@ -432,7 +432,7 @@ def loadTTLPulse(file, n_channels = 1, fs = 20000):
 def loadAuxiliary(path, fs = 20000):
 	"""
 	Extract the acceleration from the auxiliary.dat for each epochs
-
+	Downsampled at 100 Hz
 	Args:
 	    path: string
 	    epochs_ids: list        
@@ -447,6 +447,7 @@ def loadAuxiliary(path, fs = 20000):
 		store = pd.HDFStore(accel_file, 'r')
 		accel = store['acceleration'] 
 		store.close()
+		accel = nts.TsdFrame(t = accel.index.values*1e6, d = accel.values) 
 		return accel
 	else:
 		aux_files = np.sort([f for f in os.listdir(path) if 'auxiliary' in f])
@@ -473,14 +474,15 @@ def loadAuxiliary(path, fs = 20000):
 		factor = 37.4e-6
 		# timestep = np.arange(0, len(accel))/fs
 		# accel = pd.DataFrame(index = timestep, data= accel*37.4e-6)
-		tmp = scipy.signal.resample_poly(accel*factor, 1, 16)
-		timestep = np.arange(0, len(tmp))/(fs/16)
+		tmp = scipy.signal.resample_poly(accel*factor, 1, 100)
+		timestep = np.arange(0, len(tmp))/(fs/100)
 		tmp = pd.DataFrame(index = timestep, data = tmp)
 		accel_file = os.path.join(path, 'Analysis', 'Acceleration.h5')
 		store = pd.HDFStore(accel_file, 'w')
 		store['acceleration'] = tmp
 		store.close()
-		return tmp
+		accel = nts.TsdFrame(t = tmp.index.values*1e6, d = tmp.values) 
+		return accel
 
 def downsampleDatFile(path, n_channels = 32, fs = 20000):
 	"""
