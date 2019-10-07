@@ -4,10 +4,14 @@ import neuroseries as nts
 from pylab import *
 from wrappers import *
 from functions import *
+from umap import UMAP
 import sys
+from matplotlib.colors import hsv_to_rgb
 
 
-path 								= '/mnt/DataGuillaume/LMN/A1407/A1407-190416'
+
+# path 								= '/mnt/DataGuillaume/LMN/A1407/A1407-190416'
+path 								= '../data/A1400/A1407/A1407-190416'
 
 episodes = ['sleep', 'wake', 'sleep']
 events = [1]
@@ -48,30 +52,23 @@ wakangle.loc[tmp.index] = tmp
 wakangle.index = pd.Index(bins[0:-1] + np.diff(bins)/2.)
 H = wakangle.values/(2*np.pi)
 HSV = np.vstack((H, np.ones_like(H), np.ones_like(H))).T
-from matplotlib.colors import hsv_to_rgb
 RGB = hsv_to_rgb(HSV)
 
+sys.exit()
 
 
-tmp = rate.rolling(window=1000,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=2).values
-from umap import UMAP
-ump = UMAP(n_neighbors = 50, min_dist = 1).fit_transform(tmp)
+tmp = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1).values
+
+
+ump = UMAP(n_neighbors = 200, min_dist = 0.5).fit_transform(tmp)
 figure()
 scatter(ump[:,0], ump[:,1], c= RGB, marker = '.', alpha = 0.5, linewidth = 0, s = 100)
-show()
-
-
-
-
-
-
-
 
 
 
 
 from sklearn.manifold import Isomap
-imap = Isomap(n_neighbors = 50, n_components = 2).fit_transform(tmp)
+imap = Isomap(n_neighbors = 100, n_components = 2).fit_transform(tmp)
 figure()
 scatter(imap[:,0], imap[:,1], c= RGB, marker = '.', alpha = 0.5, linewidth = 0, s = 100)
 
@@ -85,5 +82,5 @@ for i,n in enumerate(tcurves.columns):
 	subplot(3,5,i+1, projection = 'polar')
 	plot(tcurves[n])
  
-show()
+# show()
 

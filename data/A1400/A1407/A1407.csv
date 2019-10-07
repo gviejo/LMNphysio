@@ -1,0 +1,29 @@
+Session,Trial 1,Trial 2,Trial 3,Trial 4,Trial 5,Trial 6,Depth,N1,N2,N3,N4,N,Comments
+A1407-190326,sleep,wake,,,,,0,#,#,#,#,0,
+A1407-190327A,sleep,wake,sleep,,,,0,6,11,7,3,27,Looks like HD; not sure; Only 10 min wake
+A1407-190327B,sleep,wake,sleep,,,,0,5,10,5,3,23,nothing
+A1407-190328,sleep,wake,sleep,,,,0,8,10,4,5,27,
+A1407-190329,sleep,wake,sleep,,,,140,6,9,5,0,20,
+A1407-190330,sleep,wake,sleep,,,,140,6,4,13,3,26,a lot of neurons on shank 3
+A1407-190401A,sleep,wake,sleep,,,,140,2,3,8,3,16,one small hd in shank 1
+A1407-190401B,sleep,wake,sleep,,,,35,5,7,9,2,23,
+A1407-190402A,sleep,wake,sleep,,,,35,6,10,8,2,26,
+A1407-190402B,wake,sleep,,,,,70,4,6,3,4,17,
+A1407-190403,sleep,wake,,,,,35,9,7,6,7,29,lots of neurons here
+A1407-190404,sleep,wake,sleep,,,,70,7,8,6,4,25,
+A1407-190405,sleep,wake,sleep,,,,70,6,6,2,7,21,less neurons now one theta cell
+A1407-190406,wake,sleep,,,,,70,5,2,1,3,11,
+A1407-190409,sleep,wake,sleep,,,,0,5,5,1,4,15,
+A1407-190410,sleep,wake,sleep,,,,70,3,3,2,4,12,
+A1407-190411,wake,sleep,,,,,70,7,2,3,3,15,one lmn cell on the most medial
+A1407-190412,wake,sleep,,,,,70,5,4,4,5,18,cannot sleep anymore
+A1407-190415,wake,sleep,,,,,70,2,1,2,2,7,
+A1407-190416,sleep,wake,sleep,,,,70,11,2,0,0,13,lmn cells
+A1407-190417,wake,sleep,,,,,70,7,2,2,0,11,"cable fall, animal chew on it"
+A1407-190422,sleep,wake,sleep,,,,70,9,5,2,0,16,good sleep
+A1407-190423,sleep,wake,,,,,70,1,2,3,1,6,some spikes on the second shank
+A1407-190424,sleep,wake,sleep,,,,70,0,3,3,3,6,weird
+A1407-190425,sleep,wake,sleep,,,,70,0,4,3,1,7,mostly speed correlation
+A1407-190426,sleep,wake,sleep,,,,70,0,2,3,0,5,
+A1407-190429,sleep,wake,sleep,,,,70,0,7,3,1,10,few spikes on the second shank
+A1407-190430,sleep,wake,sleep,,,,280,0,4,1,0,5,
