@@ -24,6 +24,8 @@ sleep_ep 							= loadEpoch(path, 'sleep')
 tuning_curves, velocity, edges 		= computeLMNAngularTuningCurves(spikes, position['ry'], wake_ep, 61)
 tokeep, stat 						= findHDCells(tuning_curves[1])
 
+
+
 # tokeep 								= np.delete(tokeep, [7,8])
 
 tcurves 							= tuning_curves[1][tokeep]
@@ -34,7 +36,7 @@ occupancy 							= np.histogram(position['ry'], np.linspace(0, 2*np.pi, 61), wei
 
 decodedwake, proba_angle_wake		= decodeHD(tcurves, spikes, wake_ep, bin_size = 200, px = occupancy)
 
-postsleep							= nts.IntervalSet(start = sleep_ep.loc[1,'start'], end = sleep_ep.loc[1,'end'])
+postsleep							= sleep_ep.loc[[1]]
 
 decodedsleep, proba_angle_sleep 	= decodeHD(tcurves, spikes, postsleep, bin_size = 10, px = occupancy)
 
@@ -55,20 +57,20 @@ ep1									= nts.IntervalSet(start=[8.84882e+9],end=[9e+9])
 ep2 								= nts.IntervalSet(start=[9.91530e+9],end=[1.0114e+10])
 
 
-lfp 								= pd.read_hdf(path+'/A1407-190416.h5') 
-power 								= np.zeros(lfp.shape)
-for n in range(n_channels):
-	power[:,n] 						= np.abs(butter_bandpass_filter(lfp.values[:,n], 5, 15, 1250, 2))
-power 								= pd.DataFrame(index = lfp.index, data = power)
+# lfp 								= pd.read_hdf(path+'/A1407-190416.h5') 
+# power 								= np.zeros(lfp.shape)
+# for n in range(n_channels):
+# 	power[:,n] 						= np.abs(butter_bandpass_filter(lfp.values[:,n], 5, 15, 1250, 2))
+# power 								= pd.DataFrame(index = lfp.index, data = power)
 
 
 
 
-lfpfilt 							= pd.DataFrame(index = lfp.index, data = )
-power 								= nts.Tsd(lfpfilt.index.values, np.abs(lfpfilt.values))
+# lfpfilt 							= pd.DataFrame(index = lfp.index, data = )
+# power 								= nts.Tsd(lfpfilt.index.values, np.abs(lfpfilt.values))
 
 
-sys.exit()
+# sys.exit()
 
 figure()
 for i,n in zip(tcurves,np.arange(tcurves.shape[1])):
