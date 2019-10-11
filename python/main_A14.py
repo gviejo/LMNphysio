@@ -7,16 +7,16 @@ from functions import *
 import sys
 
 # data_directory = '/mnt/DataGuillaume/LMN/A1407/A1407-190429'
-# data_directory = '/mnt/DataGuillaume/LMN/A1407/A1407-190425'
-data_directory = '/mnt/DataGuillaume/PostSub/A3003/A3003-190516A'
+data_directory = '../data/A1400/A1407/A1407-190422'
+# data_directory = '/mnt/DataGuillaume/PostSub/A3003/A3003-190516A'
 
-# episodes = ['sleep', 'wake']
+episodes = ['sleep', 'wake', 'sleep']
 # episodes = ['sleep', 'wake', 'sleep', 'wake', 'sleep']
 # episodes = ['sleep', 'wake', 'sleep']
 # episodes = ['sleep', 'wake', 'sleep']
-episodes = ['wake']
+# episodes = ['wake', 'sleep']
 # events = ['1', '3']
-events = ['0']
+events = ['1']
 
 
 
@@ -30,7 +30,7 @@ acceleration						= loadAuxiliary(data_directory)
 
 # tuning_curves 						= computeAngularTuningCurves(spikes, position['ry'], wake_ep, 60)
 tuning_curves, velocity, edges 		= computeLMNAngularTuningCurves(spikes, position['ry'], wake_ep, 61)
-spatial_curves, extent				= computePlaceFields(spikes, position[['x', 'z']], wake_ep, 21)
+spatial_curves, extent				= computePlaceFields(spikes, position[['x', 'z']], wake_ep, 41)
 autocorr_wake, frate_wake 			= compute_AutoCorrs(spikes, wake_ep)
 autocorr_sleep, frate_sleep 		= compute_AutoCorrs(spikes, sleep_ep)
 velo_curves 						= computeAngularVelocityTuningCurves(spikes, position['ry'], wake_ep, nb_bins = 30)

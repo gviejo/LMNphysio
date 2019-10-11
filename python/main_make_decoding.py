@@ -5,57 +5,73 @@ from pylab import *
 from wrappers import *
 from functions import *
 import sys
+from pycircstat.descriptive import mean as circmean
 
-data_directory = '/mnt/DataGuillaume/LMN/A1407/'
-info = pd.read_csv(data_directory+'A1407.csv')
-info = info.set_index('Session')
+# data_directory 		= '/mnt/DataGuillaume/LMN/A1407'
+data_directory 		= '../data/A1400/A1407'
+info 				= pd.read_csv(os.path.join(data_directory,'A1407.csv'), index_col = 0)
 
-# path 								= '../data/A1400/A1407/A1407-190416'
-path 								= '/mnt/DataGuillaume/LMN/A1407/A1407-190416'
-spikes, shank 						= loadSpikeData(path)
-n_channels, fs, shank_to_channel 	= loadXML(path)
-episodes 							= info.filter(like='Trial').loc[path.split("/")[-1]].dropna().values
-events								= list(np.where(episodes == 'wake')[0].astype('str'))
-position 							= loadPosition(path, events, episodes)
-wake_ep 							= loadEpoch(path, 'wake', episodes)
-sleep_ep 							= loadEpoch(path, 'sleep')					
+sessions = ['A1407-190416', 'A1407-190417', 'A1407-190422']
 
+for s in sessions[0:1]:
+	path = os.path.join(data_directory, s)
+	############################################################################################### 
+	# LOADING DATA
+	###############################################################################################
+	episodes 							= info.filter(like='Trial').loc[s].dropna().values
+	events								= list(np.where(episodes == 'wake')[0].astype('str'))
+	spikes, shank 						= loadSpikeData(path)
+	n_channels, fs, shank_to_channel 	= loadXML(path)
+	position 							= loadPosition(path, events, episodes)
+	wake_ep 							= loadEpoch(path, 'wake', episodes)
+	sleep_ep 							= loadEpoch(path, 'sleep')					
+	sws_ep								= loadEpoch(path, 'sws')
+	rem_ep								= loadEpoch(path, 'rem')
 
-
-tuning_curves, velocity, edges 		= computeLMNAngularTuningCurves(spikes, position['ry'], wake_ep, 61)
-tokeep, stat 						= findHDCells(tuning_curves[1])
-
-
-
-# tokeep 								= np.delete(tokeep, [7,8])
-
-tcurves 							= tuning_curves[1][tokeep]
-tcurves 							= smoothAngularTuningCurves(tcurves, 10, 2)
-tcurves 							= tcurves[tcurves.columns[tcurves.idxmax().argsort().values]]
-
-occupancy 							= np.histogram(position['ry'], np.linspace(0, 2*np.pi, 61), weights = np.ones_like(position['ry'])/float(len(position['ry'])))[0]
-
-decodedwake, proba_angle_wake		= decodeHD(tcurves, spikes, wake_ep, bin_size = 200, px = occupancy)
-
-postsleep							= sleep_ep.loc[[1]]
-
-decodedsleep, proba_angle_sleep 	= decodeHD(tcurves, spikes, postsleep, bin_size = 10, px = occupancy)
-
-acceleration						= loadAuxiliary(path)
-newsleep 							= refineSleepFromAccel(acceleration, sleep_ep)
-newpostsleep						= postsleep.intersect(newsleep)
+	tuning_curves, velocity, edges 		= computeLMNAngularTuningCurves(spikes, position['ry'], wake_ep, 61)
+	tcurves 							= smoothAngularTuningCurves(tuning_curves[1], 10, 2)
+	tokeep, stat 						= findHDCells(tcurves)
+	tcurves 							= tuning_curves[1][tokeep]
+	peaks 								= pd.Series(index=tcurves.columns,data = np.array([circmean(tcurves.index.values, tcurves[i].values) for i in tcurves.columns])).sort_values()		
+	tcurves 							= tcurves[peaks.index.values]
+	# neurons 							= [s+'_'+str(n) for n in tcurves.columns.values]
+	# peaks.index							= pd.Index(neurons)
+	# tcurves.columns						= pd.Index(neurons)
 
 
-decodedsleep 						= decodedsleep.restrict(newpostsleep)  
+	occupancy 							= np.histogram(position['ry'], np.linspace(0, 2*np.pi, 61), weights = np.ones_like(position['ry'])/float(len(position['ry'])))[0]
 
-entropy 							= (proba_angle_sleep*np.log2(proba_angle_sleep)).sum(1) + np.log2(proba_angle_sleep.shape[1])
-filterd 							= entropy.rolling(window=1000,win_type='gaussian',center=True,min_periods=1).mean(std=100.0)
-entropy 							= nts.Tsd(t = entropy.index.values*1000, d = entropy.values)
-filterd								= nts.Tsd(t = filterd.index.values*1000, d = filterd.values)
+	angle_wak, proba_angle_wak			= decodeHD(tcurves, spikes, wake_ep, bin_size = 200, px = occupancy)
 
 
-ep1									= nts.IntervalSet(start=[8.84882e+9],end=[9e+9])
-ep2 								= nts.IntervalSet(start=[9.91530e+9],end=[1.0114e+10])
+	angle_sleep, proba_angle_sleep		= decodeHD(tcurves, spikes, sleep_ep.loc[[1]], bin_size = 200, px = np.ones_like(occupancy))
+
+	angle_rem 							= angle_sleep.restrict(rem_ep)
+
+	angle_sleep, proba_angle_sleep		= decodeHD(tcurves, spikes, sleep_ep.loc[[1]], bin_size = 50, px = np.ones_like(occupancy))
+
+	angle_sws 							= angle_sleep.restrict(sws_ep)
+	
+
+# postsleep							= sleep_ep.loc[[1]]//
+
+# decodedsleep, proba_angle_sleep 	= decodeHD(tcurves, spikes, postsleep, bin_size = 10, px = occupancy)
+
+# acceleration						= loadAuxiliary(path)
+# newsleep 							= refineSleepFromAccel(acceleration, sleep_ep)
+# newpostsleep						= postsleep.intersect(newsleep)
+
+
+# decodedsleep 						= decodedsleep.restrict(newpostsleep)  
+
+# entropy 							= (proba_angle_sleep*np.log2(proba_angle_sleep)).sum(1) + np.log2(proba_angle_sleep.shape[1])
+# filterd 							= entropy.rolling(window=1000,win_type='gaussian',center=True,min_periods=1).mean(std=100.0)
+# entropy 							= nts.Tsd(t = entropy.index.values*1000, d = entropy.values)
+# filterd								= nts.Tsd(t = filterd.index.values*1000, d = filterd.values)
+
+
+# ep1									= nts.IntervalSet(start=[8.84882e+9],end=[9e+9])
+# ep2 								= nts.IntervalSet(start=[9.91530e+9],end=[1.0114e+10])
 
 
 # lfp 								= pd.read_hdf(path+'/A1407-190416.h5') 
@@ -72,14 +88,88 @@ ep2 								= nts.IntervalSet(start=[9.91530e+9],end=[1.0114e+10])
 
 
 # sys.exit()
+############################################################################
+# PLOT
+############################################################################
+
+
 
 figure()
 for i,n in zip(tcurves,np.arange(tcurves.shape[1])):
-	subplot(3,4,n+1, projection = 'polar')
-	plot(tcurves[i])
-	
+	subplot(2,3,n+1, projection = 'polar')
+	plot(tcurves[i], label = i+2)
+	legend()
+
+sys.exit()	
+
+# wake
+figure()
+ax = subplot(211)
+plot(angle_wak)
+plot(position['ry'])
+
+subplot(212, sharex = ax)
+for i,n in enumerate(tcurves.columns):
+	plot(spikes[n].restrict(wake_ep).fillna(peaks[n]), '|', markersize = 10)
+	plot(position['ry'])
+
+# rem
+figure()
+for i,n in enumerate(tcurves.columns):
+	plot(spikes[n].restrict(rem_ep).fillna(peaks[n]), '|', markersize = 10)
+	plot(angle_rem)
+
 show()
 
+# sws
+figure()
+for i,n in enumerate(tcurves.columns):
+	plot(spikes[n].restrict(sws_ep).fillna(peaks[n]), '|', markersize = 10)
+	plot(angle_sws)
+
+show()
+
+
+sys.exit()
+
+good_exs_wake = [nts.IntervalSet(start = [4.96148e+09], end = [4.99755e+09]),
+				nts.IntervalSet(start = [3.96667e+09], end = [3.99714e+09]),
+				nts.IntervalSet(start = [5.0872e+09], end = [5.13204e+09])
+				]
+
+good_exs_rem = [nts.IntervalSet(start = [8.94993e+09], end = [8.96471e+09])]
+
+good_exs_sws = [nts.IntervalSet(start = [8.36988e+09], end = [8.37194e+09])]
+
+
+figure()
+subplot(131)
+plot(angle_wak.restrict(good_exs_wake[0]))
+plot(position['ry'].restrict(good_exs_wake[0]))
+for i,n in enumerate(tcurves.columns):
+	plot(spikes[n].restrict(good_exs_wake[0]).fillna(peaks[n]), '|', markersize = 10)
+	
+ylim(0, 2*np.pi)
+
+subplot(132)
+plot(angle_rem.restrict(good_exs_rem[0]))
+for i,n in enumerate(tcurves.columns):
+	plot(spikes[n].restrict(good_exs_rem[0]).fillna(peaks[n]), '|', markersize = 10)
+
+ylim(0, 2*np.pi)
+
+subplot(133)
+plot(angle_sws.restrict(good_exs_sws[0]))
+for i,n in enumerate(tcurves.columns):
+	plot(spikes[n].restrict(good_exs_sws[0]).fillna(peaks[n]), '|', markersize = 10)
+
+ylim(0, 2*np.pi)
+
+show()
+
+
+
+sys.exit()
 
 figure()
 ax = subplot(211)
@@ -99,19 +189,7 @@ axvline(ep2.iloc[0,1])
 show()
 
 
-figure()
-ax = subplot(211)
-for i,n in enumerate(tcurves.columns):
-	pk = tcurves[n].idxmax()
-	plot(spikes[n].restrict(ep2).fillna(pk).as_units('ms'), '|')
-# ax2 = ax.twinx()
-# plot(decodedsleep.restrict(ep1).as_units('ms'), 'o')
 
-subplot(212, sharex = ax)
-plot(filterd.restrict(ep2).as_units('ms'))
-
-
-show()
 
 
 
