@@ -6,9 +6,11 @@ from wrappers import *
 from functions import *
 import sys
 from pycircstat.descriptive import mean as circmean
+import _pickle as cPickle
 
-# data_directory 		= '/mnt/DataGuillaume/LMN/A1407'
-data_directory 		= '../data/A1400/A1407'
+
+data_directory 		= '/mnt/DataGuillaume/LMN/A1407'
+# data_directory 		= '../data/A1400/A1407'
 info 				= pd.read_csv(os.path.join(data_directory,'A1407.csv'), index_col = 0)
 
 sessions = ['A1407-190416', 'A1407-190417', 'A1407-190422']
@@ -43,7 +45,6 @@ for s in sessions[0:1]:
 
 	angle_wak, proba_angle_wak			= decodeHD(tcurves, spikes, wake_ep, bin_size = 200, px = occupancy)
 
-
 	angle_sleep, proba_angle_sleep		= decodeHD(tcurves, spikes, sleep_ep.loc[[1]], bin_size = 200, px = np.ones_like(occupancy))
 
 	angle_rem 							= angle_sleep.restrict(rem_ep)
@@ -53,41 +54,23 @@ for s in sessions[0:1]:
 	angle_sws 							= angle_sleep.restrict(sws_ep)
 	
 
-# postsleep							= sleep_ep.loc[[1]]//
 
-# decodedsleep, proba_angle_sleep 	= decodeHD(tcurves, spikes, postsleep, bin_size = 10, px = occupancy)
-
-# acceleration						= loadAuxiliary(path)
-# newsleep 							= refineSleepFromAccel(acceleration, sleep_ep)
-# newpostsleep						= postsleep.intersect(newsleep)
-
-
-# decodedsleep 						= decodedsleep.restrict(newpostsleep)  
-
-# entropy 							= (proba_angle_sleep*np.log2(proba_angle_sleep)).sum(1) + np.log2(proba_angle_sleep.shape[1])
-# filterd 							= entropy.rolling(window=1000,win_type='gaussian',center=True,min_periods=1).mean(std=100.0)
-# entropy 							= nts.Tsd(t = entropy.index.values*1000, d = entropy.values)
-# filterd								= nts.Tsd(t = filterd.index.values*1000, d = filterd.values)
+############################################################################
+# SAVINGt
+############################################################################
+datatosave = {	'wak':angle_wak,
+				'rem':angle_rem,
+				'sws':angle_sws,
+				'tcurves':tcurves,
+				'angle':position['ry'],
+				'peaks':peaks,
+				'proba_angle_sws':proba_angle_sleep
+			}
 
 
-# ep1									= nts.IntervalSet(start=[8.84882e+9],end=[9e+9])
-# ep2 								= nts.IntervalSet(start=[9.91530e+9],end=[1.0114e+10])
+cPickle.dump(datatosave, open('../figures/figures_poster_2019/fig_1_decoding.pickle', 'wb'))
 
 
-# lfp 								= pd.read_hdf(path+'/A1407-190416.h5') 
-# power 								= np.zeros(lfp.shape)
-# for n in range(n_channels):
-# 	power[:,n] 						= np.abs(butter_bandpass_filter(lfp.values[:,n], 5, 15, 1250, 2))
-# power 								= pd.DataFrame(index = lfp.index, data = power)
-
-
-
-
-# lfpfilt 							= pd.DataFrame(index = lfp.index, data = )
-# power 								= nts.Tsd(lfpfilt.index.values, np.abs(lfpfilt.values))
-
-
-# sys.exit()
 ############################################################################
 # PLOT
 ############################################################################
@@ -96,11 +79,11 @@ for s in sessions[0:1]:
 
 figure()
 for i,n in zip(tcurves,np.arange(tcurves.shape[1])):
-	subplot(2,3,n+1, projection = 'polar')
+	subplot(3,4,n+1, projection = 'polar')
 	plot(tcurves[i], label = i+2)
 	legend()
 
-sys.exit()	
+
 
 # wake
 figure()

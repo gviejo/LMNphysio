@@ -6,7 +6,7 @@ from wrappers import *
 from functions import *
 import sys
 
-data_directory = '/mnt/DataGuillaume/LMN/A1407/A1407-190422'
+data_directory = '/mnt/DataGuillaume/LMN/A1407/A1407-190416'
 
 info 								= pd.read_csv(os.path.join(os.path.dirname(data_directory),'A1407.csv'), index_col = 0)
 session 							= os.path.basename(data_directory)
@@ -37,6 +37,8 @@ if not os.path.exists(os.path.join(data_directory,os.path.basename(data_director
 ##################################################################################################
 lfp 		= loadLFP(os.path.join(data_directory,os.path.basename(data_directory)+'.eeg'), n_channels, 12, 1250, 'int16')
 lfp 		= downsample(lfp, 1, 5)
+
+sys.exit()
 
 ##################################################################################################
 # DETECTION THETA
