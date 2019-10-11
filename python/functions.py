@@ -4,6 +4,8 @@ import pandas as pd
 import neuroseries as nts
 import sys
 import scipy
+from scipy import signal
+from itertools import combinations
 
 '''
 Utilities functions
@@ -125,13 +127,31 @@ def compute_AutoCorrs(spks, ep, binsize = 5, nbins = 200):
 	autocorrs.loc[0] = 0.0
 	return autocorrs, firing_rates
 
+def compute_CrossCorrs(spks, ep, binsize=10, nbins = 2000):
+	"""
+		
+	"""	
+	neurons = list(spks.keys())
+	times = np.arange(0, binsize*(nbins+1), binsize) - (nbins*binsize)/2	
+	cc = pd.DataFrame(index = times, columns = list(combinations(neurons, 2)))
+		
+	for i,j in cc.columns:		
+		spk1 = spks[i].restrict(ep).as_units('ms').index.values
+		spk2 = spks[j].restrict(ep).as_units('ms').index.values		
+		tmp = crossCorr(spk1, spk2, binsize, nbins)		
+		fr = len(spk2)/ep.tot_length('s')
+		cc[(i,j)] = tmp/fr
+
+	return cc
+
+
 #########################################################
 # VARIOUS
 #########################################################
-def computeLMNAngularTuningCurves(spikes, angle, ep, nb_bins = 180, frequency = 120.0):
+def computeLMNAngularTuningCurves(spikes, angle, ep, nb_bins = 180, frequency = 120.0, bin_size = 100):
 	tmp 			= pd.Series(index = angle.index.values, data = np.unwrap(angle.values))	
 	tmp2 			= tmp.rolling(window=50,win_type='gaussian',center=True,min_periods=1).mean(std=10.0)	
-	bin_size 		= 100000
+	bin_size 		= bin_size * 1000
 	time_bins		= np.arange(tmp.index[0], tmp.index[-1]+bin_size, bin_size) # assuming microseconds
 	index 			= np.digitize(tmp2.index.values, time_bins)
 	tmp3 			= tmp2.groupby(index).mean()
@@ -147,7 +167,7 @@ def computeLMNAngularTuningCurves(spikes, angle, ep, nb_bins = 180, frequency = 
 	idx_velocity 	= {k:np.digitize(velo_spikes[k].values, bins_velocity)-1 for k in spikes}
 
 	bins 			= np.linspace(0, 2*np.pi, nb_bins)
-	idx 			= bins[0:-1]+np.diff(bins)/2	
+	idx 			= bins[0:-1]+np.diff(bins)/2
 	tuning_curves 	= {i:pd.DataFrame(index = idx, columns = np.arange(len(spikes))) for i in range(3)}	
 
 	for i,j in zip(range(3),range(0,6,2)):
@@ -184,17 +204,17 @@ def computeAngularTuningCurves(spikes, angle, ep, nb_bins = 180, frequency = 120
 
 	return tuning_curves
 
-def findHDCells(tuning_curves):
+def findHDCells(tuning_curves, z = 10, p = 0.001 , m = 1):
 	"""
 		Peak firing rate larger than 1
 		and Rayleigh test p<0.001 & z > 100
 	"""
-	cond1 = tuning_curves.max()>1.0
+	cond1 = tuning_curves.max()>m
 	from pycircstat.tests import rayleigh
 	stat = pd.DataFrame(index = tuning_curves.columns, columns = ['pval', 'z'])
 	for k in tuning_curves:
 		stat.loc[k] = rayleigh(tuning_curves[k].index.values, tuning_curves[k].values)
-	cond2 = np.logical_and(stat['pval']<0.05,stat['z']>5)
+	cond2 = np.logical_and(stat['pval']<p,stat['z']>z)
 	tokeep = np.where(np.logical_and(cond1, cond2))[0]
 	return tokeep, stat
 
@@ -342,17 +362,20 @@ def computeSpeedTuningCurves(spikes, position, ep, bin_size = 0.1, nb_bins = 20,
 	return speed_curves
 
 def refineSleepFromAccel(acceleration, sleep_ep):
-	tmp = acceleration[0].restrict(sleep_ep)
-	tmp = tmp.as_series().diff().abs().dropna()
-	a, _ = scipy.signal.find_peaks(tmp, 0.05)
-	peaks = nts.Tsd(tmp.iloc[a])
+	vl = acceleration[0].restrict(sleep_ep)
+	vl = vl.as_series().diff().abs().dropna()	
+	a, _ = scipy.signal.find_peaks(vl, 0.025)
+	peaks = nts.Tsd(vl.iloc[a])
 	duration = np.diff(peaks.as_units('s').index.values)
 	interval = nts.IntervalSet(start = peaks.index.values[0:-1], end = peaks.index.values[1:])
-	newsleep_ep = interval.iloc[duration>10.0]
+
+	newsleep_ep = interval.iloc[duration>15.0]
 	newsleep_ep = newsleep_ep.reset_index(drop=True)
 	newsleep_ep = newsleep_ep.merge_close_intervals(100000, time_units ='us')
-	sleep_ep = sleep_ep.intersect(newsleep_ep)
-	return sleep_ep
+
+	newsleep_ep	= sleep_ep.intersect(newsleep_ep)
+
+	return newsleep_ep
 
 
 #########################################################
@@ -372,6 +395,36 @@ def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
 	y = lfilter(b, a, data)
 	return y
 
+def downsample(tsd, up, down):
+	import scipy.signal
+	import neuroseries as nts
+	dtsd = scipy.signal.resample_poly(tsd.values, up, down)
+	dt = tsd.as_units('s').index.values[np.arange(0, tsd.shape[0], down)]
+	if len(tsd.shape) == 1:		
+		return nts.Tsd(dt, dtsd, time_units = 's')
+	elif len(tsd.shape) == 2:
+		return nts.TsdFrame(dt, dtsd, time_units = 's', columns = list(tsd.columns))
+
+def getPeaksandTroughs(lfp, min_points):
+	"""	 
+		At 250Hz (1250/5), 2 troughs cannont be closer than 20 (min_points) points (if theta reaches 12Hz);		
+	"""
+	import neuroseries as nts
+	import scipy.signal
+	if isinstance(lfp, nts.time_series.Tsd):
+		troughs 		= nts.Tsd(lfp.as_series().iloc[scipy.signal.argrelmin(lfp.values, order =min_points)[0]], time_units = 'us')
+		peaks 			= nts.Tsd(lfp.as_series().iloc[scipy.signal.argrelmax(lfp.values, order =min_points)[0]], time_units = 'us')
+		tmp 			= nts.Tsd(troughs.realign(peaks, align = 'next').as_series().drop_duplicates('first')) # eliminate double peaks
+		peaks			= peaks[tmp.index]
+		tmp 			= nts.Tsd(peaks.realign(troughs, align = 'prev').as_series().drop_duplicates('first')) # eliminate double troughs
+		troughs 		= troughs[tmp.index]
+		return (peaks, troughs)
+	elif isinstance(lfp, nts.time_series.TsdFrame):
+		peaks 			= nts.TsdFrame(lfp.index.values, np.zeros(lfp.shape))
+		troughs			= nts.TsdFrame(lfp.index.values, np.zeros(lfp.shape))
+		for i in lfp.keys():
+			peaks[i], troughs[i] = getPeaksandTroughs(lfp[i], min_points)
+		return (peaks, troughs)
 
 #########################################################
 # INTERPOLATION
@@ -390,3 +443,15 @@ def interpolate(z, x, y, inter, bbox = None):
 def filter_(z, n):
 	from scipy.ndimage import gaussian_filter	
 	return gaussian_filter(z, n)
+
+
+#########################################################
+# HELPERS
+#########################################################
+def writeNeuroscopeEvents(path, ep, name):
+	f = open(path, 'w')
+	for i in range(len(ep)):
+		f.writelines(str(ep.as_units('ms').iloc[i]['start']) + " "+name+" start "+ str(1)+"\n")
+		f.writelines(str(ep.as_units('ms').iloc[i]['end']) + " "+name+" end "+ str(1)+"\n")
+	f.close()		
+	return

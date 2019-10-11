@@ -6,11 +6,12 @@ from wrappers import *
 from functions import *
 import sys
 
-data_directory = '../data/A1400/A1407/'
+data_directory = '/mnt/DataGuillaume/LMN/A1407/'
 info = pd.read_csv(data_directory+'A1407.csv')
 info = info.set_index('Session')
 
-path 								= '../data/A1400/A1407/A1407-190416'
+# path 								= '../data/A1400/A1407/A1407-190416'
+path 								= '/mnt/DataGuillaume/LMN/A1407/A1407-190416'
 spikes, shank 						= loadSpikeData(path)
 n_channels, fs, shank_to_channel 	= loadXML(path)
 episodes 							= info.filter(like='Trial').loc[path.split("/")[-1]].dropna().values

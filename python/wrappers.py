@@ -302,7 +302,16 @@ def loadEpoch(path, epoch, episodes = None):
 	"""			
 	if not os.path.exists(path): # Check for path
 		print("The path "+path+" doesn't exist; Exiting ...")
-		sys.exit()		
+		sys.exit()
+	if epoch in ['sws', 'rem']: # loading the .epoch.evt file
+		file = os.path.join(path,os.path.basename(path)+'.'+epoch+'.evt')
+		if os.path.exists(file):
+			tmp = np.genfromtxt(file)[:,0]
+			tmp = tmp.reshape(len(tmp)//2,2)/1000
+			ep = nts.IntervalSet(start = tmp[:,0], end = tmp[:,1], time_units = 's')
+			return ep
+		else:
+			print("The file ", file, "does not exist; Exiting ...")
 	filepath 	= os.path.join(path, 'Analysis')
 	if os.path.exists(filepath): # Check for path/Analysis/	
 		listdir		= os.listdir(filepath)
@@ -517,10 +526,11 @@ def downsampleDatFile(path, n_channels = 32, fs = 20000):
 	duration 	= n_samples/fs
 	f.close()
 
-	chunksize 	= 100000
+	chunksize 	= 100000000
 	eeg 		= np.zeros((int(n_samples/16),n_channels), dtype = np.int16)
 
 	for n in range(n_channels):
+		print("Ch ", n)
 		# Loading		
 		rawchannel = np.zeros(n_samples, np.int16)
 		count = 0

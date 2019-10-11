@@ -10,8 +10,8 @@ from matplotlib.colors import hsv_to_rgb
 from mpl_toolkits.mplot3d import Axes3D
 
 
-# path 								= '/mnt/DataGuillaume/LMN/A1407/A1407-190416'
-path 								= '../data/A1400/A1407/A1407-190416'
+path 								= '/mnt/DataGuillaume/LMN/A1407/A1407-190416'
+# path 								= '../data/A1400/A1407/A1407-190416'
 
 episodes = ['sleep', 'wake', 'sleep']
 events = [1]
@@ -43,7 +43,7 @@ speed_curves = computeSpeedTuningCurves(spikes, position[['x', 'z']], wake_ep)
 ####################################################################################################################
 # BIN WAKE
 ####################################################################################################################
-bin_size = 400
+bin_size = 300
 bins = np.arange(wake_ep.as_units('ms').start.iloc[0], wake_ep.as_units('ms').end.iloc[-1]+bin_size, bin_size)
 spike_counts = pd.DataFrame(index = bins[0:-1]+np.diff(bins)/2, columns = neurons)
 for i in neurons:
@@ -81,7 +81,7 @@ SIZE = vel
 # BIN SLEEP
 ####################################################################################################################
 bin_size = 400
-bins = np.arange(sleep_ep.loc[[1]].as_units('ms').start.iloc[0], sleep_ep.loc[[1]].as_units('ms').end.iloc[-1]+bin_size, bin_size)
+bins = np.arange(postsleep_ep.as_units('ms').start.iloc[0], postsleep_ep.as_units('ms').end.iloc[-1]+bin_size, bin_size)
 spike_counts = pd.DataFrame(index = bins[0:-1]+np.diff(bins)/2, columns = neurons)
 for i in neurons:
 	spks = spikes[i].as_units('ms').index.values
@@ -95,10 +95,11 @@ rate_sleep = np.sqrt(spike_counts/(bin_size*1e-3))
 ####################################################################################################################
 tmp = rate_wake.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1).values
 tmp2 = rate_sleep.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1).values
+
 tmp3 = np.vstack((tmp, tmp2))
 
 
-ump = UMAP(n_components = 2, n_neighbors = 20, min_dist = 1).fit_transform(tmp)
+ump = UMAP(n_components = 2, n_neighbors = 5000, min_dist = 1).fit_transform(tmp3)
 
 ump1 = ump[0:len(tmp)]
 ump2 = ump[len(tmp):]

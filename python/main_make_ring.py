@@ -10,8 +10,8 @@ from matplotlib.colors import hsv_to_rgb
 
 
 
-# path 								= '/mnt/DataGuillaume/LMN/A1407/A1407-190416'
-path 								= '../data/A1400/A1407/A1407-190416'
+path 								= '/mnt/DataGuillaume/LMN/A1407/A1407-190416'
+# path 								= '../data/A1400/A1407/A1407-190416'
 
 episodes = ['sleep', 'wake', 'sleep']
 events = [1]
@@ -36,7 +36,7 @@ neurons 							= np.sort(list(spikes.keys()))[tokeep]
 ####################################################################################################################
 # BIN WAKE
 ####################################################################################################################
-bin_size = 100
+bin_size = 300
 bins = np.arange(wake_ep.as_units('ms').start.iloc[0], wake_ep.as_units('ms').end.iloc[-1]+bin_size, bin_size)
 spike_counts = pd.DataFrame(index = bins[0:-1]+np.diff(bins)/2, columns = neurons)
 for i in neurons:
@@ -54,33 +54,35 @@ H = wakangle.values/(2*np.pi)
 HSV = np.vstack((H, np.ones_like(H), np.ones_like(H))).T
 RGB = hsv_to_rgb(HSV)
 
-sys.exit()
+# sys.exit()
 
 
 tmp = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1).values
 
 
-ump = UMAP(n_neighbors = 200, min_dist = 0.5).fit_transform(tmp)
+ump = UMAP(n_neighbors = 1000, min_dist = 1).fit_transform(tmp)
 figure()
 scatter(ump[:,0], ump[:,1], c= RGB, marker = '.', alpha = 0.5, linewidth = 0, s = 100)
 
-
-
-
-from sklearn.manifold import Isomap
-imap = Isomap(n_neighbors = 100, n_components = 2).fit_transform(tmp)
-figure()
-scatter(imap[:,0], imap[:,1], c= RGB, marker = '.', alpha = 0.5, linewidth = 0, s = 100)
+show()
 
 
 
 
+# from sklearn.manifold import Isomap
+# imap = Isomap(n_neighbors = 100, n_components = 2).fit_transform(tmp)
+# figure()
+# scatter(imap[:,0], imap[:,1], c= RGB, marker = '.', alpha = 0.5, linewidth = 0, s = 100)
 
 
-figure()
-for i,n in enumerate(tcurves.columns):
-	subplot(3,5,i+1, projection = 'polar')
-	plot(tcurves[n])
+
+
+
+
+# figure()
+# for i,n in enumerate(tcurves.columns):
+# 	subplot(3,5,i+1, projection = 'polar')
+# 	plot(tcurves[n])
  
-# show()
+
 

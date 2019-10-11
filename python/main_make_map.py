@@ -7,14 +7,21 @@ from functions import *
 import sys, os
 from sklearn.manifold import TSNE
 
-data_directory = '../data/A1400/A1407/'
+# data_directory = '../data/A1400/A1407/'
+
+data_directory	= '/mnt/DataGuillaume/LMN/A1407/'
 
 info = pd.read_csv(data_directory+'A1407.csv')
 info = info.set_index('Session')
 
-sessions = os.listdir(data_directory)
-sessions.remove('A1407.csv') 
-sessions = np.sort(sessions)
+# sessions = os.listdir(data_directory)
+# sessions.remove('A1407.csv') 
+# sessions = np.sort(sessions)
+
+sessions = info.loc['A1407-190403':].index.values
+
+sessions = np.delete(sessions, np.where(sessions=='A1407-190406')[0])
+
 
 density = pd.DataFrame(index = sessions, columns = np.arange(4), data = 0.0)
 hd_total = pd.DataFrame(index = sessions, columns = np.arange(4), data = 0.0)
@@ -29,9 +36,20 @@ for s in sessions:
 	position 							= loadPosition(path, events, episodes)
 	wake_ep 							= loadEpoch(path, 'wake', episodes)
 
-	tuning_curves, velocity, edges 		= computeLMNAngularTuningCurves(spikes, position['ry'], wake_ep, 61)
+	# tuning_curves, velocity, edges 		= computeLMNAngularTuningCurves(spikes, position['ry'], wake_ep, 61)
+	tcurves 							= computeAngularTuningCurves(spikes, position['ry'], wake_ep, 121)
+	# tuning_curves[1] 					= smoothAngularTuningCurves(tuning_curves[1], window = 20, deviation = 3.0)
+	tcurves2 						 	= smoothAngularTuningCurves(tcurves.copy(), window = 20, deviation = 3.0)	
+	# tokeep, stat 						= findHDCells(tuning_curves[1])
+	tokeep, stat 						= findHDCells(tcurves)
 
-	tokeep, stat 						= findHDCells(tuning_curves[1])
+	# figure()
+	# # for i,n in enumerate(tcurves.columns):
+	# for i, n in enumerate(tokeep):
+	# 	subplot(5,6,i+1,projection='polar')
+	# 	plot(tcurves[n])
+	# 	plot(tcurves2[n])
+
 
 	index 								= np.array([s+'_'+str(k) for k in spikes])
 
@@ -39,16 +57,17 @@ for s in sessions:
 
 	for k in np.unique(shank):
 		density.loc[s, k] 				= np.sum(shank == k)
-		hd_total.loc[s,k] 					= np.sum(shank[tokeep] == k)
+		hd_total.loc[s,k] 				= np.sum(shank[tokeep] == k)
 
 
 
 
-space = 0.05
+space = 0.01
 x = np.arange(0.0, 4*0.2, 0.2)
 y = info.loc[sessions,'Depth'].values*1e-3
 y = np.cumsum(y)-y[0]
-y[4] = y[3]+0.01
+idx = np.where(np.diff(y) == 0)[0]
+for i in idx+1: y[i] = y[i-1] + 0.001
 
 xnew, ynew, xytotal = interpolate(density.values.copy(), x, y, space)
 xnew, ynew, hdtotal = interpolate(hd_total.values.copy(), x, y, space)
@@ -56,7 +75,7 @@ xnew, ynew, hdtotal = interpolate(hd_total.values.copy(), x, y, space)
 
 figure()
 subplot(121)
-imshow(xytotal)
+imshow(xytotal, interpolation='gaussian')
 subplot(122)
-imshow(hdtotal)
+imshow(hdtotal, interpolation='gaussian')
 show()
