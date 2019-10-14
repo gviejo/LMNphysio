@@ -43,6 +43,8 @@ for s in sessions[0:1]:
 
 	occupancy 							= np.histogram(position['ry'], np.linspace(0, 2*np.pi, 61), weights = np.ones_like(position['ry'])/float(len(position['ry'])))[0]
 
+	sys.exit()
+
 	angle_wak, proba_angle_wak			= decodeHD(tcurves, spikes, wake_ep, bin_size = 200, px = occupancy)
 
 	angle_sleep, proba_angle_sleep		= decodeHD(tcurves, spikes, sleep_ep.loc[[1]], bin_size = 200, px = np.ones_like(occupancy))

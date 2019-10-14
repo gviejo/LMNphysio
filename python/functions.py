@@ -306,7 +306,8 @@ def computeAngularVelocityTuningCurves(spikes, angle, ep, nb_bins = 20, bin_size
 	tmp4			= np.diff(tmp3.values)/np.diff(tmp3.as_units('s').index.values)
 	velocity 		= nts.Tsd(t=tmp3.index.values[1:], d = tmp4)
 	velocity 		= velocity.restrict(ep)
-	bins 			= np.linspace(-3*np.pi/2, 3*np.pi/2, nb_bins)
+	# bins 			= np.linspace(-3*np.pi/2, 3*np.pi/2, nb_bins)
+	bins 			= np.linspace(-np.pi, np.pi, nb_bins)
 	idx 			= bins[0:-1]+np.diff(bins)/2
 	velo_curves		= pd.DataFrame(index = idx, columns = np.arange(len(spikes)))
 	for k in spikes:

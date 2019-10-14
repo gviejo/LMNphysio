@@ -36,7 +36,7 @@ neurons 							= np.sort(list(spikes.keys()))[tokeep]
 ####################################################################################################################
 # BIN WAKE
 ####################################################################################################################
-bin_size = 300
+bin_size = 50
 bins = np.arange(wake_ep.as_units('ms').start.iloc[0], wake_ep.as_units('ms').end.iloc[-1]+bin_size, bin_size)
 spike_counts = pd.DataFrame(index = bins[0:-1]+np.diff(bins)/2, columns = neurons)
 for i in neurons:
@@ -60,7 +60,7 @@ RGB = hsv_to_rgb(HSV)
 tmp = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1).values
 
 
-ump = UMAP(n_neighbors = 1000, min_dist = 1).fit_transform(tmp)
+ump = UMAP(n_neighbors = 500, min_dist = 1).fit_transform(tmp)
 figure()
 scatter(ump[:,0], ump[:,1], c= RGB, marker = '.', alpha = 0.5, linewidth = 0, s = 100)
 
