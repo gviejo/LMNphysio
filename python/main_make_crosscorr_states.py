@@ -6,9 +6,11 @@ from wrappers import *
 from functions import *
 import sys
 from pycircstat.descriptive import mean as circmean
+import _pickle as cPickle
 
 
-data_directory 		= '/mnt/DataGuillaume/LMN/A1407'
+# data_directory 		= '/mnt/DataGuillaume/LMN/A1407'
+data_directory 		= '../data/A1400/A1407'
 info 				= pd.read_csv(os.path.join(data_directory,'A1407.csv'), index_col = 0)
 
 sessions = ['A1407-190416', 'A1407-190417', 'A1407-190422']
@@ -21,6 +23,7 @@ alltcurves = []
 allfrates = []
 allvcurves = []
 allscurves = []
+allpeaks = []
 
 for s in sessions:
 	path = os.path.join(data_directory, s)
@@ -114,6 +117,7 @@ for s in sessions:
 	allcc_rem.append(cc_rem[pairs.index])
 	allcc_sws.append(cc_sws[pairs.index])
 	allfrates.append(mean_frate)
+	allpeaks.append(peaks)
 
  
 alltcurves 	= pd.concat(alltcurves, 1)
@@ -124,6 +128,7 @@ allfrates 	= pd.concat(allfrates, 0)
 allcc_wak 	= pd.concat(allcc_wak, 1)
 allcc_rem 	= pd.concat(allcc_rem, 1)
 allcc_sws 	= pd.concat(allcc_sws, 1)
+allpeaks 	= pd.concat(allpeaks, 0)
 
 
 allpairs = allpairs.sort_values()
@@ -132,6 +137,19 @@ allfrates = allfrates.astype('float')
 sess_groups = pd.DataFrame(pd.Series({k:k.split("_")[0] for k in alltcurves.columns.values})).groupby(0).groups
 
 colors = ['blue', 'red', 'green']
+
+
+datatosave = {	'tcurves':alltcurves,
+				'sess_groups':sess_groups,
+				'frates':allfrates,
+				'cc_wak':allcc_wak,
+				'cc_rem':allcc_rem,
+				'cc_sws':allcc_sws,
+				'pairs':allpairs,
+				'peaks':allpeaks
+				}
+
+cPickle.dump(datatosave, open('../figures/figures_poster_2019/fig_2_crosscorr.pickle', 'wb'))
 
 
 ##########################################################

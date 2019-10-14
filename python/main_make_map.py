@@ -7,12 +7,12 @@ from functions import *
 import sys, os
 from sklearn.manifold import TSNE
 
-# data_directory = '../data/A1400/A1407/'
+data_directory = '../data/A1400/A1407/'
 
-data_directory	= '/mnt/DataGuillaume/LMN/A1407/'
+# data_directory	= '/mnt/DataGuillaume/LMN/A1407/'
 
-info = pd.read_csv(data_directory+'A1407.csv')
-info = info.set_index('Session')
+info 				= pd.read_csv(os.path.join(data_directory,'A1407.csv'), index_col = 0)
+
 
 # sessions = os.listdir(data_directory)
 # sessions.remove('A1407.csv') 
@@ -72,6 +72,20 @@ for i in idx+1: y[i] = y[i-1] + 0.001
 xnew, ynew, xytotal = interpolate(density.values.copy(), x, y, space)
 xnew, ynew, hdtotal = interpolate(hd_total.values.copy(), x, y, space)
 
+xpos, ypos = np.meshgrid(x, y)
+
+def noaxis(ax):
+	ax.spines['top'].set_visible(False)
+	ax.spines['right'].set_visible(False)
+	ax.spines['left'].set_visible(False)
+	ax.spines['bottom'].set_visible(False)
+	ax.get_xaxis().tick_bottom()
+	ax.get_yaxis().tick_left()
+	ax.set_xticks([])
+	ax.set_yticks([])
+	# ax.xaxis.set_tick_params(size=6)
+	# ax.yaxis.set_tick_params(size=6)
+
 
 figure()
 subplot(121)
@@ -79,3 +93,12 @@ imshow(xytotal, interpolation='gaussian')
 subplot(122)
 imshow(hdtotal, interpolation='gaussian')
 show()
+
+figure()
+# noaxis(gca())
+gca().invert_yaxis()
+[plot([xpos[0,i], xpos[-1,i]], [ypos[0,i]-5, ypos[-1,i]], alpha = 0.7, color = 'lightgrey', zorder = 0, linewidth = 4) for i in range(4)]
+scatter(xpos, ypos, s = 10, color = 'darkgray', alpha = 0.7)
+scatter(xpos, ypos, s = hd_total*15, color = 'red', zorder = 3, alpha = 0.7)
+xlim(-1, 1)
+gca().set_aspect('equal')
