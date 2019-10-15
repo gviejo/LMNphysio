@@ -9,8 +9,8 @@ from pycircstat.descriptive import mean as circmean
 import _pickle as cPickle
 
 
-data_directory 		= '/mnt/DataGuillaume/LMN/A1407'
-# data_directory 		= '../data/A1400/A1407'
+# data_directory 		= '/mnt/DataGuillaume/LMN/A1407'
+data_directory 		= '../data/A1400/A1407'
 info 				= pd.read_csv(os.path.join(data_directory,'A1407.csv'), index_col = 0)
 
 sessions = ['A1407-190416', 'A1407-190417', 'A1407-190422']
@@ -42,6 +42,22 @@ for s in sessions[0:1]:
 
 
 	occupancy 							= np.histogram(position['ry'], np.linspace(0, 2*np.pi, 61), weights = np.ones_like(position['ry'])/float(len(position['ry'])))[0]
+
+
+	# Debug
+	ep = wake_ep
+	bin_size = 200
+	tuning_curves = tcurves
+
+	bins = np.arange(ep.as_units('ms').start.iloc[0], ep.as_units('ms').end.iloc[-1], bin_size)
+
+	order = tuning_curves.columns.values
+	# TODO CHECK MATCH
+	
+	spike_counts = pd.DataFrame(index = bins[0:-1]+np.diff(bins)/2, columns = order)
+	for k in spike_counts:
+		spks = spikes[k].restrict(ep).as_units('ms').index.values
+		spike_counts[k], _ = np.histogram(spks, bins)
 
 	sys.exit()
 

@@ -7,18 +7,21 @@ from functions import *
 import sys, os
 from sklearn.manifold import TSNE
 import matplotlib.gridspec as gridspec
+from umap import UMAP
+from sklearn.decomposition import PCA
 
-data_directory 		= '/mnt/DataGuillaume/LMN/A1407'
-# data_directory 		= '../data/A1400/A1407'
+# data_directory 		= '/mnt/DataGuillaume/LMN/A1407'
+data_directory 		= '../data/A1400/A1407'
 info 				= pd.read_csv(os.path.join(data_directory,'A1407.csv'), index_col = 0)
 
 # sessions = ['A1407-190416', 'A1407-190417']
-sessions = info.loc['A1407-190411':].index.values
+sessions = info.loc['A1407-1904103':].index.values
 # sessions = info.index.values[1:]
 
 allvcurves = {}
 allvcurves2 = {}
 
+allahv = []
 
 for s in sessions:
 	path = os.path.join(data_directory, s)
@@ -41,7 +44,7 @@ for s in sessions:
 	# velo_curves 						= computeAngularVelocityTuningCurves(spikes, position['ry'], wake_ep, nb_bins = 50, bin_size = 10000)	
 	angle 			= position['ry']
 	ep 				= wake_ep
-	nb_bins 		= 30
+	nb_bins 		= 31
 	bin_size 		= 10000
 
 	tmp 			= pd.Series(index = angle.index.values, data = np.unwrap(angle.values))
@@ -88,22 +91,54 @@ for s in sessions:
 		occupancy, _ = np.histogram(velocity.restrict(ep), bins)
 		spike_count = spike_count/(occupancy+1)
 		velo_curves[k] = spike_count*(1/(bin_size*1e-6))
+		# normalizing by firing rate 
+		# velo_curves[k] = velo_curves[k]/(len(spikes[k].restrict(wake_ep))/wake_ep.tot_length('s'))
 
 
-	velo_curves2 						= velo_curves.rolling(window=10, win_type='gaussian', center= True, min_periods=1).mean(std = 1.0)
+	velo_curves2 						= velo_curves.rolling(window=10, win_type='gaussian', center= True, min_periods=1).mean(std = 2.0)
 
 
 	allvcurves[s] = velo_curves
 	allvcurves2[s] = velo_curves2
 
+	velo_curves2.columns = pd.Index([s+'_'+str(n) for n in velo_curves2.columns.values])
+
+	allahv.append(velo_curves2)
 
 
-	print(s)
-# for s in sessions:
-	figure(figsize = (20,15))	
-	for j, n in enumerate(allvcurves[s].columns):
-		subplot(5,7,j+1)
-		plot(allvcurves[s][n])
-		plot(allvcurves2[s][n])
-		title(n)
-	show()
+	# print(s)
+	# figure(figsize = (20,15))	
+	# for j, n in enumerate(allvcurves[s].columns):
+	# 	subplot(5,7,j+1)
+	# 	plot(allvcurves[s][n])
+	# 	plot(allvcurves2[s][n])
+	# 	title(n)
+	# show()
+
+allahv = pd.concat(allahv, 1)
+
+
+tmp = allahv.loc[-2:2].values
+tmp = tmp - tmp.mean(0)
+tmp = tmp / tmp.std(0)
+
+
+
+ump = UMAP(n_neighbors = 20, n_components = 2, min_dist = 0.1).fit_transform(tmp.T)
+
+from sklearn.cluster import KMeans
+
+kmeans = KMeans(n_clusters = 5, random_state = 0).fit(ump)
+
+labels = kmeans.labels_
+
+colors = np.array(['red', 'blue', 'orange', 'green', 'purple'])
+
+figure()
+subplot(231)
+scatter(ump[:,0], ump[:,1], c = colors[kmeans.labels_])
+for i,j in zip(range(5), [2, 0, 1, 4, 3]):
+	subplot(2,3,i+2)
+	plot(tmp[:,labels == j], color = colors[j])
+
+show()
