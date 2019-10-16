@@ -10,8 +10,8 @@ import matplotlib.gridspec as gridspec
 from umap import UMAP
 from sklearn.decomposition import PCA
 
-# data_directory 		= '/mnt/DataGuillaume/LMN/A1407'
-data_directory 		= '../data/A1400/A1407'
+data_directory 		= '/mnt/DataGuillaume/LMN/A1407'
+# data_directory 		= '../data/A1400/A1407'
 info 				= pd.read_csv(os.path.join(data_directory,'A1407.csv'), index_col = 0)
 
 # sessions = ['A1407-190416', 'A1407-190417']

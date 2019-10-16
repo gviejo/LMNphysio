@@ -9,8 +9,8 @@ from pycircstat.descriptive import mean as circmean
 import _pickle as cPickle
 
 
-# data_directory 		= '/mnt/DataGuillaume/LMN/A1407'
-data_directory 		= '../data/A1400/A1407'
+data_directory 		= '/mnt/DataGuillaume/LMN/A1407'
+# data_directory 		= '../data/A1400/A1407'
 info 				= pd.read_csv(os.path.join(data_directory,'A1407.csv'), index_col = 0)
 
 sessions = ['A1407-190416', 'A1407-190417', 'A1407-190422']
@@ -43,31 +43,37 @@ for s in sessions[0:1]:
 
 	occupancy 							= np.histogram(position['ry'], np.linspace(0, 2*np.pi, 61), weights = np.ones_like(position['ry'])/float(len(position['ry'])))[0]
 
+	# #######
+	# # Debug
+	# ep = wake_ep
+	# bin_size = 50
+	# tuning_curves = tcurves
 
-	# Debug
-	ep = wake_ep
-	bin_size = 200
-	tuning_curves = tcurves
+	# bins = np.arange(ep.as_units('ms').start.iloc[0], ep.as_units('ms').end.iloc[-1], bin_size)
 
-	bins = np.arange(ep.as_units('ms').start.iloc[0], ep.as_units('ms').end.iloc[-1], bin_size)
-
-	order = tuning_curves.columns.values
-	# TODO CHECK MATCH
+	# order = tuning_curves.columns.values
+	# # TODO CHECK MATCH
 	
-	spike_counts = pd.DataFrame(index = bins[0:-1]+np.diff(bins)/2, columns = order)
-	for k in spike_counts:
-		spks = spikes[k].restrict(ep).as_units('ms').index.values
-		spike_counts[k], _ = np.histogram(spks, bins)
+	# w = scipy.signal.gaussian(51, 1)
+	
+	# spike_counts = pd.DataFrame(index = bins[0:-1]+np.diff(bins)/2, columns = order)
+	# for k in spike_counts:
+	# 	spks = spikes[k].restrict(ep).as_units('ms').index.values
+	# 	tmp = np.histogram(spks, bins)
+	# 	spike_counts[k] = np.convolve(tmp[0], w, mode = 'same')
 
-	sys.exit()
+	
+	# #######
 
-	angle_wak, proba_angle_wak			= decodeHD(tcurves, spikes, wake_ep, bin_size = 200, px = occupancy)
+	# sys.exit()
 
-	angle_sleep, proba_angle_sleep		= decodeHD(tcurves, spikes, sleep_ep.loc[[1]], bin_size = 200, px = np.ones_like(occupancy))
+	angle_wak, proba_angle_wak,_		= decodeHD(tcurves, spikes, wake_ep, bin_size = 50, px = occupancy)
+
+	angle_sleep, proba_angle_sleep,_	= decodeHD(tcurves, spikes, sleep_ep.loc[[1]], bin_size = 50, px = np.ones_like(occupancy))
 
 	angle_rem 							= angle_sleep.restrict(rem_ep)
 
-	angle_sleep, proba_angle_sleep		= decodeHD(tcurves, spikes, sleep_ep.loc[[1]], bin_size = 50, px = np.ones_like(occupancy))
+	angle_sleep, proba_angle_sleep, spike_counts	= decodeHD(tcurves, spikes, sleep_ep.loc[[1]], bin_size = 10, px = np.ones_like(occupancy))
 
 	angle_sws 							= angle_sleep.restrict(sws_ep)
 	
@@ -82,7 +88,9 @@ datatosave = {	'wak':angle_wak,
 				'tcurves':tcurves,
 				'angle':position['ry'],
 				'peaks':peaks,
-				'proba_angle_sws':proba_angle_sleep
+				'proba_angle_sws':proba_angle_sleep,
+				'spike_counts':spike_counts
+
 			}
 
 
@@ -93,7 +101,7 @@ cPickle.dump(datatosave, open('../figures/figures_poster_2019/fig_1_decoding.pic
 # PLOT
 ############################################################################
 
-
+sys.exit()
 
 figure()
 for i,n in zip(tcurves,np.arange(tcurves.shape[1])):
@@ -120,7 +128,6 @@ for i,n in enumerate(tcurves.columns):
 	plot(spikes[n].restrict(rem_ep).fillna(peaks[n]), '|', markersize = 10)
 	plot(angle_rem)
 
-show()
 
 # sws
 figure()

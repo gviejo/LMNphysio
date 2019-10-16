@@ -242,11 +242,17 @@ def decodeHD(tuning_curves, spikes, ep, bin_size = 200, px = None):
 
 	order = tuning_curves.columns.values
 	# TODO CHECK MATCH
+
+	# smoothing with a non-normalized gaussian
+	w = scipy.signal.gaussian(51, 2)
 	
 	spike_counts = pd.DataFrame(index = bins[0:-1]+np.diff(bins)/2, columns = order)
 	for k in spike_counts:
+		print(k)
 		spks = spikes[k].restrict(ep).as_units('ms').index.values
-		spike_counts[k], _ = np.histogram(spks, bins)
+		tmp = np.histogram(spks, bins)
+		spike_counts[k] = np.convolve(tmp[0], w, mode = 'same')
+		# spike_counts[k] = tmp[0]
 
 	tcurves_array = tuning_curves.values
 	spike_counts_array = spike_counts.values
@@ -267,7 +273,7 @@ def decodeHD(tuning_curves, spikes, ep, bin_size = 200, px = None):
 	proba_angle  = pd.DataFrame(index = spike_counts.index.values, columns = tuning_curves.index.values, data= proba_angle)	
 	proba_angle = proba_angle.astype('float')		
 	decoded = nts.Tsd(t = proba_angle.index.values, d = proba_angle.idxmax(1).values, time_units = 'ms')
-	return decoded, proba_angle
+	return decoded, proba_angle, spike_counts
 
 def computePlaceFields(spikes, position, ep, nb_bins = 100, frequency = 120.0):
 	place_fields = {}

@@ -48,6 +48,12 @@ angle_sws = data['sws']
 tcurves = data['tcurves']
 angle = data['angle']
 peaks = data['peaks']
+proba_angle_sleep = data['proba_angle_sws']
+spike_counts = data['spike_counts']
+
+proba_angle_sleep = nts.TsdFrame(t =  proba_angle_sleep.index.values*1000, d = proba_angle_sleep.values)
+
+spike_counts = nts.TsdFrame(t = spike_counts.index.values*1000, d = spike_counts.values)
 
 path = os.path.join(data_directory, session)
 spikes, shank = loadSpikeData(path)
@@ -66,6 +72,9 @@ neurons = tcurves.columns.values
 lfp = pd.read_hdf('../../figures/figures_poster_2019/lfp_190416.h5')
 lfp = nts.Tsd(lfp)
 
+ratio = pd.read_hdf('../../figures/figures_poster_2019/ratio2.h5')
+ratio = nts.Tsd(ratio)
+
 ###############################################################################################################
 # PLOT
 ###############################################################################################################
@@ -74,7 +83,7 @@ def figsize(scale):
 	inches_per_pt = 1.0/72.27                       # Convert pt to inch
 	golden_mean = (np.sqrt(5.0)-1.0)/2.0            # Aesthetic ratio (you could change this)
 	fig_width = fig_width_pt*inches_per_pt*scale    # width in inches
-	fig_height = fig_width*golden_mean*1          # height in inches
+	fig_height = fig_width*golden_mean*1.2          # height in inches
 	fig_size = [fig_width,fig_height]
 	return fig_size
 
@@ -165,7 +174,7 @@ for i, n in enumerate(neurons):
 ####################################################################
 # B DECODING
 ####################################################################
-gs_right = gridspec.GridSpecFromSubplotSpec(3,1, subplot_spec = outergs[0,1])#, width_ratios = [0.1, 0.5, 0.5, 0.5], height_ratios = [0.2, 0.8], hspace = 0)
+gs_right = gridspec.GridSpecFromSubplotSpec(3,1, subplot_spec = outergs[0,1], hspace = 0.2)#, width_ratios = [0.1, 0.5, 0.5, 0.5], height_ratios = [0.2, 0.8], hspace = 0)
 
 
 for i, angle2, epoch, ex_ep in zip(range(3), [angle_wak, angle_rem, angle_sws], ['WAKE', 'REM', 'NREM'], [good_exs_wake, good_exs_rem, good_exs_sws]):
@@ -173,29 +182,41 @@ for i, angle2, epoch, ex_ep in zip(range(3), [angle_wak, angle_rem, angle_sws], 
 	if epoch is 'WAKE':
 		gs2 = gridspec.GridSpecFromSubplotSpec(1,1, subplot_spec = gs_right[i,:])#, width_ratios = [0.1, 0.5, 0.5, 0.5], height_ratios = [0.2, 0.8], hspace = 0)	
 	elif epoch in ['REM', 'NREM']:
-		gs2 = gridspec.GridSpecFromSubplotSpec(2,1, subplot_spec = gs_right[i,:], height_ratios = [0.2, 0.8])#, width_ratios = [0.1, 0.5, 0.5, 0.5], height_ratios = [0.2, 0.8], hspace = 0)	
+		gs2 = gridspec.GridSpecFromSubplotSpec(3,1, subplot_spec = gs_right[i,:], height_ratios = [0.1, 0.1, 0.8])#, width_ratios = [0.1, 0.5, 0.5, 0.5], height_ratios = [0.2, 0.8], hspace = 0)	
 
 
 	if epoch is 'WAKE':
 		subplot(gs2[0,:])
 	elif epoch in ['REM', 'NREM']:
-		subplot(gs2[1,:])
+		subplot(gs2[2,:])
 
 	simpleaxis(gca())
+	# gca().spines['bottom'].set_visible(False)
 	newangle = smoothAngle(angle, 10)
 	
 	if epoch is 'NREM':
-		newangle2 = smoothAngle(angle2, 1)
+		newangle2 = smoothAngle(angle2, 10)
 	else:
-		newangle2 = smoothAngle(angle2, 1)
+		newangle2 = smoothAngle(angle2, 4)
 
 	plot(newangle.restrict(ex_ep[0]), color = 'red', label = "Actual HD")
-	plot(newangle2.restrict(ex_ep[0]), color = 'gray', label = "Decoded HD")
+	
+	if epoch == 'NREM':
+		count = spike_counts.restrict(ex_ep[0]).sum(1)
+		tmp = newangle2.restrict(ex_ep[0])
+		idx = count.index.values[np.where(count < 0.3)[0]]
+		tmp.loc[idx] = np.nan
+		plot(tmp, color = 'gray')
+		# sys.exit()
+	else:
+		plot(newangle2.restrict(ex_ep[0]), color = 'gray', label = "Decoded HD")
+
+
 	if i == 0:
 		legend(frameon = False)
-	# ylim(0, 2*np.pi)
-	# subplot(gs2[1,:])
-	# simpleaxis(gca())
+
+
+	# SPIKES
 	for k, n in enumerate(neurons):
 		spk = spikes[n]		
 		clr = hsluv.hsluv_to_rgb([peaks[n]*180/np.pi,85,45])
@@ -203,19 +224,53 @@ for i, angle2, epoch, ex_ep in zip(range(3), [angle_wak, angle_rem, angle_sws], 
 	ylim(0, 2*np.pi)
 	yticks([0, np.pi, 2*np.pi], ['0', r"$\pi$", r"$2\pi$"])
 	ylabel(epoch)
+	xlim(ex_ep[0].loc[0].values)
+	if epoch == 'WAKE':
+		xt = np.arange(ex_ep[0].loc[0,'start'], ex_ep[0].loc[0,'end'], 15*1e6)
+		xtick = [0, 15, 30]
+	elif epoch == 'REM':
+		xt = np.arange(ex_ep[0].loc[0,'start'], ex_ep[0].loc[0,'end'], 5*1e6)
+		xtick = [0, 5, 10]
+	elif epoch == 'NREM':
+		xt = np.arange(ex_ep[0].loc[0,'start'], ex_ep[0].loc[0,'end'], 1*1e6)
+		xtick = [0, 1, 2]		
+		xlabel("Time (s)")
+
+	xticks(xt, xtick)#, np.arange(len(xt)))
+
+	# sys.exit()
 
 	if epoch in ['REM', 'NREM']:
+
 		subplot(gs2[0,:])
-		# plot(lfp.restrict(ex_ep[0]))
-		new_ep = nts.IntervalSet(ex_ep[0].loc[0,'start']-1000000, ex_ep[0].loc[0,'end']+1000000)
+		noaxis(gca())
+		plot(lfp.restrict(ex_ep[0]), color = 'black', linewidth = 1)
+		xlim(ex_ep[0].loc[0].values)
+
+		subplot(gs2[1,:])
+		simpleaxis(gca())
+
+		plot(ratio.restrict(ex_ep[0]), color = 'grey', linewidth = 1)
+		# ylim(-1.1, 1.1)		
+		xlim(ex_ep[0].loc[0].values)
+		ylabel(r"$log(\frac{\theta}{\delta})$", rotation = 0, labelpad = 12, y = 0)
+
+		axhline(0, color = 'black', linewidth = 0.78)
+		yticks([0], [0])
+
+		gca().spines['bottom'].set_visible(False)
+		gca().set_xticks([])		
+
+
 		# tmp = lfp.restrict(new_ep).values
-		tmp = lfp.restrict(ex_ep[0])
+		# tmp = lfp.restrict(ex_ep[0])
+
 		# wp = pywt.WaveletPacket(tmp, 'db2', 'symmetric', maxlevel = 4)
 		# f, t, Sxx = spectrogram_lspopt(tmp, 250, c_parameter=10)
 		
 		# wv = wigner_ville_spectrum(tmp, 1/250, frequency_divider = 6, smoothing_filter = 'gauss');imshow(np.sqrt(abs(wv)), aspect = 'auto', cmap = 'magma');show()
-		plot(tmp)
-		noaxis(gca())
+		# plot(tmp)
+		# noaxis(gca())
 		# pcolormesh(t, f, Sxx)
 		# mtspec(tmp, 1/250, 3);	
 
@@ -226,7 +281,7 @@ for i, angle2, epoch, ex_ep in zip(range(3), [angle_wak, angle_rem, angle_sws], 
 		# ylim(0, 30)
 		# noaxis(gca())
 
-outergs.update(top= 0.97, bottom = 0.04, right = 0.97, left = 0.02)
+outergs.update(top= 0.97, bottom = 0.07, right = 0.97, left = 0.02)
 
 savefig("../../figures/figures_poster_2019/fig_poster_1.pdf", dpi = 900, facecolor = 'white')
 os.system("evince ../../figures/figures_poster_2019/fig_poster_1.pdf &")

@@ -25,8 +25,8 @@ def smoothAngle(tsd, sd):
 	newtsd			= nts.Tsd(tmp2%(2*np.pi))
 	return newtsd
 
-# data_directory 		= '/mnt/DataGuillaume/LMN/A1407'
-data_directory 		= '../../data/A1400/A1407'
+data_directory 		= '/mnt/DataGuillaume/LMN/A1407'
+# data_directory 		= '../../data/A1400/A1407'
 info 				= pd.read_csv(os.path.join(data_directory,'A1407.csv'), index_col = 0)
 
 session = 'A1407-190416'

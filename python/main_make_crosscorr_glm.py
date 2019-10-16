@@ -60,8 +60,36 @@ for s in sessions:
 
 			
 	############################################################################################### 
-	# CROSS CORRELATION
+	# GLM CROSS CORRELATION
 	###############################################################################################
+
+
+
+	ep = wake_ep
+	bin_size = 50 # ms	
+	bins = np.arange(ep.as_units('ms').start.iloc[0], ep.as_units('ms').end.iloc[-1], bin_size)
+	order = list(spikes.keys())
+	spike_counts = pd.DataFrame(index = bins[0:-1]+np.diff(bins)/2, columns = order)
+	for k in spike_counts:				
+		spike_counts[k] = np.histogram(spikes[k].restrict(ep).as_units('ms').index.values, bins)[0]
+
+
+	from pyglmnet import GLM
+
+	glm = GLM(distr="poisson")
+
+	# predicting first neurons agai
+	y_train = spike_counts.values[:,0]
+	X1 = spike_counts.values[:,1]
+	X2 = spike_counts.values[:,2:].sum(1)
+	X_train = np.vstack((X1, X2)).T
+
+	glm.fit(X_train, y_train)
+
+	sys.exit()
+
+
+
 	cc_wak = compute_CrossCorrs(spikes, wake_ep)
 	cc_rem = compute_CrossCorrs(spikes, rem_ep)
 	cc_sws = compute_CrossCorrs(spikes, sws_ep, 1, 200)
@@ -69,6 +97,8 @@ for s in sessions:
 	cc_wak = cc_wak.rolling(window=10, win_type='gaussian', center = True, min_periods = 1).mean(std = 2.0)
 	cc_rem = cc_rem.rolling(window=10, win_type='gaussian', center = True, min_periods = 1).mean(std = 2.0)
 	cc_sws = cc_sws.rolling(window=10, win_type='gaussian', center = True, min_periods = 1).mean(std = 2.0)
+
+
 
 	# sorting by angular differences
 	tokeep, stat 						= findHDCells(tuning_curves[1])

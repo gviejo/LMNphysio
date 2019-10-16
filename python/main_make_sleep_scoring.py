@@ -38,7 +38,7 @@ if not os.path.exists(os.path.join(data_directory,os.path.basename(data_director
 lfp 		= loadLFP(os.path.join(data_directory,os.path.basename(data_directory)+'.eeg'), n_channels, 12, 1250, 'int16')
 lfp 		= downsample(lfp, 1, 5)
 
-sys.exit()
+
 
 ##################################################################################################
 # DETECTION THETA
@@ -60,7 +60,9 @@ plot(ratio.restrict(newsleep_ep))
 plot(ratio2.restrict(newsleep_ep))
 show()
 
-# sys.exit()
+ratio2.as_series().to_hdf('../figures/figures_poster_2019/ratio2.h5', 'w')
+
+sys.exit()
 
 # enveloppe,dummy	= getPeaksandTroughs(power, 5)
 index 			= (ratio2.as_series() > 0).values*1.0
