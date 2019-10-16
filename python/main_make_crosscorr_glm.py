@@ -7,10 +7,66 @@ from functions import *
 import sys
 from pycircstat.descriptive import mean as circmean
 import _pickle as cPickle
+from sklearn.preprocessing import StandardScaler
+from pyglmnet import GLM
 
 
-data_directory 		= '/mnt/DataGuillaume/LMN/A1407'
-# data_directory 		= '../data/A1400/A1407'
+def compute_GLM_CrossCorrs(spks, ep, bin_size=10, lag=5000, lag_size=50, sigma = 15):
+	bins = np.arange(ep.as_units('ms').start.iloc[0], ep.as_units('ms').end.iloc[-1], bin_size)
+	order = list(spks.keys())
+	time_lag = np.arange(-lag, lag, lag_size, dtype = np.int)
+
+	shift = time_lag//bin_size
+
+	# all spike counts
+	spike_counts = pd.DataFrame(index = bins[0:-1]+np.diff(bins)/2, columns = order)
+	for k in spike_counts:
+		spike_counts[k] = np.histogram(spks[k].restrict(ep).as_units('ms').index.values, bins)[0]
+
+	spike_counts = nts.TsdFrame(t = spike_counts.index.values, d = spike_counts.values, time_units = 'ms')
+	spike_counts = spike_counts.restrict(ep)
+	spike_counts = spike_counts.as_dataframe()
+	glmcc = pd.DataFrame(index = time_lag, columns = list(combinations(order, 2)), dtype = np.float32)
+
+	count = 0
+	for pair in glmcc.columns:
+		print(count/len(glmcc.columns))
+		count += 1
+		# computing predictors	
+		X1 = spike_counts[pair[1]]	# predictor 
+		X2 = spike_counts.drop(list(pair), axis = 1).sum(1) # population
+		X1 = X1.rolling(window=100, win_type='gaussian', center= True, min_periods=1).mean(std = sigma)
+		X2 = X2.rolling(window=100, win_type='gaussian', center= True, min_periods=1).mean(std = 3)
+		X_train = pd.concat([X1,X2], axis = 1)
+		X_train = X_train - X_train.mean(0)
+		X_train = X_train / X_train.std(0)
+
+		# target at different time lag				
+		b = []
+		for t, s in zip(time_lag, shift):
+			glm = GLM(distr="poisson", reg_lambda=0)
+			# y_train = np.histogram(spks[pair[0]].restrict(ep).as_units('ms').index.values+t, bins)[0]
+			y_train = spike_counts[pair[0]].values
+			if s < 0 : # backward
+				y_train = y_train[-s:]
+				Xtrain = X_train.values[:s]
+			elif s > 0 : # forward
+				y_train = y_train[:-s]
+				Xtrain = X_train.values[s:]
+			
+			# fit glm			
+			glm.fit(Xtrain, y_train)
+			b.append(np.float32(glm.beta_[0]))
+
+
+		glmcc[pair] = np.array(b)
+
+	return glmcc
+
+
+
+# data_directory 		= '/mnt/DataGuillaume/LMN/A1407'
+data_directory 		= '../data/A1400/A1407'
 info 				= pd.read_csv(os.path.join(data_directory,'A1407.csv'), index_col = 0)
 
 sessions = ['A1407-190416', 'A1407-190417', 'A1407-190422']
@@ -61,51 +117,32 @@ for s in sessions:
 			
 	############################################################################################### 
 	# GLM CROSS CORRELATION
-	###############################################################################################
+	###############################################################################################	
+	cc_wak = compute_GLM_CrossCorrs(spikes, wake_ep, bin_size=100, lag=2000, lag_size=20)
+
+	cc_rem = compute_GLM_CrossCorrs(spikes, rem_ep, bin_size=100, lag=2000, lag_size=20)
+
+	cc_sws = compute_GLM_CrossCorrs(spikes, sws_ep, bin_size=10, lag=200, lag_size=10)
 
 
 
-	ep = wake_ep
-	bin_size = 50 # ms	
-	bins = np.arange(ep.as_units('ms').start.iloc[0], ep.as_units('ms').end.iloc[-1], bin_size)
-	order = list(spikes.keys())
-	spike_counts = pd.DataFrame(index = bins[0:-1]+np.diff(bins)/2, columns = order)
-	for k in spike_counts:				
-		spike_counts[k] = np.histogram(spikes[k].restrict(ep).as_units('ms').index.values, bins)[0]
 
+	# cc_wak = compute_CrossCorrs(spikes, wake_ep)
+	# cc_rem = compute_CrossCorrs(spikes, rem_ep)
+	# cc_sws = compute_CrossCorrs(spikes, sws_ep, 1, 200)
 
-	from pyglmnet import GLM
-
-	glm = GLM(distr="poisson")
-
-	# predicting first neurons agai
-	y_train = spike_counts.values[:,0]
-	X1 = spike_counts.values[:,1]
-	X2 = spike_counts.values[:,2:].sum(1)
-	X_train = np.vstack((X1, X2)).T
-
-	glm.fit(X_train, y_train)
-
-	sys.exit()
-
-
-
-	cc_wak = compute_CrossCorrs(spikes, wake_ep)
-	cc_rem = compute_CrossCorrs(spikes, rem_ep)
-	cc_sws = compute_CrossCorrs(spikes, sws_ep, 1, 200)
-
-	cc_wak = cc_wak.rolling(window=10, win_type='gaussian', center = True, min_periods = 1).mean(std = 2.0)
-	cc_rem = cc_rem.rolling(window=10, win_type='gaussian', center = True, min_periods = 1).mean(std = 2.0)
-	cc_sws = cc_sws.rolling(window=10, win_type='gaussian', center = True, min_periods = 1).mean(std = 2.0)
+	# cc_wak = cc_wak.rolling(window=10, win_type='gaussian', center = True, min_periods = 1).mean(std = 2.0)
+	# cc_rem = cc_rem.rolling(window=10, win_type='gaussian', center = True, min_periods = 1).mean(std = 2.0)
+	# cc_sws = cc_sws.rolling(window=10, win_type='gaussian', center = True, min_periods = 1).mean(std = 2.0)
 
 
 
 	# sorting by angular differences
 	tokeep, stat 						= findHDCells(tuning_curves[1])
 
-	if s == 'A1407-190416':
-		tokeep = np.delete(tokeep, np.where(tokeep==5))
-		tokeep = np.delete(tokeep, np.where(tokeep==2))
+	# if s == 'A1407-190416':
+	# 	tokeep = np.delete(tokeep, np.where(tokeep==5))
+	# 	tokeep = np.delete(tokeep, np.where(tokeep==2))
 
 
 	tcurves 							= tuning_curves[1][tokeep]
@@ -179,7 +216,7 @@ datatosave = {	'tcurves':alltcurves,
 				'peaks':allpeaks
 				}
 
-cPickle.dump(datatosave, open('../figures/figures_poster_2019/fig_2_crosscorr.pickle', 'wb'))
+# cPickle.dump(datatosave, open('../figures/figures_poster_2019/fig_2_crosscorr.pickle', 'wb'))
 
 
 ##########################################################
