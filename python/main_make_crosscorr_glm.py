@@ -44,16 +44,20 @@ def compute_GLM_CrossCorrs(spks, ep, bin_size=10, lag=5000, lag_size=50, sigma =
 		# target at different time lag				
 		b = []
 		for t, s in zip(time_lag, shift):
-			glm = GLM(distr="poisson", reg_lambda=0)
+			glm = GLM(distr="poisson", reg_lambda=0)#, solver = 'cdfast')
 			# y_train = np.histogram(spks[pair[0]].restrict(ep).as_units('ms').index.values+t, bins)[0]
 			y_train = spike_counts[pair[0]].values
+			print(t, s)
 			if s < 0 : # backward
 				y_train = y_train[-s:]
 				Xtrain = X_train.values[:s]
 			elif s > 0 : # forward
 				y_train = y_train[:-s]
 				Xtrain = X_train.values[s:]
-			
+			else:
+				Xtrain = X_train.values
+
+			# sys.exit()
 			# fit glm			
 			glm.fit(Xtrain, y_train)
 			b.append(np.float32(glm.beta_[0]))
@@ -117,12 +121,12 @@ for s in sessions:
 			
 	############################################################################################### 
 	# GLM CROSS CORRELATION
-	###############################################################################################	
-	cc_wak = compute_GLM_CrossCorrs(spikes, wake_ep, bin_size=100, lag=2000, lag_size=20)
+	##############################################################################################	
+	cc_wak = compute_GLM_CrossCorrs(spikes, wake_ep, bin_size=100, lag=2000, lag_size=10)
 
 	cc_rem = compute_GLM_CrossCorrs(spikes, rem_ep, bin_size=100, lag=2000, lag_size=20)
 
-	cc_sws = compute_GLM_CrossCorrs(spikes, sws_ep, bin_size=10, lag=200, lag_size=10)
+	cc_sws = compute_GLM_CrossCorrs(spikes, sws_ep, bin_size=10, lag=200, lag_size=20, sigma = 1)
 
 
 
@@ -216,7 +220,7 @@ datatosave = {	'tcurves':alltcurves,
 				'peaks':allpeaks
 				}
 
-# cPickle.dump(datatosave, open('../figures/figures_poster_2019/fig_2_crosscorr.pickle', 'wb'))
+cPickle.dump(datatosave, open('../figures/figures_poster_2019/fig_2_crosscorr_glm.pickle', 'wb'))
 
 
 ##########################################################
