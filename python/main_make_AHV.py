@@ -10,8 +10,8 @@ import matplotlib.gridspec as gridspec
 from umap import UMAP
 from sklearn.decomposition import PCA
 
-data_directory 		= '/mnt/DataGuillaume/LMN/A1407'
-# data_directory 		= '../data/A1400/A1407'
+# data_directory 		= '/mnt/DataGuillaume/LMN/A1407'
+data_directory 		= '../data/A1400/A1407'
 info 				= pd.read_csv(os.path.join(data_directory,'A1407.csv'), index_col = 0)
 
 # sessions = ['A1407-190416', 'A1407-190417']
@@ -142,3 +142,17 @@ for i,j in zip(range(5), range(5)):
 	plot(tmp[:,labels == j], color = colors[j])
 
 show()
+
+#######################################
+# SAVING
+allahv.to_hdf('../figures/figures_poster_2019/allahv.h5', 'w')
+
+ump = pd.DataFrame(index = allahv.columns, data = ump)
+
+ump['label'] = labels
+
+ump.to_hdf('../figures/figures_poster_2019/ump.h5', 'w')
+
+tmp = pd.DataFrame(index = allahv.loc[-2:2].index.values, columns = allahv.columns, data = tmp)
+
+tmp.to_hdf('../figures/figures_poster_2019/allahv_normalized.h5', 'w')

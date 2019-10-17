@@ -27,6 +27,8 @@ density = pd.DataFrame(index = sessions, columns = np.arange(4), data = 0.0)
 hd_total = pd.DataFrame(index = sessions, columns = np.arange(4), data = 0.0)
 hd_neurons = []
 
+alltcurves = []
+
 for s in sessions:
 	path 								= os.path.join(data_directory, s)
 	spikes, shank 						= loadSpikeData(path)
@@ -55,12 +57,18 @@ for s in sessions:
 
 	hd_neurons.append(index[tokeep])
 
+	tcurves2.columns = pd.Index(index)
+
+	if len(index[tokeep]):
+		alltcurves.append(tcurves2[index[tokeep]])
+
 	for k in np.unique(shank):
 		density.loc[s, k] 				= np.sum(shank == k)
 		hd_total.loc[s,k] 				= np.sum(shank[tokeep] == k)
 
 
-
+alltcurves = pd.concat(alltcurves, 1)
+alltcurves.to_hdf('../figures/figures_poster_2019/alltcurves.h5', 'w')
 
 space = 0.01
 x = np.arange(0.0, 4*0.2, 0.2)
