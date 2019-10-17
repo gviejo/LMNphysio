@@ -15,7 +15,7 @@ data_directory 		= '/mnt/DataGuillaume/LMN/A1407'
 info 				= pd.read_csv(os.path.join(data_directory,'A1407.csv'), index_col = 0)
 
 # sessions = ['A1407-190416', 'A1407-190417']
-sessions = info.loc['A1407-1904103':].index.values
+sessions = info.loc['A1407-190403':].index.values
 # sessions = info.index.values[1:]
 
 allvcurves = {}
@@ -137,7 +137,7 @@ colors = np.array(['red', 'blue', 'orange', 'green', 'purple'])
 figure()
 subplot(231)
 scatter(ump[:,0], ump[:,1], c = colors[kmeans.labels_])
-for i,j in zip(range(5), [2, 0, 1, 4, 3]):
+for i,j in zip(range(5), range(5)):
 	subplot(2,3,i+2)
 	plot(tmp[:,labels == j], color = colors[j])
 

@@ -101,7 +101,7 @@ cPickle.dump(datatosave, open('../figures/figures_poster_2019/fig_1_decoding.pic
 # PLOT
 ############################################################################
 
-sys.exit()
+
 
 figure()
 for i,n in zip(tcurves,np.arange(tcurves.shape[1])):

@@ -44,10 +44,9 @@ def compute_GLM_CrossCorrs(spks, ep, bin_size=10, lag=5000, lag_size=50, sigma =
 		# target at different time lag				
 		b = []
 		for t, s in zip(time_lag, shift):
-			glm = GLM(distr="poisson", reg_lambda=0)#, solver = 'cdfast')
+			glm = GLM(distr="poisson", reg_lambda=0.1, solver = 'cdfast', score_metric = 'deviance', max_iter = 200)
 			# y_train = np.histogram(spks[pair[0]].restrict(ep).as_units('ms').index.values+t, bins)[0]
-			y_train = spike_counts[pair[0]].values
-			print(t, s)
+			y_train = spike_counts[pair[0]].values			
 			if s < 0 : # backward
 				y_train = y_train[-s:]
 				Xtrain = X_train.values[:s]
@@ -69,8 +68,8 @@ def compute_GLM_CrossCorrs(spks, ep, bin_size=10, lag=5000, lag_size=50, sigma =
 
 
 
-# data_directory 		= '/mnt/DataGuillaume/LMN/A1407'
-data_directory 		= '../data/A1400/A1407'
+data_directory 		= '/mnt/DataGuillaume/LMN/A1407'
+# data_directory 		= '../data/A1400/A1407'
 info 				= pd.read_csv(os.path.join(data_directory,'A1407.csv'), index_col = 0)
 
 sessions = ['A1407-190416', 'A1407-190417', 'A1407-190422']
@@ -86,6 +85,7 @@ allscurves = []
 allpeaks = []
 
 for s in sessions:
+	print(s)
 	path = os.path.join(data_directory, s)
 	############################################################################################### 
 	# LOADING DATA
@@ -122,6 +122,7 @@ for s in sessions:
 	############################################################################################### 
 	# GLM CROSS CORRELATION
 	##############################################################################################	
+
 	cc_wak = compute_GLM_CrossCorrs(spikes, wake_ep, bin_size=100, lag=2000, lag_size=10)
 
 	cc_rem = compute_GLM_CrossCorrs(spikes, rem_ep, bin_size=100, lag=2000, lag_size=20)
@@ -263,7 +264,10 @@ xlabel("Wake")
 ylabel("SWS")
 for i, cc in enumerate([allcc_wak, allcc_rem, allcc_sws]):
 	subplot(2,3,i+1+3)
-	imshow(cc[allpairs.index].T, aspect = 'auto', cmap = 'jet')
+	tmp = cc[allpairs.index].values
+	tmp = tmp - tmp.mean(0)
+	tmp = tmp / tmp.std(0)
+	imshow(tmp.T, aspect = 'auto', cmap = 'jet')
 	title(titles[i])
 	xticks([0, np.where(cc.index.values == 0)[0][0], len(cc)], [cc.index[0], 0, cc.index[-1]])
 

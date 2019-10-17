@@ -37,7 +37,8 @@ good_exs_wake = [nts.IntervalSet(start = [4.96148e+09], end = [4.99755e+09]),
 
 good_exs_rem = [nts.IntervalSet(start = [8.94993e+09], end = [8.96471e+09])]
 
-good_exs_sws = [nts.IntervalSet(start = [8.36988e+09], end = [8.37194e+09])]
+good_exs_sws = [nts.IntervalSet(start = [8.4855e+09], end = [8.48773e+09]),
+				nts.IntervalSet(start = [8.36988e+09], end = [8.37194e+09])]
 
 
 data = cPickle.load(open('../../figures/figures_poster_2019/fig_1_decoding.pickle', 'rb'))

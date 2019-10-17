@@ -31,7 +31,7 @@ info 				= pd.read_csv(os.path.join(data_directory,'A1407.csv'), index_col = 0)
 
 session = 'A1407-190416'
 
-data = cPickle.load(open('../../figures/figures_poster_2019/fig_2_crosscorr.pickle', 'rb'))
+data = cPickle.load(open('../../figures/figures_poster_2019/fig_2_crosscorr_glm.pickle', 'rb'))
 
 tcurves		 		= data['tcurves']
 pairs 				= data['pairs']
@@ -54,7 +54,7 @@ groups = pairs.groupby(np.digitize(pairs, [0, np.pi/3, 2*np.pi/3, np.pi])-1).gro
 
 # neurons = tcurves.columns.values
 
-pair_index = [1, 2, 2]
+pair_index = [2, 0, 0]
 
 
 ###############################################################################################################
@@ -145,6 +145,7 @@ for i in range(3):
 		tmp /= tmp.max()
 		fill_between(tcurves[n].index.values, np.zeros_like(tmp), tmp , color = clr, alpha = 0.5, linewidth =1, zorder=2)	
 
+
 for i, epoch, cc in zip(range(3), ['WAKE', 'REM', 'NREM'], [cc_wak, cc_rem, cc_sws]):
 	for j in range(3):
 		nn = groups[j][pair_index[j]]
@@ -152,7 +153,9 @@ for i, epoch, cc in zip(range(3), ['WAKE', 'REM', 'NREM'], [cc_wak, cc_rem, cc_s
 		simpleaxis(gca())
 		# plot(cc[nn])
 		tmp = cc[nn]
-		fill_between(tmp.index.values, np.zeros_like(tmp.values), tmp.values, color = 'grey', alpha = 0.6, linewidth = 0)
+
+		# fill_between(tmp.index.values, np.zeros_like(tmp.values), tmp.values, color = 'grey', alpha = 0.6, linewidth = 0)
+		plot(tmp.index.values, tmp.values, color = 'grey')
 		xticks(fontsize = 6)
 		yticks(fontsize = 6)
 		if j == 0:
@@ -209,7 +212,11 @@ ylim(0, len(pairs)-1)
 for i, epoch, cc in zip(range(3), ['WAKE', 'REM', 'NREM'], [cc_wak, cc_rem, cc_sws]):
 	subplot(gs_bottom[:,i+1])
 	simpleaxis(gca())
-	imshow(cc[pairs.index].T, aspect = 'auto', cmap = 'jet', interpolation = 'bilinear')
+	tmp = cc[pairs.index]
+	tmp = tmp - tmp.mean(0)
+	tmp = tmp / tmp.std(0)
+	tmp = scipy.ndimage.gaussian_filter(tmp.T, (0.1, 0.1))
+	imshow(tmp, aspect = 'auto', cmap = 'jet', interpolation = 'bilinear')
 	times = cc.index.values
 	xticks([0, np.where(times==0)[0], len(times)], [times[0], 0, times[-1]], fontsize = 6)	
 	yticks([0, len(pairs)-1], [1, len(pairs)], fontsize = 6)
