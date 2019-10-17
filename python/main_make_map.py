@@ -7,9 +7,9 @@ from functions import *
 import sys, os
 from sklearn.manifold import TSNE
 
-data_directory = '../data/A1400/A1407/'
+# data_directory = '../data/A1400/A1407/'
 
-# data_directory	= '/mnt/DataGuillaume/LMN/A1407/'
+data_directory	= '/mnt/DataGuillaume/LMN/A1407/'
 
 info 				= pd.read_csv(os.path.join(data_directory,'A1407.csv'), index_col = 0)
 

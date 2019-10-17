@@ -9,9 +9,10 @@ from sklearn.manifold import TSNE
 import matplotlib.gridspec as gridspec
 from umap import UMAP
 from sklearn.decomposition import PCA
+import _pickle as cPickle
 
-# data_directory 		= '/mnt/DataGuillaume/LMN/A1407'
-data_directory 		= '../data/A1400/A1407'
+data_directory 		= '/mnt/DataGuillaume/LMN/A1407'
+# data_directory 		= '../data/A1400/A1407'
 info 				= pd.read_csv(os.path.join(data_directory,'A1407.csv'), index_col = 0)
 
 # sessions = ['A1407-190416', 'A1407-190417']
@@ -118,13 +119,24 @@ for s in sessions:
 allahv = pd.concat(allahv, 1)
 
 
-tmp = allahv.loc[-2:2].values
-tmp = tmp - tmp.mean(0)
-tmp = tmp / tmp.std(0)
+tmp1 = allahv.loc[-2:2].values
+tmp1 = tmp1 - tmp1.mean(0)
+# tmp1 = tmp1 / tmp1.std(0)
 
+# ADDING AD AHV TUNING CURVES
+AD_data = cPickle.load(open('../figures/figures_poster_2019/Data_AD_Mouse32-140822.pickle', 'rb'))
 
+ad_ahv = AD_data['ahvcurves']
+ad_ahv = ad_ahv.rolling(window=10,win_type='gaussian',center=True,min_periods=1).mean(std=2.0)
+tmp2 = ad_ahv.loc[-2:2].values
+tmp2 = tmp2 - tmp2.mean(0)
+# tmp2 = tmp2 / tmp2.std(0)
 
-ump = UMAP(n_neighbors = 20, n_components = 2, min_dist = 0.1).fit_transform(tmp.T)
+tmp = np.hstack((tmp1, tmp2))
+
+nucleus = np.hstack((np.zeros(tmp1.shape[1]), np.ones(tmp2.shape[1])))
+
+ump = UMAP(n_neighbors = 10, n_components = 2, min_dist = 0.5).fit_transform(tmp.T)
 
 from sklearn.cluster import KMeans
 

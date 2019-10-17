@@ -301,29 +301,34 @@ def computeOccupancy(position_tsd, nb_bins = 100):
     occupancy, _, _ = np.histogram2d(ypos, xpos, [ybins,xbins])
     return occupancy
 
-def computeAngularVelocityTuningCurves(spikes, angle, ep, nb_bins = 20, bin_size = 100000):
-	tmp 			= pd.Series(index = angle.index.values, data = np.unwrap(angle.values))	
-	tmp2 			= tmp.rolling(window=100,win_type='gaussian',center=True,min_periods=1).mean(std=30.0)		
+def computeAngularVelocityTuningCurves(spikes, angle, ep, nb_bins = 31, bin_size = 10000, norm=True):
+	tmp 			= pd.Series(index = angle.index.values, data = np.unwrap(angle.values))
+	tmp2 			= tmp.rolling(window=100,win_type='gaussian',center=True,min_periods=1).mean(std=30.0)
 	time_bins		= np.arange(tmp.index[0], tmp.index[-1]+bin_size, bin_size) # assuming microseconds
 	index 			= np.digitize(tmp2.index.values, time_bins)
 	tmp3 			= tmp2.groupby(index).mean()
-	tmp3.index 		= time_bins[np.unique(index)-1]+50000
+	tmp3.index 		= time_bins[np.unique(index)-1]+bin_size/2
 	tmp3 			= nts.Tsd(tmp3)
 	tmp4			= np.diff(tmp3.values)/np.diff(tmp3.as_units('s').index.values)
-	velocity 		= nts.Tsd(t=tmp3.index.values[1:], d = tmp4)
-	velocity 		= velocity.restrict(ep)
-	# bins 			= np.linspace(-3*np.pi/2, 3*np.pi/2, nb_bins)
+	tmp2 			= nts.Tsd(tmp2)
+	tmp4			= np.diff(tmp2.values)/np.diff(tmp2.as_units('s').index.values)	
+	velocity 		= nts.Tsd(t=tmp2.index.values[1:], d = tmp4)
+	velocity 		= velocity.restrict(ep)	
 	bins 			= np.linspace(-np.pi, np.pi, nb_bins)
 	idx 			= bins[0:-1]+np.diff(bins)/2
 	velo_curves		= pd.DataFrame(index = idx, columns = np.arange(len(spikes)))
+
 	for k in spikes:
 		spks 		= spikes[k]
 		spks 		= spks.restrict(ep)
 		speed_spike = velocity.realign(spks)
 		spike_count, bin_edges = np.histogram(speed_spike, bins)
-		occupancy, _ = np.histogram(velocity, bins)
+		occupancy, _ = np.histogram(velocity.restrict(ep), bins)
 		spike_count = spike_count/(occupancy+1)
 		velo_curves[k] = spike_count*(1/(bin_size*1e-6))
+		# normalizing by firing rate 
+		if norm:
+			velo_curves[k] = velo_curves[k]/(len(spikes[k].restrict(ep))/ep.tot_length('s'))
 
 	return velo_curves
 
