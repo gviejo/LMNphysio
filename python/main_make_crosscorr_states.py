@@ -64,7 +64,7 @@ for s in sessions:
 	###############################################################################################
 	cc_wak = compute_CrossCorrs(spikes, wake_ep)
 	cc_rem = compute_CrossCorrs(spikes, rem_ep)
-	cc_sws = compute_CrossCorrs(spikes, sws_ep, 1, 200)
+	cc_sws = compute_CrossCorrs(spikes, sws_ep, 0.25, 200)
 
 	cc_wak = cc_wak.rolling(window=10, win_type='gaussian', center = True, min_periods = 1).mean(std = 2.0)
 	cc_rem = cc_rem.rolling(window=10, win_type='gaussian', center = True, min_periods = 1).mean(std = 2.0)
@@ -220,68 +220,5 @@ show()
 
 
 sys.exit()
-
-############################################################################################### 
-# PLOT
-###############################################################################################
-
-
-figure()
-for i in spikes:
-	subplot(3,5,i+1, projection = 'polar')
-	plot(tuning_curves[1][i], label = str(shank[i]))
-	legend()
-show()
-
-
-
-figure()
-subplot(121)
-plot(velocity)
-subplot(122)
-hist(velocity, 1000)
-[axvline(e) for e in edges[1:-1]]
-
-
-figure()
-style = ['--', '-', '--']
-colors = ['black', 'red', 'black']
-alphas = [0.7, 1, 0.7]
-for i in spikes:
-	subplot(6,7,i+1)
-	for j in range(3):
-	# for j in [1]:
-		tmp = tuning_curves[j][i] #- mean_frate.loc[i,'wake']
-		plot(tmp, linestyle = style[j], color = colors[j], alpha = alphas[j])
-	title(str(shank[i]))
-
-
-
-figure()
-for i in spikes:
-	subplot(6,7,i+1)
-	plot(autocorr_wake[i], label = str(shank[i]))
-	plot(autocorr_sleep[i])
-	legend()
-
-figure()
-for i in spikes:
-	subplot(6,7,i+1)
-	plot(velo_curves[i], label = str(shank[i]))
-	legend()
-
-figure()
-for i in spikes:
-	subplot(6,7,i+1)
-	imshow(spatial_curves[i])
-	colorbar()
-
-figure()
-for i in spikes:
-	subplot(6,7,i+1)
-	plot(speed_curves[i], label = str(shank[i]))
-	legend()
-
-show()
 
 
