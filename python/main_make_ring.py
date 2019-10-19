@@ -7,11 +7,11 @@ from functions import *
 from umap import UMAP
 import sys
 from matplotlib.colors import hsv_to_rgb
-
+import hsluv
 
 
 # path 								= '/mnt/DataGuillaume/LMN/A1407/A1407-190416'
-path 								= '../data/A1400/A1407/A1407-190411'
+path 								= '../data/A1400/A1407/A1407-190416'
 
 episodes = ['sleep', 'wake', 'sleep']
 events = [1]
@@ -36,9 +36,9 @@ neurons 							= np.sort(list(spikes.keys()))[tokeep]
 ####################################################################################################################
 # BIN WAKE
 ####################################################################################################################
-bin_size = 50
-# bins = np.arange(wake_ep.as_units('ms').start.iloc[0], wake_ep.as_units('ms').end.iloc[-1]+bin_size, bin_size)
-bins = np.arange(sleep_ep.as_units('ms').start.iloc[0], sleep_ep.as_units('ms').end.iloc[-1]+bin_size, bin_size)
+bin_size = 300
+bins = np.arange(wake_ep.as_units('ms').start.iloc[0], wake_ep.as_units('ms').end.iloc[-1]+bin_size, bin_size)
+
 spike_counts = pd.DataFrame(index = bins[0:-1]+np.diff(bins)/2, columns = neurons)
 for i in neurons:
 	spks = spikes[i].as_units('ms').index.values
@@ -46,15 +46,16 @@ for i in neurons:
 
 rate = np.sqrt(spike_counts/(bin_size*1e-3))
 
-# angle = position['ry']
-# wakangle = pd.Series(index = np.arange(len(bins)-1))
-# tmp = angle.groupby(np.digitize(angle.as_units('ms').index.values, bins)-1).mean()
-# wakangle.loc[tmp.index] = tmp
-# wakangle.index = pd.Index(bins[0:-1] + np.diff(bins)/2.)
-# H = wakangle.values/(2*np.pi)
-# HSV = np.vstack((H, np.ones_like(H), np.ones_like(H))).T
+angle = position['ry']
+wakangle = pd.Series(index = np.arange(len(bins)-1))
+tmp = angle.groupby(np.digitize(angle.as_units('ms').index.values, bins)-1).mean()
+wakangle.loc[tmp.index] = tmp
+wakangle.index = pd.Index(bins[0:-1] + np.diff(bins)/2.)
+H = wakangle.values/(2*np.pi)
+HSV = np.vstack((H, np.ones_like(H), np.ones_like(H))).T
 # RGB = hsv_to_rgb(HSV)
 
+RGB = np.array([hsluv.hsluv_to_rgb(HSV[i]) for i in range(len(HSV))])
 # sys.exit()
 
 
@@ -63,12 +64,16 @@ tmp = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axi
 
 ump = UMAP(n_neighbors = 500, min_dist = 1).fit_transform(tmp)
 figure()
-scatter(ump[:,0], ump[:,1], c= RGB, marker = '.', alpha = 0.5, linewidth = 0, s = 100)
+scatter(ump[:,0], ump[:,1], c= RGB, marker = 'o', alpha = 0.5, linewidth = 0, s = 100)
 
 show()
 
 
+datatosave = {'ump':ump,
+				'wakangle':wakangle}
 
+import _pickle as cPickle
+cPickle.dump(datatosave, open('../figures/figures_poster_2019/fig_4_ring_lmn.pickle', 'wb'))
 
 # from sklearn.manifold import Isomap
 # imap = Isomap(n_neighbors = 100, n_components = 2).fit_transform(tmp)
