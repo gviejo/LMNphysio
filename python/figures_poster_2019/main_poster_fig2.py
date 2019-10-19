@@ -31,7 +31,7 @@ info 				= pd.read_csv(os.path.join(data_directory,'A1407.csv'), index_col = 0)
 
 session = 'A1407-190416'
 
-data = cPickle.load(open('../../figures/figures_poster_2019/fig_2_crosscorr_glm.pickle', 'rb'))
+data = cPickle.load(open('../../figures/figures_poster_2019/fig_2_crosscorr.pickle', 'rb'))
 
 tcurves		 		= data['tcurves']
 pairs 				= data['pairs']
@@ -46,6 +46,8 @@ idx = [n for n in pairs.index.values if session in n[0] and session in n[1]]
 pairs = pairs.loc[idx]
 groups = pairs.groupby(np.digitize(pairs, [0, np.pi/3, 2*np.pi/3, np.pi])-1).groups
 
+tcurves = smoothAngularTuningCurves(tcurves, window = 20, deviation = 3.0)
+
 # data = cPickle.load(open('../../figures/figures_poster_2019/fig_1_decoding.pickle', 'rb'))
 
 # tcurves = data['tcurves']
@@ -54,7 +56,7 @@ groups = pairs.groupby(np.digitize(pairs, [0, np.pi/3, 2*np.pi/3, np.pi])-1).gro
 
 # neurons = tcurves.columns.values
 
-pair_index = [2, 0, 0]
+pair_index = [1, 2, 2]
 
 
 ###############################################################################################################
@@ -65,7 +67,7 @@ def figsize(scale):
 	inches_per_pt = 1.0/72.27                       # Convert pt to inch
 	golden_mean = (np.sqrt(5.0)-1.0)/2.0            # Aesthetic ratio (you could change this)
 	fig_width = fig_width_pt*inches_per_pt*scale    # width in inches
-	fig_height = fig_width*golden_mean*1.2          # height in inches
+	fig_height = fig_width*golden_mean*1.4          # height in inches
 	fig_size = [fig_width,fig_height]
 	return fig_size
 
@@ -153,15 +155,15 @@ for i, epoch, cc in zip(range(3), ['WAKE', 'REM', 'NREM'], [cc_wak, cc_rem, cc_s
 		simpleaxis(gca())
 		# plot(cc[nn])
 		tmp = cc[nn]
-
-		# fill_between(tmp.index.values, np.zeros_like(tmp.values), tmp.values, color = 'grey', alpha = 0.6, linewidth = 0)
-		plot(tmp.index.values, tmp.values, color = 'grey')
+		tmp = tmp.rolling(window=10,win_type='gaussian',center=True,min_periods=1).mean(std=2)
+		fill_between(tmp.index.values, np.zeros_like(tmp.values), tmp.values, color = 'grey', alpha = 0.6, linewidth = 0)
+		# plot(tmp.index.values, tmp.values, color = 'grey')
 		xticks(fontsize = 6)
 		yticks(fontsize = 6)
 		if j == 0:
 			ylabel(epoch)
 		if i == 2:
-			xlabel("Time lag (ms)", labelpad = -0.8, fontsize = 7)
+			xlabel("Time lag (ms)",fontsize = 7)
 
 
 
@@ -176,8 +178,8 @@ slope, intercept, r, p, stderr = linregress(np.log(frates['wake'].values), np.lo
 x = np.arange(np.log(frates['wake'].values.min()), np.log(frates['wake'].values.max()+10))
 y = slope*x + intercept
 loglog(np.exp(x), np.exp(y), color = 'red', alpha = 0.6, linewidth = 1)
-xlabel("Wake Firing rate (Hz)", fontsize =6, labelpad = -0.5)
-ylabel("REM Firing rate (Hz)", fontsize = 6)
+xlabel("Wake Firing rate (Hz)", fontsize =7, labelpad = -0.5)
+ylabel("REM Firing rate (Hz)", fontsize = 7)
 xticks(fontsize=6)
 yticks(fontsize=6)
 
@@ -188,8 +190,8 @@ slope, intercept, r, p, stderr = linregress(np.log(frates['wake'].values), np.lo
 x = np.arange(np.log(frates['wake'].values.min()), np.log(frates['wake'].values.max()+10))
 y = slope*x + intercept
 loglog(np.exp(x), np.exp(y), color = 'red', alpha = 0.6, linewidth = 1)
-xlabel("Wake Firing rate (Hz)", fontsize =6, labelpad = -0.5)
-ylabel("NREM Firing rate (Hz)", fontsize = 6)
+xlabel("Wake Firing rate (Hz)", fontsize = 7, labelpad = -0.5)
+ylabel("NREM Firing rate (Hz)", fontsize = 7)
 xticks(fontsize=6)
 yticks(fontsize=6)
 
@@ -215,13 +217,14 @@ for i, epoch, cc in zip(range(3), ['WAKE', 'REM', 'NREM'], [cc_wak, cc_rem, cc_s
 	tmp = cc[pairs.index]
 	tmp = tmp - tmp.mean(0)
 	tmp = tmp / tmp.std(0)
-	tmp = scipy.ndimage.gaussian_filter(tmp.T, (0.1, 0.1))
+	tmp = scipy.ndimage.gaussian_filter(tmp.T, (1, 1))
+
 	imshow(tmp, aspect = 'auto', cmap = 'jet', interpolation = 'bilinear')
 	times = cc.index.values
-	xticks([0, np.where(times==0)[0], len(times)], [times[0], 0, times[-1]], fontsize = 6)	
+	xticks([0, np.where(times==0)[0], len(times)], [int(times[0]), 0, int(times[-1])], fontsize = 6)	
 	yticks([0, len(pairs)-1], [1, len(pairs)], fontsize = 6)
-	title(epoch, pad = -1)
-	xlabel("Time lag (ms)", labelpad = -0.8, fontsize = 7)
+	title(epoch)
+	xlabel("Time lag (ms)", fontsize = 7)
 
 
 
