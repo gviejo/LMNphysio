@@ -103,7 +103,7 @@ H = ang_adn.values/(2*np.pi)
 HSV = np.vstack((H*360, np.ones_like(H)*85, np.ones_like(H)*45)).T
 RGB = np.array([hsluv.hsluv_to_rgb(HSV[i]) for i in range(len(HSV))])
 
-ax.scatter(ump_adn[~np.isnan(H),0]*0.4+6, ump_adn[~np.isnan(H),1]*0.5+6, c = RGB[~np.isnan(H)], marker = '.', alpha = 0.9, linewidth = 0, s= 40, zorder = 3)
+ax.scatter(ump_adn[~np.isnan(H),0]*0.4+8, ump_adn[~np.isnan(H),1]*0.5+5, c = RGB[~np.isnan(H)], marker = '.', alpha = 0.9, linewidth = 0, s= 40, zorder = 3)
 
 
 H = ang_lmn.values/(2*np.pi)
@@ -116,15 +116,15 @@ ax.scatter(ump_lmn[~np.isnan(H),0]*0.4, ump_lmn[~np.isnan(H),1]*1, c = RGB[~np.i
 
 ax.text(7.5, -14,  "LMn", fontsize = 20, fontweight='bold')
 
-ax.text(0, 6, "ADn", fontsize = 20, fontweight='bold')
+ax.text(2, 6, "ADn", fontsize = 20, fontweight='bold')
 
-ax.text(5.5, -2,  "?", fontsize = 20, fontweight='bold')
+ax.text(6, -4,  "?", fontsize = 20, fontweight='bold')
 
 x, y = (np.mean(ump_lmn[:,0]*0.4), np.mean(ump_lmn[:,1]*1))
 # ax.arrow(x, y, x+1, y+1)
-x2, y2 = (np.mean(ump_adn[:,0]*0.4+6), np.mean(ump_adn[:,1]*0.5+6))
+x2, y2 = (np.mean(ump_adn[:,0]*0.4+8), np.mean(ump_adn[:,1]*0.5+5))
 
-ax.annotate("", xy=(x2, y2), xytext=(x, y), arrowprops=dict(arrowstyle="-|>",lw=2), zorder = 2, alpha = 0.6)
+ax.annotate("", xy=(x2, y2), xytext=(x, y), arrowprops=dict(arrowstyle="-|>",lw=2),  zorder = 2, alpha = 0.6)
 
 
 # a = Arrow3D([8, 1], [-10, 1], 
