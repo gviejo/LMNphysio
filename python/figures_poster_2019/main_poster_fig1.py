@@ -37,8 +37,10 @@ good_exs_wake = [nts.IntervalSet(start = [4.96148e+09], end = [4.99755e+09]),
 
 good_exs_rem = [nts.IntervalSet(start = [8.94993e+09], end = [8.96471e+09])]
 
-good_exs_sws = [nts.IntervalSet(start = [8.4855e+09], end = [8.48773e+09]),
-				nts.IntervalSet(start = [8.36988e+09], end = [8.37194e+09])]
+# good_exs_sws = [nts.IntervalSet(start = [8.4855e+09], end = [8.48773e+09]),
+# 				nts.IntervalSet(start = [8.36988e+09], end = [8.37194e+09])]
+
+good_exs_sws = [nts.IntervalSet(start = [8.36988e+09], end = [8.37194e+09])]
 
 
 data = cPickle.load(open('../../figures/figures_poster_2019/fig_1_decoding.pickle', 'rb'))
@@ -84,7 +86,7 @@ def figsize(scale):
 	inches_per_pt = 1.0/72.27                       # Convert pt to inch
 	golden_mean = (np.sqrt(5.0)-1.0)/2.0            # Aesthetic ratio (you could change this)
 	fig_width = fig_width_pt*inches_per_pt*scale    # width in inches
-	fig_height = fig_width*golden_mean*1.2          # height in inches
+	fig_height = fig_width*golden_mean*1.25          # height in inches
 	fig_size = [fig_width,fig_height]
 	return fig_size
 
@@ -175,7 +177,7 @@ for i, n in enumerate(neurons):
 ####################################################################
 # B DECODING
 ####################################################################
-gs_right = gridspec.GridSpecFromSubplotSpec(3,1, subplot_spec = outergs[0,1], hspace = 0.2)#, width_ratios = [0.1, 0.5, 0.5, 0.5], height_ratios = [0.2, 0.8], hspace = 0)
+gs_right = gridspec.GridSpecFromSubplotSpec(3,1, subplot_spec = outergs[0,1], hspace = 0.25)#, width_ratios = [0.1, 0.5, 0.5, 0.5], height_ratios = [0.2, 0.8], hspace = 0)
 
 
 for i, angle2, epoch, ex_ep in zip(range(3), [angle_wak, angle_rem, angle_sws], ['WAKE', 'REM', 'NREM'], [good_exs_wake, good_exs_rem, good_exs_sws]):
@@ -183,7 +185,7 @@ for i, angle2, epoch, ex_ep in zip(range(3), [angle_wak, angle_rem, angle_sws], 
 	if epoch is 'WAKE':
 		gs2 = gridspec.GridSpecFromSubplotSpec(1,1, subplot_spec = gs_right[i,:])#, width_ratios = [0.1, 0.5, 0.5, 0.5], height_ratios = [0.2, 0.8], hspace = 0)	
 	elif epoch in ['REM', 'NREM']:
-		gs2 = gridspec.GridSpecFromSubplotSpec(3,1, subplot_spec = gs_right[i,:], height_ratios = [0.1, 0.1, 0.8])#, width_ratios = [0.1, 0.5, 0.5, 0.5], height_ratios = [0.2, 0.8], hspace = 0)	
+		gs2 = gridspec.GridSpecFromSubplotSpec(3,1, subplot_spec = gs_right[i,:], height_ratios = [0.2, 0.1, 0.8])#, width_ratios = [0.1, 0.5, 0.5, 0.5], height_ratios = [0.2, 0.8], hspace = 0)	
 
 
 	if epoch is 'WAKE':
@@ -224,7 +226,7 @@ for i, angle2, epoch, ex_ep in zip(range(3), [angle_wak, angle_rem, angle_sws], 
 		plot(spk.restrict(ex_ep[0]).fillna(peaks[n]), '|', color = clr, markeredgewidth = 1, markersize = 3)
 	ylim(0, 2*np.pi)
 	yticks([0, np.pi, 2*np.pi], ['0', r"$\pi$", r"$2\pi$"])
-	ylabel(epoch)
+	ylabel(epoch, rotation = 0, weight="bold", labelpad = 10, y = 0.75)
 	xlim(ex_ep[0].loc[0].values)
 	if epoch == 'WAKE':
 		xt = np.arange(ex_ep[0].loc[0,'start'], ex_ep[0].loc[0,'end'], 15*1e6)
@@ -245,7 +247,7 @@ for i, angle2, epoch, ex_ep in zip(range(3), [angle_wak, angle_rem, angle_sws], 
 
 		subplot(gs2[0,:])
 		noaxis(gca())
-		plot(lfp.restrict(ex_ep[0]), color = 'black', linewidth = 1)
+		plot(lfp.restrict(ex_ep[0]), color = 'black', linewidth = 0.6)
 		xlim(ex_ep[0].loc[0].values)
 
 		subplot(gs2[1,:])
