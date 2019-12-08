@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from scipy.io import loadmat
 import sys, os
+sys.path.append('../')
 from functions import *
 from wrappers import *
 import h5py
@@ -52,7 +53,8 @@ def loadPosition(path, ttl, names = ['ry', 'rx', 'rz', 'x', 'y', 'z']):
 	return position
 
 
-path = '/home/guillaume/miniscoPy/A0624/12_3_2019'
+# path = '/home/guillaume/miniscoPy/A0624/12_3_2019'
+path = '/mnt/DataGuillaume/MINISCOPE/A0624/12_3_2019/H16_M35_S46/A0624'
 
 ##########################################################################################
 # LOAD TTL PULSES
@@ -92,7 +94,7 @@ bins = np.linspace(0, 2*np.pi, 120)
 tcurves = C.iloc[0:-1].groupby(np.digitize(angle2, bins)-1).sum()
 tcurves.index = pd.Index(bins[0:-1]+np.diff(bins))
 occupancy,_ = np.histogram(angle2.values, bins)
-tcurves = tcurves/np.vstack(occupancy)
+# tcurves = tcurves/np.vstack(occupancy)
 
 tcurves = smoothAngularTuningCurves(tcurves, window = 20, deviation = 3.0)
 ##########################################################################################
@@ -100,5 +102,7 @@ tcurves = smoothAngularTuningCurves(tcurves, window = 20, deviation = 3.0)
 ##########################################################################################
 figure()
 for i in range(tcurves.shape[1]):
-	subplot(7,10,i+1)#, projection = 'polar')
+	subplot(7,10,i+1, projection = 'polar')
 	plot(tcurves[i])
+
+show()
