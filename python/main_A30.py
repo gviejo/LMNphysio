@@ -14,9 +14,9 @@ data_directory = '/mnt/DataGuillaume/PostSub/A3003/A3003-190516A'
 # episodes = ['sleep', 'wake', 'sleep', 'wake', 'sleep']
 # episodes = ['sleep', 'wake', 'sleep']
 # episodes = ['sleep', 'wake', 'sleep']
-episodes = ['wake']
+episodes = ['sleep', 'wake']
 # events = ['1', '3']
-events = ['0']
+events = ['1']
 
 
 
