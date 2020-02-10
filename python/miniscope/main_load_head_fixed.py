@@ -3,10 +3,13 @@ import pandas as pd
 from scipy.io import loadmat
 import sys, os
 sys.path.append('../')
-from functions import *
-from wrappers import *
+import hsluv
+from msfunctions import *
+# from wrappers import *
 import h5py
 from pylab import *
+from scipy.ndimage import gaussian_filter1d
+import scipy
 import neuroseries as nts
 
 def loadTTLPulse(file, n_channels = 2, fs = 20000, track = 0, mscope = 1):
@@ -35,31 +38,8 @@ def loadTTLPulse(file, n_channels = 2, fs = 20000, track = 0, mscope = 1):
 
     return ttl_track, ttl_mscope
 
-def loadPosition(path, ttl, names = ['ry', 'rx', 'rz', 'x', 'y', 'z']):
-    files = os.listdir(path)    
-    csv_file = os.path.join(path, "".join(s for s in files if '.csv' in s))
-    position = pd.read_csv(csv_file, header = [4,5], index_col = 1)
-    if 1 in position.columns:
-        position = position.drop(labels = 1, axis = 1)
-    position = position[~position.index.duplicated(keep='first')]
-    position.columns = names
-    length = np.minimum(len(ttl), len(position))
-    position = position.iloc[0:length]
-    ttl = ttl.iloc[0:length]
-    position.index = pd.Index(ttl.index[0:length])
-    position[['ry', 'rx', 'rz']] *= (np.pi/180)
-    position[['ry', 'rx', 'rz']] += 2*np.pi
-    position[['ry', 'rx', 'rz']] %= 2*np.pi
-    return position
 
-
-<<<<<<< Updated upstream
-path = '/home/guillaume/miniscoPy/A0624/12_3_2019_good'
-# path = '/mnt/DataGuillaume/MINISCOPE/A0624/12_3_2019/H16_M35_S46'
-=======
-# path = '/home/guillaume/miniscoPy/A0624/12_3_2019_good'
-path = '/mnt/DataGuillaume/MINISCOPE/A0624/12_3_2019/H16_M35_S46'
->>>>>>> Stashed changes
+path = '/mnt/DataRAID/MINISCOPE/A0624/12_18_2019/H14_M47_S41/'
 
 ##########################################################################################
 # LOAD TTL PULSES
@@ -75,7 +55,7 @@ for k, v in f.items():
     ms[k] = np.array(v)
 
 C = ms['RawTraces'].T
-C = pd.DataFrame(index = ttl_mscope.index, data = C[0:len(ttl_mscope)])
+C = pd.DataFrame(index = ttl_mscope.index[0:np.minimum(len(ttl_mscope),len(C))], data = C[0:np.minimum(len(ttl_mscope),len(C))])
 C =  C.rolling(window=1000,win_type='gaussian',center=True,min_periods=1).mean(std=100.0)   
 Co = C.copy()
 C = pd.DataFrame(index = C.index.values[0:-1], data = np.diff(C, axis = 0)/C.values[0:-1])
@@ -87,6 +67,7 @@ A = ms['SFPs']
 ##########################################################################################
 position = loadPosition(path, ttl_track)
 
+
 ##########################################################################################
 # CALCIUM TUNING CURVES
 ##########################################################################################
@@ -97,14 +78,13 @@ angle2.index = pd.Index(C.index.values[0:-1])
 angle2 = angle2.rolling(window=100,win_type='gaussian',center=True,min_periods=1).mean(std=2.0) 
 angle2  = angle2%(2*np.pi)
 
-bins = np.linspace(0, 2*np.pi, 60)
+bins = np.linspace(0, 2*np.pi, 31)
 tcurves = []
 for i in C:
     tmp = C[i].loc[angle2.index].groupby(np.digitize(angle2.values, bins)-1).mean()
-    tmp.index = pd.Index(bins[0:-1]+np.diff(bins))
-    occupancy,_ = np.histogram(angle2.values, bins)
-    occupancy = occupancy/120
-    tcurves.append(tmp)
+    tmp2 = pd.Series(index = pd.Index(bins[0:-1]+np.diff(bins)), data = 0)
+    tmp2.iloc[tmp.index] = tmp.values    
+    tcurves.append(tmp2)
 
 tcurves = pd.concat(tcurves, 1)
 
@@ -138,7 +118,6 @@ for i in range(tcurves.shape[1]):
     plot(tcurves[i])
 
 
-<<<<<<< Updated upstream
 # figure(figsize = (15,5))
 # subplot(121)
 # imshow(A.sum(0).T)
@@ -150,18 +129,9 @@ for i in range(tcurves.shape[1]):
 # ylabel("Neurons")
 # xlabel("Time (s)")
 # savefig("A0624_12_3_2019.pdf", dpi = 300)
-=======
-figure(figsize = (15,5))
-subplot(121)
-imshow(A.sum(0).T)
-title("Spatial footprints")
-subplot(122)
-for i in C:
-    plot(C[i]+i)
-title("Calcium activity")
-ylabel("Neurons")
-xlabel("Time (s)")
-savefig("A0624_12_3_2019.pdf", dpi = 300)
->>>>>>> Stashed changes
 
 
+# HEAD FIXED data
+
+hfdata = pd.read_table('A0624_01.dat', header = None, skiprows=12, dtype = int, index_col = [0])
+hfdata = hfdata[~hfdata.index.duplicated(keep='last')]

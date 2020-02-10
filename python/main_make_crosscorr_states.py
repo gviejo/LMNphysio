@@ -5,12 +5,12 @@ from pylab import *
 from wrappers import *
 from functions import *
 import sys
-from pycircstat.descriptive import mean as circmean
+# from pycircstat.descriptive import mean as circmean
 import _pickle as cPickle
 
 
-# data_directory 		= '/mnt/DataGuillaume/LMN/A1407'
-data_directory 		= '../data/A1400/A1407'
+data_directory 		= '/mnt/DataGuillaume/LMN/A1407'
+# data_directory 		= '../data/A1400/A1407'
 info 				= pd.read_csv(os.path.join(data_directory,'A1407.csv'), index_col = 0)
 
 sessions = ['A1407-190416', 'A1407-190417', 'A1407-190422']
@@ -24,6 +24,8 @@ allfrates = []
 allvcurves = []
 allscurves = []
 allpeaks = []
+
+sys.exit()
 
 for s in sessions:
 	path = os.path.join(data_directory, s)

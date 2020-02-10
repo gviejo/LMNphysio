@@ -127,7 +127,7 @@ def compute_AutoCorrs(spks, ep, binsize = 5, nbins = 200):
 	autocorrs.loc[0] = 0.0
 	return autocorrs, firing_rates
 
-def compute_CrossCorrs(spks, ep, binsize=10, nbins = 2000):
+def compute_CrossCorrs(spks, ep, binsize=10, nbins = 2000, norm = False):
 	"""
 		
 	"""	
@@ -140,8 +140,10 @@ def compute_CrossCorrs(spks, ep, binsize=10, nbins = 2000):
 		spk2 = spks[j].restrict(ep).as_units('ms').index.values		
 		tmp = crossCorr(spk1, spk2, binsize, nbins)		
 		fr = len(spk2)/ep.tot_length('s')
-		cc[(i,j)] = tmp/fr
-
+		if norm:
+			cc[(i,j)] = tmp/fr
+		else:
+			cc[(i,j)] = tmp
 	return cc
 
 
@@ -204,7 +206,7 @@ def computeAngularTuningCurves(spikes, angle, ep, nb_bins = 180, frequency = 120
 
 	return tuning_curves
 
-def findHDCells(tuning_curves, z = 10, p = 0.001 , m = 1):
+def findHDCells(tuning_curves, z = 10, p = 0.000001 , m = 1):
 	"""
 		Peak firing rate larger than 1
 		and Rayleigh test p<0.001 & z > 100
@@ -281,7 +283,7 @@ def computePlaceFields(spikes, position, ep, nb_bins = 100, frequency = 120.0):
 	xpos = position_tsd.iloc[:,0]
 	ypos = position_tsd.iloc[:,1]
 	xbins = np.linspace(xpos.min(), xpos.max()+1e-6, nb_bins+1)
-	ybins = np.linspace(ypos.min(), ypos.max()+1e-6, nb_bins+1)	
+	ybins = np.linspace(ypos.min(), ypos.max()+1e-6, nb_bins+1)
 	for n in spikes:
 		position_spike = position_tsd.realign(spikes[n].restrict(ep))
 		spike_count,_,_ = np.histogram2d(position_spike.iloc[:,1].values, position_spike.iloc[:,0].values, [ybins,xbins])

@@ -75,7 +75,7 @@ def loadSpikeData(path, index=None, fs = 20000):
         sys.exit()
     count = 0    
     spikes = []
-    for i in range(len(clu_files)):
+    for i, s in zip(range(len(clu_files)),clu1):
         clu = np.genfromtxt(os.path.join(path,clu_files[i]),dtype=np.int32)[1:]
         if np.max(clu)>1:
 	        res = np.genfromtxt(os.path.join(path,res_files[i]))
@@ -83,11 +83,11 @@ def loadSpikeData(path, index=None, fs = 20000):
 	        idx_clu = tmp[tmp>1]
 	        idx_col = np.arange(count, count+len(idx_clu))	        
 	        tmp = pd.DataFrame(index = np.unique(res)/fs, 
-	        					columns = pd.MultiIndex.from_product([[i],idx_col]),
+	        					columns = pd.MultiIndex.from_product([[s],idx_col]),
 	        					data = 0, 
 	        					dtype = np.int32)
 	        for j, k in zip(idx_clu, idx_col):
-	        	tmp.loc[res[clu==j]/fs,(i,k)] = k+1
+	        	tmp.loc[res[clu==j]/fs,(s,k)] = k+1
 	        spikes.append(tmp)
 	        count+=len(idx_clu)
 
@@ -438,7 +438,7 @@ def loadTTLPulse(file, n_channels = 1, fs = 20000):
     ttl = pd.Series(index = timestep[peaks], data = data[peaks])    
     return ttl
 
-def loadAuxiliary(path, fs = 20000):
+def loadAuxiliary(path, n_probe = 1, fs = 20000):
 	"""
 	Extract the acceleration from the auxiliary.dat for each epochs
 	Downsampled at 100 Hz
@@ -472,10 +472,10 @@ def loadAuxiliary(path, fs = 20000):
 			startoffile = f.seek(0, 0)
 			endoffile 	= f.seek(0, 2)
 			bytes_size 	= 2
-			n_samples 	= int((endoffile-startoffile)/3/bytes_size)
+			n_samples 	= int((endoffile-startoffile)/(3*n_probe)/bytes_size)
 			duration 	= n_samples/fs		
 			f.close()
-			tmp 		= np.fromfile(open(new_path, 'rb'), np.uint16).reshape(n_samples,3)
+			tmp 		= np.fromfile(open(new_path, 'rb'), np.uint16).reshape(n_samples,3*n_probe)
 			accel.append(tmp)
 			sample_size.append(n_samples)
 
