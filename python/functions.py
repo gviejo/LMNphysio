@@ -146,6 +146,23 @@ def compute_CrossCorrs(spks, ep, binsize=10, nbins = 2000, norm = False):
 			cc[(i,j)] = tmp
 	return cc
 
+def compute_PairsCrossCorr(spks, ep, pair, binsize=10, nbins = 2000, norm = False):
+	"""
+		
+	"""		
+	times = np.arange(0, binsize*(nbins+1), binsize) - (nbins*binsize)/2	
+	spk1 = spks[pair[0]].restrict(ep).as_units('ms').index.values
+	spk2 = spks[pair[1]].restrict(ep).as_units('ms').index.values		
+	tmp = crossCorr(spk1, spk2, binsize, nbins)		
+	fr = len(spk2)/ep.tot_length('s')
+	tmp = pd.Series(index = times, data = tmp)
+	if norm:
+		tmp = tmp/fr
+	else:
+		tmp = tmp
+	return tmp
+
+
 
 #########################################################
 # VARIOUS
@@ -277,7 +294,7 @@ def decodeHD(tuning_curves, spikes, ep, bin_size = 200, px = None):
 	decoded = nts.Tsd(t = proba_angle.index.values, d = proba_angle.idxmax(1).values, time_units = 'ms')
 	return decoded, proba_angle, spike_counts
 
-def computePlaceFields(spikes, position, ep, nb_bins = 100, frequency = 120.0):
+def computePlaceFields(spikes, position, ep, nb_bins = 200, frequency = 120.0):
 	place_fields = {}
 	position_tsd = position.restrict(ep)
 	xpos = position_tsd.iloc[:,0]
@@ -379,6 +396,31 @@ def computeSpeedTuningCurves(spikes, position, ep, bin_size = 0.1, nb_bins = 20,
 
 	return speed_curves
 
+def computeAccelerationTuningCurves(spikes, position, ep, bin_size = 0.1, nb_bins = 40):
+	time_bins 	= np.arange(position.index[0], position.index[-1]+bin_size*1e6, bin_size*1e6)
+	index 		= np.digitize(position.index.values, time_bins)
+	tmp 		= position.groupby(index).mean()
+	tmp.index 	= time_bins[np.unique(index)-1]+(bin_size*1e6)/2
+	distance	= np.sqrt(np.power(np.diff(tmp['x']), 2) + np.power(np.diff(tmp['z']), 2))
+	speed 		= nts.Tsd(t = tmp.index.values[0:-1]+ bin_size/2, d = distance/bin_size)
+	speed 		= speed.restrict(ep)
+	speed 		= speed.as_series()
+	speed2 		= speed.rolling(window=10, win_type='gaussian', center= True, min_periods=1).mean(std = 1.0)
+	accel 		= nts.Tsd(t = speed2.index.values[0:-1] + np.diff(speed2.index.values)/2, d = np.diff(speed2.values))	
+	bins 		= np.linspace(accel.min(), accel.max(), nb_bins)
+	idx 		= bins[0:-1]+np.diff(bins)/2
+	accel_curves = pd.DataFrame(index = idx,columns = np.arange(len(spikes)))
+	for k in spikes:
+		spks 	= spikes[k]
+		spks 	= spks.restrict(ep)
+		accel_spike = accel.realign(spks)
+		spike_count, bin_edges = np.histogram(accel_spike, bins)
+		occupancy, _ = np.histogram(accel, bins)
+		spike_count = spike_count/(occupancy+1)
+		accel_curves[k] = spike_count/bin_size
+
+	return accel_curves
+
 def refineSleepFromAccel(acceleration, sleep_ep):
 	vl = acceleration[0].restrict(sleep_ep)
 	vl = vl.as_series().diff().abs().dropna()	
@@ -443,6 +485,43 @@ def getPeaksandTroughs(lfp, min_points):
 		for i in lfp.keys():
 			peaks[i], troughs[i] = getPeaksandTroughs(lfp[i], min_points)
 		return (peaks, troughs)
+
+def getPhase(lfp, fmin, fmax, nbins, fsamp, power = False):
+	""" Continuous Wavelets Transform
+		return phase of lfp in a Tsd array
+	"""
+	import neuroseries as nts
+	from Wavelets import MyMorlet as Morlet
+	if isinstance(lfp, nts.time_series.TsdFrame):
+		allphase 		= nts.TsdFrame(lfp.index.values, np.zeros(lfp.shape))
+		allpwr 			= nts.TsdFrame(lfp.index.values, np.zeros(lfp.shape))
+		for i in lfp.keys():
+			allphase[i], allpwr[i] = getPhase(lfp[i], fmin, fmax, nbins, fsamp, power = True)
+		if power:
+			return allphase, allpwr
+		else:
+			return allphase			
+
+	elif isinstance(lfp, nts.time_series.Tsd):
+		cw 				= Morlet(lfp.values, fmin, fmax, nbins, fsamp)
+		cwt 			= cw.getdata()
+		cwt 			= np.flip(cwt, axis = 0)
+		wave 			= np.abs(cwt)**2.0
+		phases 			= np.arctan2(np.imag(cwt), np.real(cwt)).transpose()	
+		cwt 			= None
+		index 			= np.argmax(wave, 0)
+		# memory problem here, need to loop
+		phase 			= np.zeros(len(index))	
+		for i in range(len(index)) : phase[i] = phases[i,index[i]]
+		phases 			= None
+		if power: 
+			pwrs 		= cw.getpower()		
+			pwr 		= np.zeros(len(index))		
+			for i in range(len(index)):
+				pwr[i] = pwrs[index[i],i]	
+			return nts.Tsd(lfp.index.values, phase), nts.Tsd(lfp.index.values, pwr)
+		else:
+			return nts.Tsd(lfp.index.values, phase)
 
 #########################################################
 # INTERPOLATION

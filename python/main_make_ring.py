@@ -10,8 +10,7 @@ from matplotlib.colors import hsv_to_rgb
 import hsluv
 
 
-# path 								= '/mnt/DataGuillaume/LMN/A1407/A1407-190416'
-path 								= '../data/A1400/A1407/A1407-190416'
+path = '/mnt/DataGuillaume/LMN-ADN/A5002/A5002-200303B'
 
 episodes = ['sleep', 'wake', 'sleep']
 events = [1]
@@ -53,9 +52,9 @@ wakangle.loc[tmp.index] = tmp
 wakangle.index = pd.Index(bins[0:-1] + np.diff(bins)/2.)
 H = wakangle.values/(2*np.pi)
 HSV = np.vstack((H, np.ones_like(H), np.ones_like(H))).T
-# RGB = hsv_to_rgb(HSV)
+RGB = hsv_to_rgb(HSV)
 
-RGB = np.array([hsluv.hsluv_to_rgb(HSV[i]) for i in range(len(HSV))])
+# RGB = np.array([hsluv.hsluv_to_rgb(HSV[i]) for i in range(len(HSV))])
 # sys.exit()
 
 
@@ -72,8 +71,8 @@ show()
 datatosave = {'ump':ump,
 				'wakangle':wakangle}
 
-import _pickle as cPickle
-cPickle.dump(datatosave, open('../figures/figures_poster_2019/fig_4_ring_lmn.pickle', 'wb'))
+# import _pickle as cPickle
+# cPickle.dump(datatosave, open('../figures/figures_poster_2019/fig_4_ring_lmn.pickle', 'wb'))
 
 # from sklearn.manifold import Isomap
 # imap = Isomap(n_neighbors = 100, n_components = 2).fit_transform(tmp)
