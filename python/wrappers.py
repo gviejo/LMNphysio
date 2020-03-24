@@ -245,6 +245,7 @@ def makePositions(path, file_order, episodes, names = ['ry', 'rx', 'rz', 'x', 'y
 	others = []
 
 	for i, f in enumerate(file_order):
+		print(i, f)
 		csv_file = os.path.join(path, "".join(s for s in files if f+'.csv' in s))
 		position = pd.read_csv(csv_file, header = [4,5], index_col = 1)
 		if 1 in position.columns:
@@ -259,10 +260,15 @@ def makePositions(path, file_order, episodes, names = ['ry', 'rx', 'rz', 'x', 'y
 		else:
 			ttl = loadTTLPulse(analogin_file)
 		
-		length = np.minimum(len(ttl), len(position))
-		ttl = ttl.iloc[0:length]
-		position = position.iloc[0:length]
-		time_offset = wake_ep.as_units('s').iloc[i,0] + ttl.index[0]
+		if len(ttl):
+			length = np.minimum(len(ttl), len(position))
+			ttl = ttl.iloc[0:length]
+			position = position.iloc[0:length]
+			time_offset = wake_ep.as_units('s').iloc[i,0] + ttl.index[0]
+		else:
+			print("No ttl for ", i, f)
+			time_offset = wake_ep.as_units('s').iloc[i,0]
+		
 		position.index += time_offset
 		wake_ep.iloc[i,0] = np.int64(np.maximum(wake_ep.as_units('s').iloc[i,0], position.index[0])*1e6)
 		wake_ep.iloc[i,1] = np.int64(np.minimum(wake_ep.as_units('s').iloc[i,1], position.index[-1])*1e6)
@@ -544,7 +550,7 @@ def downsampleDatFile(path, n_channels = 32, fs = 20000):
 	duration 	= n_samples/fs
 	f.close()
 
-	chunksize 	= 50000000
+	chunksize 	= 100000000
 	eeg 		= np.zeros((int(n_samples/16),n_channels), dtype = np.int16)
 
 	for n in range(n_channels):
