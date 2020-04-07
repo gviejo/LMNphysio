@@ -51,13 +51,24 @@ def loadSpikeData(path, index=None, fs = 20000):
 			return spikes, shank
 		elif 'SpikeData.h5' in files:            
 			final_path = os.path.join(new_path, 'SpikeData.h5')            
-			spikes = pd.read_hdf(final_path, mode='r')
-			# Returning a dictionnary | can be changed to return a dataframe
-			toreturn = {}
-			for i,j in spikes:
-				toreturn[j] = nts.Ts(t=spikes[(i,j)].replace(0,np.nan).dropna().index.values, time_units = 's')
-			shank = spikes.columns.get_level_values(0).values[:,np.newaxis]
-			return toreturn, shank
+			try:
+				spikes = pd.read_hdf(final_path, mode='r')
+				# Returning a dictionnary | can be changed to return a dataframe
+				toreturn = {}
+				for i,j in spikes:
+					toreturn[j] = nts.Ts(t=spikes[(i,j)].replace(0,np.nan).dropna().index.values, time_units = 's')
+				shank = spikes.columns.get_level_values(0).values[:,np.newaxis]
+				return toreturn, shank
+			except:
+				spikes = pd.HDFStore(final_path, 'r')
+				shanks = spikes['/shanks']
+				toreturn = {}
+				for j in shanks.index:
+					toreturn[j] = nts.Ts(spikes['/spikes/s'+str(j)])
+				shank = shanks.values
+				spikes.close()
+				del spikes
+				return toreturn, shank
 			
 		else:            
 			print("Couldn't find any SpikeData file in "+new_path)
@@ -85,29 +96,51 @@ def loadSpikeData(path, index=None, fs = 20000):
 			tmp = pd.DataFrame(index = np.unique(res)/fs, 
 								columns = pd.MultiIndex.from_product([[s],idx_col]),
 								data = 0, 
-								dtype = np.int32)
+								dtype = np.uint16)
 			for j, k in zip(idx_clu, idx_col):
-				tmp.loc[res[clu==j]/fs,(s,k)] = k+1
+				tmp.loc[res[clu==j]/fs,(s,k)] = np.uint16(k+1)
 			spikes.append(tmp)
 			count+=len(idx_clu)
 
 			# tmp2 = pd.DataFrame(index=res[clu==j]/fs, data = k+1, ))
-			# spikes = pd.concat([spikes, tmp2], axis = 1)            
-	spikes = pd.concat(spikes, axis = 1)
-	spikes = spikes.fillna(0)
-	spikes = spikes.astype(np.int32)
+			# spikes = pd.concat([spikes, tmp2], axis = 1)
 
-	# Saving SpikeData.h5
-	final_path = os.path.join(new_path, 'SpikeData.h5')
-	spikes.columns.set_names(['shank', 'neuron'], inplace=True)    
-	spikes.to_hdf(final_path, key='spikes', mode='w')
 
 	# Returning a dictionnary
-	toreturn = {}
-	for i,j in spikes:
-		toreturn[j] = nts.Ts(t=spikes[(i,j)].replace(0,np.nan).dropna().index.values, time_units = 's')
+	toreturn =  {}
+	shank = []
+	for s in spikes:
+		shank.append(s.columns.get_level_values(0).values)
+		sh = np.unique(shank[-1])[0]
+		for i,j in s:
+			toreturn[j] = nts.Ts(t=s[(i,j)].replace(0,np.nan).dropna().index.values, time_units = 's')
 
-	shank = spikes.columns.get_level_values(0).values[:,np.newaxis].flatten()
+	del spikes
+	shank = np.hstack(shank)
+
+	final_path = os.path.join(new_path, 'SpikeData.h5')
+	store = pd.HDFStore(final_path)
+	for s in toreturn.keys():
+		store.put('spikes/s'+str(s), toreturn[s].as_series())
+	store.put('shanks', pd.Series(index = list(toreturn.keys()), data = shank))
+	store.close()
+
+	# OLD WAY
+	# spikes = pd.concat(spikes, axis = 1)
+	# spikes = spikes.fillna(0)
+	# spikes = spikes.astype(np.uint16)
+
+	# Saving SpikeData.h5
+	# final_path = os.path.join(new_path, 'SpikeData.h5')
+	# spikes.columns.set_names(['shank', 'neuron'], inplace=True)    
+	# spikes.to_hdf(final_path, key='spikes', mode='w')
+
+	# Returning a dictionnary
+	# toreturn = {}
+	# for i,j in spikes:
+	# 	toreturn[j] = nts.Ts(t=spikes[(i,j)].replace(0,np.nan).dropna().index.values, time_units = 's')
+
+	# shank = spikes.columns.get_level_values(0).values[:,np.newaxis].flatten()
 
 	return toreturn, shank
 
@@ -502,12 +535,16 @@ def loadAuxiliary(path, n_probe = 1, fs = 20000):
 			tmp 		= np.fromfile(open(new_path, 'rb'), np.uint16).reshape(n_samples,3*n_probe)
 			accel.append(tmp)
 			sample_size.append(n_samples)
+			del tmp
 
 		accel = np.concatenate(accel)	
 		factor = 37.4e-6
 		# timestep = np.arange(0, len(accel))/fs
 		# accel = pd.DataFrame(index = timestep, data= accel*37.4e-6)
-		tmp = scipy.signal.resample_poly(accel*factor, 1, 100)
+		tmp  = []
+		for i in range(accel.shape[1]):
+			tmp.append(scipy.signal.resample_poly(accel[:,i]*factor, 1, 100))
+		tmp = np.vstack(tmp).T
 		timestep = np.arange(0, len(tmp))/(fs/100)
 		tmp = pd.DataFrame(index = timestep, data = tmp)
 		accel_file = os.path.join(path, 'Analysis', 'Acceleration.h5')
@@ -641,8 +678,16 @@ def loadLFP(path, n_channels=90, channel=64, frequency=1250.0, precision='int16'
 		duration = n_samples/frequency
 		interval = 1/frequency
 		f.close()
-		with open(path, 'rb') as f:
-			data = np.fromfile(f, np.int16).reshape((n_samples, n_channels))[:,channel]
+		try:
+			with open(path, 'rb') as f:
+				data = np.fromfile(f, np.int16).reshape((n_samples, n_channels))[:,channel]
+		except MemoryError:
+			# chunksize = 100000
+			# eeg = np.zeros((int(n_samples),n_channels), dtype = np.int16)
+			print("memory error")
+			sys.exit()
+
+
 		timestep = np.arange(0, len(data))/frequency
 		return nts.Tsd(timestep, data, time_units = 's')
 	elif type(channel) is list:
