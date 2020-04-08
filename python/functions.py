@@ -2,7 +2,7 @@ import numpy as np
 from numba import jit
 import pandas as pd
 import neuroseries as nts
-import sys
+import sys, os
 import scipy
 from scipy import signal
 from itertools import combinations
@@ -108,8 +108,8 @@ def xcrossCorr_fast(t1, t2, binsize, nbins, nbiter, jitter, confInt):
 def compute_AutoCorrs(spks, ep, binsize = 5, nbins = 200):
 	# First let's prepare a pandas dataframe to receive the data
 	times = np.arange(0, binsize*(nbins+1), binsize) - (nbins*binsize)/2	
-	autocorrs = pd.DataFrame(index = times, columns = np.arange(len(spks)))
-	firing_rates = pd.Series(index = np.arange(len(spks)))
+	autocorrs = pd.DataFrame(index = times, columns = list(spks.keys()))
+	firing_rates = pd.Series(index = list(spks.keys()))
 
 	# Now we can iterate over the dictionnary of spikes
 	for i in spks:
@@ -132,7 +132,7 @@ def compute_CrossCorrs(spks, ep, binsize=10, nbins = 2000, norm = False):
 		
 	"""	
 	neurons = list(spks.keys())
-	times = np.arange(0, binsize*(nbins+1), binsize) - (nbins*binsize)/2	
+	times = np.arange(0, binsize*(nbins+1), binsize) - (nbins*binsize)/2
 	cc = pd.DataFrame(index = times, columns = list(combinations(neurons, 2)))
 		
 	for i,j in cc.columns:		
@@ -162,6 +162,23 @@ def compute_PairsCrossCorr(spks, ep, pair, binsize=10, nbins = 2000, norm = Fals
 		tmp = tmp
 	return tmp
 
+def compute_EventCrossCorr(spks, evt, ep, binsize = 5, nbins = 1000, norm=False):
+	"""
+	"""
+	neurons = list(spks.keys())
+	times = np.arange(0, binsize*(nbins+1), binsize) - (nbins*binsize)/2
+	cc = pd.DataFrame(index = times, columns = neurons)
+	tsd1 = evt.restrict(ep).as_units('ms').index.values
+	for i in neurons:
+		spk2 = spks[i].restrict(ep).as_units('ms').index.values
+		tmp = crossCorr(tsd1, spk2, binsize, nbins)
+		fr = len(spk2)/ep.tot_length('s')
+		if norm:
+			cc[i] = tmp/fr
+		else:
+			cc[i] = tmp
+	return cc
+		
 
 
 #########################################################
@@ -187,7 +204,7 @@ def computeLMNAngularTuningCurves(spikes, angle, ep, nb_bins = 180, frequency = 
 
 	bins 			= np.linspace(0, 2*np.pi, nb_bins)
 	idx 			= bins[0:-1]+np.diff(bins)/2
-	tuning_curves 	= {i:pd.DataFrame(index = idx, columns = np.arange(len(spikes))) for i in range(3)}	
+	tuning_curves 	= {i:pd.DataFrame(index = idx, columns = list(spikes.keys())) for i in range(3)}	
 
 	for i,j in zip(range(3),range(0,6,2)):
 		for k in spikes:
@@ -223,7 +240,7 @@ def computeAngularTuningCurves(spikes, angle, ep, nb_bins = 180, frequency = 120
 
 	return tuning_curves
 
-def findHDCells(tuning_curves, z = 10, p = 0.000001 , m = 1):
+def findHDCells(tuning_curves, z = 50, p = 0.0001 , m = 1):
 	"""
 		Peak firing rate larger than 1
 		and Rayleigh test p<0.001 & z > 100
@@ -234,7 +251,7 @@ def findHDCells(tuning_curves, z = 10, p = 0.000001 , m = 1):
 	for k in tuning_curves:
 		stat.loc[k] = rayleigh(tuning_curves[k].index.values, tuning_curves[k].values)
 	cond2 = np.logical_and(stat['pval']<p,stat['z']>z)
-	tokeep = np.where(np.logical_and(cond1, cond2))[0]
+	tokeep = stat.index.values[np.where(np.logical_and(cond1, cond2))[0]]
 	return tokeep, stat
 
 def decodeHD(tuning_curves, spikes, ep, bin_size = 200, px = None):
@@ -266,11 +283,10 @@ def decodeHD(tuning_curves, spikes, ep, bin_size = 200, px = None):
 	w = scipy.signal.gaussian(51, 2)
 	
 	spike_counts = pd.DataFrame(index = bins[0:-1]+np.diff(bins)/2, columns = order)
-	for k in spike_counts:
-		print(k)
-		spks = spikes[k].restrict(ep).as_units('ms').index.values
+	for n in spike_counts:		
+		spks = spikes[n].restrict(ep).as_units('ms').index.values
 		tmp = np.histogram(spks, bins)
-		spike_counts[k] = np.convolve(tmp[0], w, mode = 'same')
+		spike_counts[n] = np.convolve(tmp[0], w, mode = 'same')
 		# spike_counts[k] = tmp[0]
 
 	tcurves_array = tuning_curves.values
@@ -290,7 +306,7 @@ def decodeHD(tuning_curves, spikes, ep, bin_size = 200, px = None):
 		proba_angle[i] = p/p.sum() # Normalization process here
 
 	proba_angle  = pd.DataFrame(index = spike_counts.index.values, columns = tuning_curves.index.values, data= proba_angle)	
-	proba_angle = proba_angle.astype('float')		
+	proba_angle = proba_angle.astype('float')
 	decoded = nts.Tsd(t = proba_angle.index.values, d = proba_angle.idxmax(1).values, time_units = 'ms')
 	return decoded, proba_angle, spike_counts
 
@@ -437,6 +453,15 @@ def refineSleepFromAccel(acceleration, sleep_ep):
 
 	return newsleep_ep
 
+def splitWake(ep):
+	if len(ep) != 1:
+		print('Cant split wake in 2')
+		sys.exit()
+	tmp = np.zeros((2,2))
+	tmp[0,0] = ep.values[0,0]
+	tmp[1,1] = ep.values[0,1]
+	tmp[0,1] = tmp[1,0] = ep.values[0,0] + np.diff(ep.values[0])/2
+	return nts.IntervalSet(start = tmp[:,0], end = tmp[:,1])
 
 #########################################################
 # LFP FUNCTIONS
@@ -552,3 +577,12 @@ def writeNeuroscopeEvents(path, ep, name):
 		f.writelines(str(ep.as_units('ms').iloc[i]['end']) + " "+name+" end "+ str(1)+"\n")
 	f.close()		
 	return
+
+def getAllInfos(data_directory, datasets):
+	allm = np.unique(["/".join(s.split("/")[0:2]) for s in datasets])
+	infos = {}
+	for m in allm:
+		path = os.path.join(data_directory, m)
+		csv_file = list(filter(lambda x: '.csv' in x, os.listdir(path)))[0]
+		infos[m.split('/')[1]] = pd.read_csv(os.path.join(path, csv_file), index_col = 0)
+	return infos

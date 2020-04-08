@@ -615,6 +615,23 @@ def downsampleDatFile(path, n_channels = 32, fs = 20000):
 		
 	return
 
+def loadUFOs(path):
+	"""
+	Name of the file should end with .evt.py.ufo
+	"""
+	import os
+	name = path.split("/")[-1]
+	files = os.listdir(path)
+	filename = os.path.join(path, name+'.evt.py.ufo')
+	if name+'.evt.py.ufo' in files:
+		tmp = np.genfromtxt(path + '/' + name + '.evt.py.ufo')[:,0]
+		ripples = tmp.reshape(len(tmp)//3,3)/1000
+	else:
+		print("No ufo in ", path)
+		sys.exit()
+	return (nts.IntervalSet(ripples[:,0], ripples[:,2], time_units = 's'), 
+			nts.Ts(ripples[:,1], time_units = 's'))
+
 ##########################################################################################################
 # TODO
 ##########################################################################################################
