@@ -22,7 +22,7 @@ ccufos = []
 
 # for s in datasets:
 # for s in datasets:
-for s in ['A5000/A5002/A5002-200304A']:
+for s in ['A5000/A5002/A5002-200303B']:
 	print(s)
 	name 			= s.split('/')[-1]
 	path 			= os.path.join(data_directory, s)
@@ -73,94 +73,61 @@ for s in ['A5000/A5002/A5002-200304A']:
 	info['hd'].iloc[tokeep]				= 1
 
 	############################################################################################### 
-	# CROSS CORRS
+	# SUM OF SPIKEs
 	############################################################################################### 	
-	# auto, fr = compute_AutoCorrs({0:ufo_tsd}, sws_ep, binsize = 1, nbins = 2000)
-	cc_ufo = compute_EventCrossCorr(spikes, ufo_tsd, sws_ep, binsize = 5, nbins = 200, norm=True)
-	# cc_ufo = cc_ufo.rolling(window=100,win_type='gaussian',center=True,min_periods=1).mean(std=1)
+	autosh = {}	
+	for sh in [2,3,4,5]:
+		print(sh)
+		ss = pd.read_hdf(os.path.join(path, 'Analysis/SS_'+str(sh)+'.h5'))
+		ss = ss[ss.columns[0]]
 
+		autocep = {}
+		for n, ep in zip(['wak', 'rem', 'sws'], [wake_ep, rem_ep, sws_ep]):
+			auto2 = {}
+			for t in range(1, 10):
+				peaks = []
+				for i in ep.index:
+					tmp = ss.loc[ep.start[i]:ep.end[i]]
+					peak, _ = scipy.signal.find_peaks(tmp.values, threshold=t)
+					peaks.append(tmp.index.values[peak])
 
-	for i, s in enumerate(np.unique(shank)):
+				peaks = nts.Ts(t=np.hstack(peaks))
+				autoc, fr = compute_AutoCorrs({0:peaks}, ep, 1, 200)
+				# autoc, fr = compute_AutoCorrs({0:peaks}, ep, 5, 200)
+				auto2[t]= autoc[0]
+			auto2 = pd.DataFrame.from_dict(auto2)
+			# auto2 = auto2.rolling(window = 20, win_type = 'gaussian', center = True, min_periods = 1).mean(std = 1.0)
+			autocep[n] = auto2
+
+		del ss
+		autosh[sh] = autocep
+
+	sys.exit()
+	
+	for sh in autosh.keys():
 		figure()
-		for j, n in enumerate(np.where(shank==s)[0]):
-			subplot(int(np.sqrt(np.sum(shank==s)))+1,int(np.sqrt(np.sum(shank==s)))+1,j+1)
-			plot(cc_ufo.iloc[:,n])
-
-	figure()
-	for i, s in enumerate(np.unique(shank)):
-		subplot(2,3,i+1)
-		# plot(cc_ufo[np.array(list(spikes.keys()))[np.where(shank==s)[0]]], color = 'grey')
-		plot(cc_ufo[np.array(list(spikes.keys()))[np.where(shank==s)[0]]].mean(1))
-
-
-	figure()
-	for i in np.where(shank==1)[0]:
-		subplot(2,3,i+1, projection='polar')
-		plot(tuning_curves[1][i])
-
-
+		for i, e in enumerate(autosh[sh].keys()):
+			subplot(2,3,i+1)
+			tmp = autosh[sh][e].values.T
+			imshow(tmp, aspect = 'auto')
+			locator_params(nbins=6)
+			subplot(2,3,i+1+3)
+			plot(autosh[sh][e][5])
+			title(e)
 	show()
 
-	############# 
-	# TO SAVE
-	#############
-	cc_ufo.columns 						= neurons
-	infoall.append(info)
-	ccufos.append(cc_ufo)
-	#############
+	
+	from matplotlib import gridspec
 
-	# continue
+	figure()	
+	gs = gridspec.GridSpec(3,4)
+	for i,sh in enumerate(autosh.keys()):
+		for j,e in enumerate(autosh[sh].keys()):
+			subplot(gs[j,i])
+			plot(autosh[sh][e][5])
+			ylabel(e)
+			if j==0:				
+				title('Shank '+str(sh))
+	show()
+
 	sys.exit()
-
-	ufo_tsd = ufo_tsd.restrict(sws_ep)
-
-	t = np.array_split(ufo_tsd.index.values, len(ufo_tsd)/30)
-
-	colors = np.ones((len(peaks), 3))
-	colors[:,0] = peaks.values/(2*np.pi)
-
-	# colors = np.array([hsluv.hsluv_to_rgb(colors[i]) for i in range(len(colors))])
-	colors = hsv_to_rgb(colors)
-
-	rang = 500000
-	for i in range(len(t)):
-		figure()
-		for j , tt in enumerate(t[i][0:30]):
-			subplot(5,6,j+1)
-			for l, k in enumerate(peaks.index.values):
-				plot(spikes[k].loc[tt-rang:tt+rang].fillna(peaks[k]), '|', ms = 7, mew = 1.5, color = colors[l])
-			axvline(tt)
-			xlim(tt-rang,tt+rang)
-			ylim(0, 2*np.pi)
-		show()
-		# sys.exit()
-
-
-infoall = pd.concat(infoall)
-ccufos = pd.concat(ccufos, 1)
-
-ccufos = ccufos.rolling(window=100,win_type='gaussian',center=True,min_periods=1).mean(std=1)
-
-
-from umap import UMAP
-ump = UMAP(n_neighbors = 10).fit_transform(ccufos.values.T)
-
-from sklearn.decomposition import PCA
-pca = PCA(n_components=2).fit_transform(ccufos.values.T)
-
-from sklearn.cluster import KMeans
-K = KMeans(n_clusters = 3, random_state = 0).fit(ump).labels_
-
-
-figure()
-scatter(ump[:,0], ump[:,1], 100, c = K)
-scatter(ump[:,0], ump[:,1], 10, c = infoall['hd'])
-
-figure()
-for i in np.unique(K):
-	subplot(1,len(np.unique(K)),i+1)
-	plot(ccufos.iloc[:,K==i], color = 'grey', alpha = 0.6)
-	plot(ccufos.iloc[:,K==i].mean(1))
-
-show()
-

@@ -18,7 +18,7 @@ infos = getAllInfos(data_directory, datasets)
 
 
 # sys.exit()
-s = datasets[5] # good lmn
+s = datasets[4] # good lmn
 # s = datasets[0]
 
 print(s)
@@ -98,7 +98,7 @@ for i, n in enumerate(spikes.keys()):
 	legend()
 
 
-
+sys.exit()
 spikes = {n:spikes[n] for n in tokeep}
 		
 ############################################################################################### 

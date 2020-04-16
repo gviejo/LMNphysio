@@ -28,7 +28,8 @@ allpeaks = []
 
 
 
-for s in datasets[0:-2]:
+# for s in datasets[0:-2]:
+for s in ['A5000/A5002/A5002-200304A']:	
 	print(s)
 	name = s.split('/')[-1]
 	path = os.path.join(data_directory, s)
@@ -49,9 +50,9 @@ for s in datasets[0:-2]:
 	# Only taking the first wake ep
 	wake_ep = wake_ep.loc[[0]]
 
-	# Taking only neurons from LMN
-	if 'A5002' in s:
-		spikes = {n:spikes[n] for n in np.intersect1d(np.where(shank.flatten()>2)[0], np.where(shank.flatten()<4)[0])}		
+	# # Taking only neurons from LMN
+	# if 'A5002' in s:
+	# 	spikes = {n:spikes[n] for n in np.intersect1d(np.where(shank.flatten()>2)[0], np.where(shank.flatten()<4)[0])}		
 
 	############################################################################################### 
 	# COMPUTING TUNING CURVES
@@ -79,7 +80,7 @@ for s in datasets[0:-2]:
 
 	
 
-	spikes = {n:spikes[n] for n in tokeep}
+	# spikes = {n:spikes[n] for n in tokeep}
 
 	# spatial_curves, extent				= computePlaceFields(spikes, position[['x', 'z']], wake_ep, 21)
 	# autocorr_wake, frate_wake 			= compute_AutoCorrs(spikes, wake_ep)
@@ -124,6 +125,8 @@ for s in datasets[0:-2]:
 
 
 	pairs = pairs.dropna().sort_values()
+
+
 
 
 	#######################
@@ -217,4 +220,26 @@ show()
 
 sys.exit()
 
+from matplotlib import gridspec
 
+gs = gridspec.GridSpec(np.sum(shank==5),np.sum(shank==3))
+
+figure()
+for i,n in enumerate(np.where(shank==5)[0]):
+	for j,m in enumerate(np.where(shank==3)[0]):
+		subplot(gs[i,j])
+		plot(cc_wak[(m,n)])
+		# xticks([])
+		yticks([])
+show()
+
+
+gs = gridspec.GridSpec(1,np.sum(shank==5))
+figure()
+for i,n in enumerate(np.where(shank==5)[0]):
+	# for j,m in enumerate(np.where(shank==3)[0]):
+	subplot(gs[0,i])
+	plot(cc_wak[(66,n)])
+	# xticks([])
+	yticks([])
+show()
