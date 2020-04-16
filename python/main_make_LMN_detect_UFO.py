@@ -9,14 +9,19 @@ import sys
 ############################################################################################### 
 # GENERAL infos
 ###############################################################################################
-data_directory = r'D:\Dropbox (Peyrache Lab)\Peyrache Lab Team Folder\Data\LMN'
-datasets = np.loadtxt(os.path.join(data_directory,'datasets_LMN.list'), delimiter = '\n', dtype = str, comments = '#')
+# data_directory = r'D:\Dropbox (Peyrache Lab)\Peyrache Lab Team Folder\Data\LMN'
+data_directory = r'/home/guillaume/Dropbox (Peyrache Lab)/Peyrache Lab Team Folder/Data/LMN'
+# data_directory = '/mnt/DataGuillaume/LMN-ADN/'
+# datasets = np.loadtxt(os.path.join(data_directory,'datasets_LMN.list'), delimiter = '\n', dtype = str, comments = '#')
+datasets = np.loadtxt(os.path.join(data_directory,'datasets_UFO.list'), delimiter = '\n', dtype = str, comments = '#')
 # datasets = np.atleast_1d(np.loadtxt(os.path.join(data_directory,'datasets_ADN.list'), delimiter = '\n', dtype = str, comments = '#'))
 infos = getAllInfos(data_directory, datasets)
 
 
-# for s in sessions:
+
+# for s in datasets[-2:]:
 for s in ['A5000/A5002/A5002-200304A']:
+	print(s)
 	name 			= s.split('/')[-1]
 	path 			= os.path.join(data_directory, s)
 	episodes  		= infos[s.split('/')[1]].filter(like='Trial').loc[s.split('/')[2]].dropna().values
@@ -25,106 +30,178 @@ for s in ['A5000/A5002/A5002-200304A']:
 	spikes, shank 	= loadSpikeData(path)
 	n_channels, fs, shank_to_channel 	= loadXML(path)
 	position		= loadPosition(path, events, episodes)
-	wake_ep 		= loadEpoch(path, 'wake', episodes)
+	# wake_ep 		= loadEpoch(path, 'wake', episodes)
 	sleep_ep		= loadEpoch(path, 'sleep')
-	sws_ep 			= loadEpoch(path, 'sws')
+	# sws_ep 			= loadEpoch(path, 'sws')
 
-	acceleration						= loadAuxiliary(path)
-	if 'A5001' in s:
-		acceleration = acceleration[[3,4,5]]
-		acceleration.columns = range(3)
-	elif 'A5002' in s:
-		acceleration = acceleration[[0,1,2]]
-	newsleep_ep 						= refineSleepFromAccel(acceleration, sleep_ep)
-
-		
-
-	##################################################################################################
-	# LOADING LFP
-	##################################################################################################	
-	lfp = pd.read_hdf(path + '/Analysis/lfp_lmn.h5')
-	lfp = lfp[39]
-	lfp = nts.Tsd(t = lfp.index.values, d = lfp.values, time_units = 's')
-
-	half_sleep = nts.IntervalSet(start = sws_ep.start[0], end = sws_ep.start[0] + (sws_ep.end.values[-1] - sws_ep.start[0])/4)
-
-	# lfp = lfp.restrict(half_sleep)
-	# lfp = downsample(lfp, 1, 2)
-
-	ex_ep = nts.IntervalSet(start = 2348.503, end = 2348.594, time_units = 's')
-	startex = int(2348.503*1e6)
-	stopex  = int(2348.594*1e6)
-	
-	##################################################################################################
-	# DETECTION UFO
-	##################################################################################################
-	windowLength = 81
+	#####################################
+	# PARAMETERS
+	#####################################
+	# windowLength = 81
 	frequency = 20000
-	low_cut = 600
+	low_cut = 400
 	high_cut = 3000
-
-	nSS_highcut = 1000000
-	low_thresFactor = 5 # zscored
+	nSS_highcut = 50
+	low_thresFactor = 6
 	high_thresFactor = 100
 	minRipLen = 2 # ms
-	maxRipLen = 20 # ms
-	minInterRippleInterval = 100 # ms
+	maxRipLen = 10 # ms
+	minInterRippleInterval = 3 # ms
 	limit_peak = 100
 
-
-	signal			= butter_bandpass_filter(lfp, low_cut, high_cut, frequency, 2)
-
-	signal = nts.Tsd(t = lfp.index.values, d = signal)
-
-	squared_signal = np.square(signal.values)
-
-	window = np.ones(windowLength)/windowLength
-
-	nSS = scipy.signal.filtfilt(window, 1, squared_signal)
-
-	nSS = pd.Series(index = lfp.index.values, data = nSS)
-	nSS=nts.Tsd(nSS)
+	if 'A5002' in name:
+		datfile = '/mnt/DataGuillaume/LMN-ADN/'+name.split('-')[0] + '/' + name + '/'+ name +'.dat'
+	elif 'A1407' in name:
+		datfile = '/mnt/DataGuillaume/LMN/'+name.split('-')[0] + '/' + name + '/'+ name +'.dat'
+		shank_to_channel = {i+2:shank_to_channel[i] for i in shank_to_channel.keys()}
+	elif 'A5001' in name:
+		datfile = '/mnt/DataGuillaume/LMN-ADN/'+name.split('-')[0] + '/' + name + '/'+ name +'.dat'
+		shank_to_channel = {i-3:shank_to_channel[i] for i in [5, 6, 7, 8]}
 
 
-	# Removing point above 100000/
-	nSS = nSS.as_series()
-	nSS = nSS[nSS<nSS_highcut]
-	nSS = (nSS - np.mean(nSS))/np.std(nSS)
-	nSS = nts.Tsd(nSS)
-	
-	figure()
-	ax = subplot(211)
-	plot(lfp.loc[startex:stopex])
-	plot(signal.loc[startex:stopex])
-	subplot(212, sharex =  ax)
-	plot(nSS.loc[startex:stopex])
-	axhline(low_thresFactor)
-	show()
+	frequency = 20000
+
+	f = open(datfile, 'rb')
+	startoffile = f.seek(0, 0)
+	endoffile = f.seek(0, 2)
+	bytes_size = 2		
+	n_samples = int((endoffile-startoffile)/n_channels/bytes_size)
+	duration = n_samples/frequency
+	f.close()
+	fp = np.memmap(datfile, np.int16, 'r', shape = (n_samples, n_channels))
+	timestep = (np.arange(0, n_samples)/frequency)*1e6
+	timestep = timestep.astype(np.int)
+	duree = len(timestep)	
+
+	dummy = pd.Series(index = timestep, data = 0)
+
+	# # #TO REMOVE
+	# half_sleep = nts.IntervalSet(start = 2000, end = 3000, time_units = 's')
+	# duree = len(dummy.loc[half_sleep.start[0]:half_sleep.end[0]].index.values)
+	# dummy = dummy.loc[half_sleep.start[0]:half_sleep.end[0]]
+
+	# sys.exit()
+
+	nSS = np.zeros((duree,2))
+
+	SS = np.zeros((duree,2))
+
+	for ch in shank_to_channel[2]:
+		print(ch)
+		##################################################################################################
+		# LOADING LFP
+		##################################################################################################	
+		lfp = pd.Series(index = timestep, data = fp[:,ch])
+		# TO REMOVE
+		# lfp = lfp.loc[half_sleep.start[0]:half_sleep.end[0]]
+		#
+		
+		##################################################################################################
+		# FILTERING
+		##################################################################################################
+		signal			= butter_bandpass_filter(lfp, low_cut, high_cut, frequency, 6)
+		squared_signal = np.square(signal)
+				
+		nSS[:,0] += scipy.ndimage.filters.gaussian_filter1d(squared_signal, 30)
+		SS[:,0] += squared_signal
+
+		del lfp
+		del signal
+		del squared_signal
+
+	nSS[:,0] /= len(shank_to_channel[2])
+	SS[:,0] /= len(shank_to_channel[2])
+
+	for i, sh in enumerate([3,4,5]):		
+		for ch in shank_to_channel[sh]:
+			print(ch)
+			##################################################################################################
+			# LOADING LFP
+			##################################################################################################	
+			lfp = pd.Series(index = timestep, data = fp[:,ch])
+			
+			# TO REMOVE
+			# lfp = lfp.loc[half_sleep.start[0]:half_sleep.end[0]]
+			#
+			
+			##################################################################################################
+			# FILTERING
+			##################################################################################################
+			signal			= butter_bandpass_filter(lfp, low_cut, high_cut, frequency, 6)
+			squared_signal = np.square(signal)
+
+			nSS[:,1] += scipy.ndimage.filters.gaussian_filter1d(squared_signal, 30)
+			SS[:,1] += squared_signal
+
+			del lfp
+			del signal
+			del squared_signal
+
+	nSS[:,1] /= len(shank_to_channel[2])*3
+	SS[:,1] /= len(shank_to_channel[2])*3
+
+	nSS = pd.DataFrame(index = dummy.index, data = nSS)
+	SS = pd.DataFrame(index = dummy.index, data = SS)
+
+	nSS2 = (nSS[0] - nSS[1])/(nSS[1]+1)
+	SS2 = (SS[0] - SS[1])/(SS[1]+1)
+
+	nSS3 = nSS2.rolling(window=100,win_type='gaussian',center=True,min_periods=1).mean(std=1.0)	
+
+	nSS3 = (nSS3 - np.mean(nSS3))/(np.std(nSS3))
+
+	# startex = int(2447.466*1e6)
+	# stopex  = int(2448.261*1e6)
+
+
+
+
+	# figure()
+	# subplot(211)
+	# plot(SS2.loc[startex:stopex])
+	# # [axvline(t) for t in [26083000, 26101000, 26121000]]
+	# subplot(212)
+	# # plot(nSS2.loc[startex:stopex])
+	# plot(nSS3.loc[startex:stopex])
+	# axhline(low_thresFactor)
+	# show()
+
+	# sys.exit()
+
+	# # Removing point above 100000/
+	# nSS = nSS[nSS<nSS_highcut]
+	# nSS = (nSS - np.mean(nSS))/np.std(nSS)
+
+	# figure()
+	# ax = subplot(211)
+	# plot(lfp.loc[startex:stopex])
+	# subplot(212, sharex =  ax)
+	# plot(nSS.loc[startex:stopex])
+	# axhline(low_thresFactor)
+	# show()
 
 	
 	######################################################l##################################
 	# Round1 : Detecting Ripple Periods by thresholding normalized signal
-	nSS = nSS.as_series()
-	thresholded = np.where(nSS > low_thresFactor, 1,0)
+	thresholded = np.where(nSS3 > low_thresFactor, 1,0)
 	start = np.where(np.diff(thresholded) > 0)[0]
 	stop = np.where(np.diff(thresholded) < 0)[0]
 	if len(stop) == len(start)-1:
-		start = start[0:]
+		start = start[0:-1]
 	if len(stop)-1 == len(start):
 		stop = stop[1:]
-
 
 
 	################################################################################################
 	# Round 2 : Excluding candidates ripples whose length < minRipLen and greater than Maximum Ripple Length
 	if len(start):
-		l = (nSS.index.values[stop] - nSS.index.values[start])/1000 # from us to ms
+		l = (nSS3.index.values[stop] - nSS3.index.values[start])/1000 # from us to ms
 		idx = np.logical_and(l > minRipLen, l < maxRipLen)
 	else:	
 		print("Detection by threshold failed!")
 		sys.exit()
 
-	rip_ep = nts.IntervalSet(start = nSS.index.values[start[idx]], end = nSS.index.values[stop[idx]])
+	rip_ep = nts.IntervalSet(start = nSS3.index.values[start[idx]], end = nSS3.index.values[stop[idx]])
 	# rip_ep = rip_ep.intersect(sws_ep)
 
 
@@ -146,7 +223,7 @@ for s in ['A5000/A5002/A5002-200304A']:
 	rip_max = []
 	rip_tsd = []
 	for s, e in rip_ep.values:
-		tmp = nSS.loc[s:e]
+		tmp = nSS3.loc[s:e]
 		rip_tsd.append(tmp.idxmax())
 		rip_max.append(tmp.max())
 
@@ -182,3 +259,4 @@ for s in ['A5000/A5002/A5002-200304A']:
 	f.close()	
 
 
+	# SS2.to_hdf(path+'/Analysis/SS.h5', 'ss')

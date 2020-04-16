@@ -6,32 +6,42 @@ from wrappers import *
 from functions import *
 import sys
 
-data_directory 	= '/mnt/DataGuillaume/LMN-ADN/A5002'
-info 			= pd.read_csv(os.path.join(data_directory,'A5002.csv'), index_col = 0)
-sessions 		= info.loc['A5002-200303A':].index.values
+data_directory 	= '/mnt/DataGuillaume/LMN-ADN/A5001'
+info 			= pd.read_csv(os.path.join(data_directory,'A5001.csv'), index_col = 0)
+
+data_directory = '/mnt/LocalHDD/DTN/A4002'
+
+# sessions 		= info.loc['A5002-200210C':].index.values
 
 # sessions = np.delete(sessions, 4) # TODO 6A
 
 # sessions = sessions[1:]
 
-sessions = ['A5002-200305A', 'A5002-200309A', 'A5002-200310A', 'A5002-200313A']
+# sessions = ['A5002-200305A', 'A5002-200309A', 'A5002-200310A', 'A5002-200313A']
+sessions = ['A4002-200121A']
 
 for s in sessions:
 	print(s)
 	path = os.path.join(data_directory, s)
-	episodes = info.filter(like='Trial').loc[s].dropna().values
-	episodes[episodes != 'sleep'] = 'wake'
-	events = list(np.where(episodes != 'sleep')[0].astype('str'))
+	# episodes = info.filter(like='Trial').loc[s].dropna().values
+	# episodes[episodes != 'sleep'] = 'wake'
+	# events = list(np.where(episodes != 'sleep')[0].astype('str'))
+
+	episodes = ['sleep', 'wake', 'sleep', 'wake', 'sleep']
+	events = ['1', '3']
+	
 	spikes, shank = loadSpikeData(path)
 	n_channels, fs, shank_to_channel = loadXML(path)
 	position = loadPosition(path, events, episodes)
 	wake_ep = loadEpoch(path, 'wake', episodes)
 	sleep_ep = loadEpoch(path, 'sleep')
-	acceleration = loadAuxiliary(path)
-	acceleration = acceleration[[0,1,2]]
-	acceleration.columns = pd.Index(np.arange(3))
-	newsleep_ep 	= refineSleepFromAccel(acceleration, sleep_ep)
+	
+	# acceleration = loadAuxiliary(path)
+	# acceleration = acceleration[[0,1,2]]
+	# acceleration.columns = pd.Index(np.arange(3))
+	# newsleep_ep 	= refineSleepFromAccel(acceleration, sleep_ep)
 
+	newsleep_ep = sleep_ep
 	##################################################################################################
 	# DOWNSAMPLING
 	##################################################################################################
@@ -42,7 +52,7 @@ for s in sessions:
 	##################################################################################################
 	# LOADING LFP
 	##################################################################################################
-	lfp 		= loadLFP(os.path.join(data_directory,s,s+'.eeg'), n_channels, 85, 1250, 'int16')
+	lfp 		= loadLFP(os.path.join(data_directory,s,s+'.eeg'), n_channels, 60, 1250, 'int16')
 	lfp 		= downsample(lfp, 1, 5)
 
 	##################################################################################################

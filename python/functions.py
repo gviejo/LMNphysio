@@ -586,3 +586,13 @@ def getAllInfos(data_directory, datasets):
 		csv_file = list(filter(lambda x: '.csv' in x, os.listdir(path)))[0]
 		infos[m.split('/')[1]] = pd.read_csv(os.path.join(path, csv_file), index_col = 0)
 	return infos
+
+def computeSpeed(position, ep, bin_size = 0.1):
+	time_bins 	= np.arange(position.index[0], position.index[-1]+bin_size*1e6, bin_size*1e6)
+	index 		= np.digitize(position.index.values, time_bins)
+	tmp 		= position.groupby(index).mean()
+	tmp.index 	= time_bins[np.unique(index)-1]+(bin_size*1e6)/2
+	distance	= np.sqrt(np.power(np.diff(tmp['x']), 2) + np.power(np.diff(tmp['z']), 2))
+	speed 		= nts.Tsd(t = tmp.index.values[0:-1]+ bin_size/2, d = distance/bin_size)
+	speed 		= speed.restrict(ep)
+	return speed

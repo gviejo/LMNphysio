@@ -369,6 +369,16 @@ def loadEpoch(path, epoch, episodes = None):
 			return ep
 		else:
 			print("The file ", file, "does not exist; Exiting ...")
+			sys.exit()
+	elif epoch == 'wake.evt.theta':
+		file = os.path.join(path,os.path.basename(path)+'.'+epoch)
+		if os.path.exists(file):
+			tmp = np.genfromtxt(file)[:,0]
+			tmp = tmp.reshape(len(tmp)//2,2)/1000
+			ep = nts.IntervalSet(start = tmp[:,0], end = tmp[:,1], time_units = 's')
+			return ep
+		else:
+			print("The file ", file, "does not exist; Exiting ...")
 	filepath 	= os.path.join(path, 'Analysis')
 	if os.path.exists(filepath): # Check for path/Analysis/	
 		listdir		= os.listdir(filepath)
