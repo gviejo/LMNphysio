@@ -12,7 +12,7 @@ from sklearn.decomposition import PCA
 from sklearn.manifold.isomap import Isomap
 
 
-path = '/mnt/DataGuillaume/LMN-ADN/A5002/A5002-200303B'
+path = '/mnt/DataGuillaume/LMN-ADN/A5002/A5002-200304A'
 
 episodes = ['sleep', 'wake', 'sleep']
 events = [1]

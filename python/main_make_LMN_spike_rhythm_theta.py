@@ -36,7 +36,8 @@ for s in ['A5000/A5002/A5002-200303B']:
 	sleep_ep		= loadEpoch(path, 'sleep')
 	sws_ep 			= loadEpoch(path, 'sws')
 	rem_ep 			= loadEpoch(path, 'rem')
-	ufo_ep, ufo_tsd	= loadUFOs(path)
+	theta_wake_ep	= loadEpoch(path, 'wake.evt.theta')
+
 
 	############################################################################################### 
 	# COMPUTING TUNING CURVES
@@ -74,89 +75,59 @@ for s in ['A5000/A5002/A5002-200303B']:
 
 	############################################################################################### 
 	# SUM OF SPIKEs
-	############################################################################################### 	
+	###############################################################################################
+	phase = pd.read_hdf(os.path.join(path, 'Analysis', 'phase_theta_wake.h5'))
+	phase = nts.Tsd(phase)
+	phase = phase.restrict(wake_ep)
+
+	peaks, throughs = getPeaksandTroughs(phase, 10)
+
+	half1 = nts.IntervalSet(start = peaks.index.values[0:-1], end = peaks.index.values[0:-1]+np.diff(peaks.index.values)/3)
+	half2 = nts.IntervalSet(start = peaks.index.values[0:-1]+np.diff(peaks.index.values)/3, end = peaks.index.values[1:]-np.diff(peaks.index.values)/3)
+	half3 = nts.IntervalSet(start = peaks.index.values[1:]-np.diff(peaks.index.values)/3, end = peaks.index.values[1:])
+
+	# tmp = peaks.index.values
+	# dtmp = np.diff(peaks.index.values)
+	# half1 = nts.IntervalSet(
+	# 	start = tmp[0:-1]+dtmp/4,
+	# 	end = tmp[1:]-dtmp/4)
+	# half2 = nts.IntervalSet(
+	# 	start = tmp[1:-1] - dtmp[0:-1]/4,
+	# 	end = tmp[1:-1] + dtmp[1:]/4)
+
 	sys.exit()
+
+
+
+
 	autosh = {}	
-	for sh in [2,3,4,5]:
+	for i, sh in enumerate([2,3,4,5]):
+	# for i, sh in enumerate([2]):
 		print(sh)
-		ss = pd.read_hdf(os.path.join(path, 'Analysis/SS_'+str(sh)+'.h5'))
+		ss = pd.read_hdf(os.path.join(path, 'Analysis/SS_'+str(sh)+'.h5'))	
 		ss = ss[ss.columns[0]]
+		ss = ss.loc[wake_ep.start[0]:wake_ep.end[0]]
 
-		autocep = {}
-		for n, ep in zip(['wak', 'rem', 'sws'], [wake_ep, rem_ep, sws_ep]):
-			auto2 = {}
-			for t in range(1, 10):
-				peaks = []
-				for i in ep.index:
-					tmp = ss.loc[ep.start[i]:ep.end[i]]
-					peak, _ = scipy.signal.find_peaks(tmp.values, threshold=t)
-					peaks.append(tmp.index.values[peak])
+		sys.exit()
 
-				peaks = nts.Ts(t=np.hstack(peaks))
-				autoc, fr = compute_AutoCorrs({0:peaks}, ep, 1, 200)
-				# autoc, fr = compute_AutoCorrs({0:peaks}, ep, 5, 200)
-				auto2[t]= autoc[0]
-			auto2 = pd.DataFrame.from_dict(auto2)
-			# auto2 = auto2.rolling(window = 20, win_type = 'gaussian', center = True, min_periods = 1).mean(std = 1.0)
-			autocep[n] = auto2
+		# COMPUTING AUtocorr for half-cycles
+		peaks, _ = scipy.signal.find_peaks(ss.values, threshold=4)
+		peaks = nts.Tsd(ss.index.values[peaks])
+		peaks = peaks.restrict(theta_wake_ep)
 
-		del ss
-		autosh[sh] = autocep
+		auto1, fr = compute_AutoCorrs({0:peaks}, half1, 1, 100)
+		auto2, fr = compute_AutoCorrs({0:peaks}, half2, 1, 100)
+		auto3, fr = compute_AutoCorrs({0:peaks}, half3, 1, 100)
 
-	sys.exit()
-	
-	for sh in autosh.keys():
-		figure()
-		for i, e in enumerate(autosh[sh].keys()):
-			subplot(2,3,i+1)
-			tmp = autosh[sh][e].values.T
-			imshow(tmp, aspect = 'auto')
-			locator_params(nbins=6)
-			subplot(2,3,i+1+3)
-			plot(autosh[sh][e][5])
-			title(e)
+		# auto1 = auto1.rolling(window = 20, win_type = 'gaussian', center = True, min_periods = 1).mean(std = 1.0)
+		# auto2 = auto2.rolling(window = 20, win_type = 'gaussian', center = True, min_periods = 1).mean(std = 1.0)
+		# auto3 = auto3.rolling(window = 20, win_type = 'gaussian', center = True, min_periods = 1).mean(std = 1.0)
+
+		subplot(2,2,i+1)
+		plot(auto1)
+		plot(auto2)
+		plot(auto3)
+		
+
 	show()
 
-	
-	from matplotlib import gridspec
-
-	figure()	
-	gs = gridspec.GridSpec(3,4)
-	for i,sh in enumerate(autosh.keys()):
-		for j,e in enumerate(autosh[sh].keys()):
-			subplot(gs[j,i])
-			plot(autosh[sh][e][5])
-			ylabel(e)
-			if j==0:				
-				title('Shank '+str(sh))
-	show()
-
-	sys.exit()
-
-
-peaks, _ = scipy.signal.find_peaks(ss.values, threshold=5)
-peaks = nts.Ts(t=ss.index.values[peaks])
-
-ufornd = np.random.uniform(sleep_ep.start[0], sleep_ep.end[1], 20000)
-ufornd = nts.Ts(ufornd).restrict(sws_ep)
-
-cc_ufo = compute_EventCrossCorr({0:peaks}, ufo_tsd, sws_ep, binsize = 2, nbins = 100, norm=True)
-
-cc_rnd = compute_EventCrossCorr({0:peaks}, ufornd, sws_ep, binsize = 2, nbins = 100, norm=True)
-
-autoc, fr = compute_AutoCorrs({0:peaks}, sws_ep, 2, 100)
-
-# cc_ufo.loc[0] = np.nan
-
-figure()
-subplot(131)
-plot(autoc, label = 'peaks/peaks')
-legend()
-subplot(132)
-plot(cc_ufo, label = 'ufo/peaks')
-legend()
-subplot(133)
-plot(cc_ufo, label = 'ufo/peaks')
-legend()
-
-show()

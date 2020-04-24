@@ -76,8 +76,8 @@ for s in ['A5000/A5002/A5002-200304A']:
 	# CROSS CORRS
 	############################################################################################### 	
 	# auto, fr = compute_AutoCorrs({0:ufo_tsd}, sws_ep, binsize = 1, nbins = 2000)
-	cc_ufo = compute_EventCrossCorr(spikes, ufo_tsd, sws_ep, binsize = 5, nbins = 200, norm=True)
-	# cc_ufo = cc_ufo.rolling(window=100,win_type='gaussian',center=True,min_periods=1).mean(std=1)
+	cc_ufo = compute_EventCrossCorr(spikes, ufo_tsd, sws_ep, binsize = 10, nbins = 200, norm=True)
+	cc_ufo = cc_ufo.rolling(window=100,win_type='gaussian',center=True,min_periods=1).mean(std=1)
 
 
 	for i, s in enumerate(np.unique(shank)):
@@ -90,14 +90,11 @@ for s in ['A5000/A5002/A5002-200304A']:
 	for i, s in enumerate(np.unique(shank)):
 		subplot(2,3,i+1)
 		# plot(cc_ufo[np.array(list(spikes.keys()))[np.where(shank==s)[0]]], color = 'grey')
-		plot(cc_ufo[np.array(list(spikes.keys()))[np.where(shank==s)[0]]].mean(1))
-
-
-	figure()
-	for i in np.where(shank==1)[0]:
-		subplot(2,3,i+1, projection='polar')
-		plot(tuning_curves[1][i])
-
+		me = cc_ufo[np.array(list(spikes.keys()))[np.where(shank==s)[0]]].mean(1)
+		st = cc_ufo[np.array(list(spikes.keys()))[np.where(shank==s)[0]]].std(1)
+		plot(me)
+		fill_between(me.index.values, me-st, me+st, alpha = 0.5)
+		title(s)
 
 	show()
 
@@ -122,14 +119,14 @@ for s in ['A5000/A5002/A5002-200304A']:
 	# colors = np.array([hsluv.hsluv_to_rgb(colors[i]) for i in range(len(colors))])
 	colors = hsv_to_rgb(colors)
 
-	rang = 500000
+	rang = 250000
 	for i in range(len(t)):
 		figure()
 		for j , tt in enumerate(t[i][0:30]):
 			subplot(5,6,j+1)
 			for l, k in enumerate(peaks.index.values):
 				plot(spikes[k].loc[tt-rang:tt+rang].fillna(peaks[k]), '|', ms = 7, mew = 1.5, color = colors[l])
-			axvline(tt)
+			axvline(tt, alpha = 0.4)
 			xlim(tt-rang,tt+rang)
 			ylim(0, 2*np.pi)
 		show()
