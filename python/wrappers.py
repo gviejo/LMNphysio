@@ -84,16 +84,18 @@ def loadSpikeData(path, index=None, fs = 20000):
 	if len(clu_files) != len(res_files) or not (clu1 == clu2).any():
 		print("Not the same number of clu and res files in "+path+"; Exiting ...")
 		sys.exit()
-	count = 0    
+	count = 0
 	spikes = []
+	basename = clu_files[0].split(".")[0]
 	for i, s in zip(range(len(clu_files)),clu1):
-		clu = np.genfromtxt(os.path.join(path,clu_files[i]),dtype=np.int32)[1:]
+		clu = np.genfromtxt(os.path.join(path,basename+'.clu.'+str(s)),dtype=np.int32)[1:]
 		if np.max(clu)>1:
-			res = np.genfromtxt(os.path.join(path,res_files[i]))
+			# print(i,s)
+			res = np.genfromtxt(os.path.join(path,basename+'.res.'+str(s)))
 			tmp = np.unique(clu).astype(int)
 			idx_clu = tmp[tmp>1]
 			idx_col = np.arange(count, count+len(idx_clu))	        
-			tmp = pd.DataFrame(index = np.unique(res)/fs, 
+			tmp = pd.DataFrame(index = np.unique(res)/fs,
 								columns = pd.MultiIndex.from_product([[s],idx_col]),
 								data = 0, 
 								dtype = np.uint16)
@@ -641,6 +643,98 @@ def loadUFOs(path):
 		sys.exit()
 	return (nts.IntervalSet(ripples[:,0], ripples[:,2], time_units = 's'), 
 			nts.Ts(ripples[:,1], time_units = 's'))
+
+def loadMeanWaveforms(path):
+	"""
+	load waveforms
+	quick and dirty	
+	"""
+	import scipy.io
+	if not os.path.exists(path):
+		print("The path "+path+" doesn't exist; Exiting ...")
+		sys.exit()    
+	new_path = os.path.join(path, 'Analysis/')
+	if os.path.exists(new_path):
+		new_path    = os.path.join(path, 'Analysis/')
+		files        = os.listdir(new_path)
+		if 'SpikeWaveF.mat' in files:			
+			# data = scipy.io.loadmat(path+'/Analysis/SpikeWaveF.mat')
+			# meanWaveF = data['meanWaveF'][0]
+			# maxIx = data['maxIx'][0]
+			# generalinfo 	= scipy.io.loadmat(path+'/Analysis/GeneralInfo.mat')
+			# shankStructure 	= loadShankStructure(generalinfo)
+			# spikes,shank = loadSpikeData(path+'/Analysis/SpikeData.mat', shankStructure['thalamus'])	
+			# index_neurons = [path.split("/")[-1]+"_"+str(n) for n in spikes.keys()]
+			# for i, n in zip(list(spikes.keys()), index_neurons):	
+			# 	to_return[n] = meanWaveF[i][maxIx[i]-1]			
+			print("to test matlab")
+			return
+		elif "MeanWaveForms.h5" in files and "MaxWaveForms.h5" in files:
+			meanwavef = pd.read_hdf(os.path.join(new_path, 'MeanWaveForms.h5'))
+			maxch = pd.read_hdf(os.path.join(new_path, 'MaxWaveForms.h5'))
+			return meanwavef, maxch
+
+	# Creating /Analysis/ Folder here if not already present
+	if not os.path.exists(new_path): os.makedirs(new_path)
+	files = os.listdir(path)
+	clu_files     = np.sort([f for f in files if 'clu' in f and f[0] != '.'])	
+	spk_files	  = np.sort([f for f in files if 'spk' in f and f[0] != '.'])
+	clu1         = np.sort([int(f.split(".")[-1]) for f in clu_files])
+	clu2         = np.sort([int(f.split(".")[-1]) for f in spk_files])
+	if len(clu_files) != len(spk_files) or not (clu1 == clu2).any():
+		print("Not the same number of clu and res files in "+path+"; Exiting ...")
+		sys.exit()	
+
+	# XML INFO
+	n_channels, fs, shank_to_channel 	= loadXML(path)
+	from xml.dom import minidom	
+	xmlfile = os.path.join(path, [f for f in files if f.endswith('.xml')][0])
+	xmldoc 		= minidom.parse(xmlfile)
+	nSamples 	= int(xmldoc.getElementsByTagName('nSamples')[0].firstChild.data) # assuming constant nSamples
+
+	import xml.etree.ElementTree as ET
+	root = ET.parse(xmlfile).getroot()
+
+
+	count = 0
+	meanwavef = []
+	maxch = []
+	for i, s in zip(range(len(clu_files)),clu1):
+		clu = np.genfromtxt(os.path.join(path,clu_files[i]),dtype=np.int32)[1:]
+		mwf = []
+		mch = []		
+		if np.max(clu)>1:
+			# load waveforms
+			file = os.path.join(path, spk_files[i])
+			f = open(file, 'rb')
+			startoffile = f.seek(0, 0)
+			endoffile = f.seek(0, 2)
+			bytes_size = 2
+			n_samples = int((endoffile-startoffile)/bytes_size)
+			f.close()			
+			n_channel = len(root.findall('spikeDetection/channelGroups/group')[s-1].findall('channels')[0])
+			data = np.fromfile(open(file, 'rb'), np.int16)
+			data = data.reshape(len(clu),nSamples,n_channel)
+			tmp = np.unique(clu).astype(int)
+			idx_clu = tmp[tmp>1]
+			idx_col = np.arange(count, count+len(idx_clu))	        
+			for j,k in zip(idx_clu, idx_col):
+				meanw = data[clu==j].mean(0)
+				ch = np.argmax(np.max(np.abs(meanw), 0))
+				mwf.append(meanw.flatten())
+				mch.append(ch)
+			mwf = pd.DataFrame(np.array(mwf).T)
+			mwf.columns = pd.Index(idx_col)
+			mch = pd.Series(index = idx_col, data = mch)
+			count += len(idx_clu)
+			meanwavef.append(mwf)
+			maxch.append(mch)
+
+	meanwavef = pd.concat(meanwavef, 1)
+	maxch = pd.concat(maxch)	
+	meanwavef.to_hdf(os.path.join(new_path, 'MeanWaveForms.h5'), key='waveforms', mode='w')
+	maxch.to_hdf(os.path.join(new_path, 'MaxWaveForms.h5'), key='channel', mode='w')
+	return meanwavef, maxch
 
 ##########################################################################################################
 # TODO

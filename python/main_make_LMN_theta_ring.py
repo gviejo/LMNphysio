@@ -14,7 +14,7 @@ from umap import UMAP
 ############################################################################################### 
 # GENERAL infos
 ###############################################################################################
-data_directory = r'D:\Dropbox (Peyrache Lab)\Peyrache Lab Team Folder\Data\LMN'
+data_directory = '/mnt/DataGuillaume/'
 datasets = np.loadtxt(os.path.join(data_directory,'datasets_UFO.list'), delimiter = '\n', dtype = str, comments = '#')
 # datasets = np.atleast_1d(np.loadtxt(os.path.join(data_directory,'datasets_ADN.list'), delimiter = '\n', dtype = str, comments = '#'))
 infos = getAllInfos(data_directory, datasets)

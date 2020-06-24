@@ -37,14 +37,14 @@ for s in ['A5000/A5002/A5002-200304A']:
 	#####################################
 	# PARAMETERS
 	#####################################
-	# windowLength = 81
+	windowLength = 61
 	frequency = 20000
-	low_cut = 400
-	high_cut = 3000
+	low_cut = 600
+	high_cut = 4000
 	nSS_highcut = 50
 	low_thresFactor = 6
 	high_thresFactor = 100
-	minRipLen = 2 # ms
+	minRipLen = 1 # ms
 	maxRipLen = 10 # ms
 	minInterRippleInterval = 3 # ms
 	limit_peak = 100
@@ -76,9 +76,9 @@ for s in ['A5000/A5002/A5002-200304A']:
 	dummy = pd.Series(index = timestep, data = 0)
 
 	# # #TO REMOVE
-	# half_sleep = nts.IntervalSet(start = 2000, end = 3000, time_units = 's')
-	# duree = len(dummy.loc[half_sleep.start[0]:half_sleep.end[0]].index.values)
-	# dummy = dummy.loc[half_sleep.start[0]:half_sleep.end[0]]
+	half_sleep = sleep_ep.loc[[0]]
+	duree = len(dummy.loc[half_sleep.start[0]:half_sleep.end[0]].index.values)
+	dummy = dummy.loc[half_sleep.start[0]:half_sleep.end[0]]
 
 	# sys.exit()
 
@@ -93,7 +93,7 @@ for s in ['A5000/A5002/A5002-200304A']:
 		##################################################################################################	
 		lfp = pd.Series(index = timestep, data = fp[:,ch])
 		# TO REMOVE
-		# lfp = lfp.loc[half_sleep.start[0]:half_sleep.end[0]]
+		lfp = lfp.loc[half_sleep.start[0]:half_sleep.end[0]]
 		#
 		
 		##################################################################################################
@@ -101,8 +101,10 @@ for s in ['A5000/A5002/A5002-200304A']:
 		##################################################################################################
 		signal			= butter_bandpass_filter(lfp, low_cut, high_cut, frequency, 6)
 		squared_signal = np.square(signal)
-				
-		nSS[:,0] += scipy.ndimage.filters.gaussian_filter1d(squared_signal, 30)
+		window = np.ones(windowLength)/windowLength
+
+		# nSS[:,0] += scipy.ndimage.filters.gaussian_filter1d(squared_signal, 30)
+		nSS[:,0] += scipy.signal.filtfilt(window, 1, squared_signal)
 		SS[:,0] += squared_signal
 
 		del lfp
@@ -121,7 +123,7 @@ for s in ['A5000/A5002/A5002-200304A']:
 			lfp = pd.Series(index = timestep, data = fp[:,ch])
 			
 			# TO REMOVE
-			# lfp = lfp.loc[half_sleep.start[0]:half_sleep.end[0]]
+			lfp = lfp.loc[half_sleep.start[0]:half_sleep.end[0]]
 			#
 			
 			##################################################################################################
@@ -129,8 +131,10 @@ for s in ['A5000/A5002/A5002-200304A']:
 			##################################################################################################
 			signal			= butter_bandpass_filter(lfp, low_cut, high_cut, frequency, 6)
 			squared_signal = np.square(signal)
+			window = np.ones(windowLength)/windowLength
 
-			nSS[:,1] += scipy.ndimage.filters.gaussian_filter1d(squared_signal, 30)
+			nSS[:,1] += scipy.signal.filtfilt(window, 1, squared_signal)
+			# nSS[:,1] += scipy.ndimage.filters.gaussian_filter1d(squared_signal, 30)
 			SS[:,1] += squared_signal
 
 			del lfp

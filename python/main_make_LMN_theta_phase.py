@@ -51,7 +51,7 @@ for s in ['A5000/A5002/A5002-200304A']:
 	if 'A5001' in s:
 		lfp 		= loadLFP(os.path.join(data_directory,s,name+'.eeg'), n_channels, 84, 1250, 'int16')
 	elif 'A5002' in s:
-		lfp 		= loadLFP(os.path.join(data_directory,s,name+'.eeg'), n_channels, 9, 1250, 'int16')
+		lfp 		= loadLFP(os.path.join(data_directory,s,name+'.eeg'), n_channels, 94, 1250, 'int16')
 	elif 'A1407' in s:
 		lfp 		= loadLFP(os.path.join(data_directory,s,name+'.eeg'), n_channels, 1, 1250, 'int16')
 	elif 'A4002' in s:
@@ -67,7 +67,7 @@ for s in ['A5000/A5002/A5002-200304A']:
 
 	tmp = nts.Tsd(t = phase.index.values, d = np.cos(phase.values)*2000)
 
-	phase 			= phase.restrict(theta_wake_ep)
+	# phase 			= phase.restrict(theta_wake_ep)
 
 	spikes_phase	= {n:phase.realign(spikes[n].restrict(theta_wake_ep), align = 'closest') for n in spikes.keys()}
 
@@ -82,3 +82,4 @@ for s in ['A5000/A5002/A5002-200304A']:
 	import _pickle as cPickle
 	cPickle.dump(spikes_phase, open(path+'/Analysis/spike_theta_wake.pickle', 'wb'))
 	
+	phase.as_series().to_hdf(path+'/Analysis/phase_theta_wake.h5', 'theta')

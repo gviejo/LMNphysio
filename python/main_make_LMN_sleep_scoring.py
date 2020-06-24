@@ -9,18 +9,17 @@ import sys
 ############################################################################################### 
 # GENERAL infos
 ###############################################################################################
-data_directory = r'D:\Dropbox (Peyrache Lab)\Peyrache Lab Team Folder\Data\LMN'
+data_directory = '/mnt/DataGuillaume/'
 datasets = np.loadtxt(os.path.join(data_directory,'datasets_LMN.list'), delimiter = '\n', dtype = str, comments = '#')
 # datasets = np.atleast_1d(np.loadtxt(os.path.join(data_directory,'datasets_ADN.list'), delimiter = '\n', dtype = str, comments = '#'))
 # datasets = np.atleast_1d(np.loadtxt(os.path.join(data_directory,'datasets_DTN.list'), delimiter = '\n', dtype = str, comments = '#'))
 infos = getAllInfos(data_directory, datasets)
 
+datasets = ['LMN-ADN/A5002/'+s for s in infos['A5002'].index[1:-5]]
 
 
-
-# for s in datasets:
-# for s in ['A5000/A5002/A5002-200304A']:
-for s in ['A5000/A5002/A5002-200309A']:
+for s in datasets:
+	print(s)
 	name 			= s.split('/')[-1]
 	path 			= os.path.join(data_directory, s)
 	episodes  		= infos[s.split('/')[1]].filter(like='Trial').loc[s.split('/')[2]].dropna().values
@@ -30,7 +29,6 @@ for s in ['A5000/A5002/A5002-200309A']:
 	position		= loadPosition(path, events, episodes)
 	wake_ep 		= loadEpoch(path, 'wake', episodes)
 	sleep_ep		= loadEpoch(path, 'sleep')
-
 	acceleration						= loadAuxiliary(path, 2)
 	if 'A5001' in s and 3 in acceleration.columns:
 		acceleration = acceleration[[3,4,5]]
@@ -105,20 +103,20 @@ for s in ['A5000/A5002/A5002-200309A']:
 	sws_ep 	= newsleep_ep.set_diff(theta_rem_ep)
 	sws_ep = sws_ep.merge_close_intervals(0).drop_short_intervals(0)
 
-	figure()
-	ax = subplot(211)
-	[plot(lfp.restrict(theta_rem_ep.loc[[i]]), color = 'blue') for i in theta_rem_ep.index]
-	[plot(lfp.restrict(sws_ep.loc[[i]]), color = 'orange') for i in sws_ep.index]
-	plot(lfp_filt_theta.restrict(newsleep_ep))
-	subplot(212, sharex = ax)
-	[plot(ratio.restrict(theta_rem_ep.loc[[i]]), color = 'blue') for i in theta_rem_ep.index]
-	[plot(ratio.restrict(sws_ep.loc[[i]]), color = 'orange') for i in sws_ep.index]
-	plot(ratio2.restrict(newsleep_ep))
+	# figure()
+	# ax = subplot(211)
+	# [plot(lfp.restrict(theta_rem_ep.loc[[i]]), color = 'blue') for i in theta_rem_ep.index]
+	# [plot(lfp.restrict(sws_ep.loc[[i]]), color = 'orange') for i in sws_ep.index]
+	# plot(lfp_filt_theta.restrict(newsleep_ep))
+	# subplot(212, sharex = ax)
+	# [plot(ratio.restrict(theta_rem_ep.loc[[i]]), color = 'blue') for i in theta_rem_ep.index]
+	# [plot(ratio.restrict(sws_ep.loc[[i]]), color = 'orange') for i in sws_ep.index]
+	# plot(ratio2.restrict(newsleep_ep))
 
-	axhline(0)
-	show()
+	# axhline(0)
+	# show()
 
-	sys.exit()
+	# sys.exit()
 
 	writeNeuroscopeEvents(os.path.join(data_directory,s,name+'.rem.evt'), theta_rem_ep, "Theta")
 	writeNeuroscopeEvents(os.path.join(data_directory,s,name+'.sws.evt'), sws_ep, "SWS")

@@ -146,7 +146,7 @@ def compute_CrossCorrs(spks, ep, binsize=10, nbins = 2000, norm = False):
 			cc[(i,j)] = tmp
 	return cc
 
-def compute_PairsCrossCorr(spks, ep, pair, binsize=10, nbins = 2000, norm = False):
+def compute_PairCrossCorr(spks, ep, pair, binsize=10, nbins = 2000, norm = False):
 	"""
 		
 	"""		
@@ -179,6 +179,46 @@ def compute_EventCrossCorr(spks, evt, ep, binsize = 5, nbins = 1000, norm=False)
 			cc[i] = tmp
 	return cc
 		
+def compute_ISI(spks, ep, maxisi, nbins, log_=False):
+	"""
+	"""
+	neurons = list(spks.keys())
+	if log_:
+		bins = np.linspace(np.log10(1), np.log10(maxisi), nbins)
+	else:
+		bins = np.linspace(0, maxisi, nbins)
+		
+	isi = pd.DataFrame(index =  bins[0:-1] + np.diff(bins)/2, columns = neurons)
+	for i in neurons:
+		tmp = []
+		for j in ep.index:
+			tmp.append(np.diff(spks[i].restrict(ep.loc[[j]]).as_units('ms').index.values))
+		tmp = np.hstack(tmp)
+		if log_:
+			isi[i], _ = np.histogram(np.log10(tmp), bins)
+		else:
+			isi[i], _ = np.histogram(tmp, bins)
+
+	return isi
+
+def compute_AllPairsCrossCorrs(spks, ep, binsize=10, nbins = 2000, norm = False):
+	"""
+		
+	"""	
+	neurons = list(spks.keys())
+	times = np.arange(0, binsize*(nbins+1), binsize) - (nbins*binsize)/2
+	cc = pd.DataFrame(index = times, columns = list(combinations(neurons, 2)))
+		
+	for i,j in cc.columns:		
+		spk1 = spks[i].restrict(ep).as_units('ms').index.values
+		spk2 = spks[j].restrict(ep).as_units('ms').index.values		
+		tmp = crossCorr(spk1, spk2, binsize, nbins)		
+		fr = len(spk2)/ep.tot_length('s')
+		if norm:
+			cc[(i,j)] = tmp/fr
+		else:
+			cc[(i,j)] = tmp
+	return cc
 
 
 #########################################################
@@ -199,14 +239,17 @@ def computeLMNAngularTuningCurves(spikes, angle, ep, nb_bins = 180, frequency = 
 	velocity 		= velocity.restrict(ep)	
 	velo_spikes 	= {}	
 	for k in spikes: velo_spikes[k]	= velocity.realign(spikes[k].restrict(ep))
-	bins_velocity	= np.array([velocity.min(), -2*np.pi/3, -np.pi/6, np.pi/6, 2*np.pi/3, velocity.max()+0.001])
+	# bins_velocity	= np.array([velocity.min(), -2*np.pi/3, -np.pi/6, np.pi/6, 2*np.pi/3, velocity.max()+0.001])
+	bins_velocity	= np.array([velocity.min(), -np.pi/6, np.pi/6, velocity.max()+0.001])
+
 	idx_velocity 	= {k:np.digitize(velo_spikes[k].values, bins_velocity)-1 for k in spikes}
 
 	bins 			= np.linspace(0, 2*np.pi, nb_bins)
 	idx 			= bins[0:-1]+np.diff(bins)/2
 	tuning_curves 	= {i:pd.DataFrame(index = idx, columns = list(spikes.keys())) for i in range(3)}	
 
-	for i,j in zip(range(3),range(0,6,2)):
+	# for i,j in zip(range(3),range(0,6,2)):
+	for i,j in zip(range(3),range(3)):
 		for k in spikes:
 			spks 			= spikes[k].restrict(ep)			
 			spks 			= spks[idx_velocity[k] == j]
@@ -222,7 +265,7 @@ def computeLMNAngularTuningCurves(spikes, angle, ep, nb_bins = 180, frequency = 
 def computeAngularTuningCurves(spikes, angle, ep, nb_bins = 180, frequency = 120.0):
 	bins 			= np.linspace(0, 2*np.pi, nb_bins)
 	idx 			= bins[0:-1]+np.diff(bins)/2
-	tuning_curves 	= pd.DataFrame(index = idx, columns = np.arange(len(spikes)))	
+	tuning_curves 	= pd.DataFrame(index = idx, columns = list(spikes.keys()))	
 	angle 			= angle.restrict(ep)
 	# Smoothing the angle here
 	tmp 			= pd.Series(index = angle.index.values, data = np.unwrap(angle.values))
@@ -336,9 +379,9 @@ def computeOccupancy(position_tsd, nb_bins = 100):
     occupancy, _, _ = np.histogram2d(ypos, xpos, [ybins,xbins])
     return occupancy
 
-def computeAngularVelocityTuningCurves(spikes, angle, ep, nb_bins = 31, bin_size = 10000, norm=True):
+def computeAngularVelocityTuningCurves(spikes, angle, ep, nb_bins = 61, bin_size = 10000, norm=True):
 	tmp 			= pd.Series(index = angle.index.values, data = np.unwrap(angle.values))
-	tmp2 			= tmp.rolling(window=100,win_type='gaussian',center=True,min_periods=1).mean(std=30.0)
+	tmp2 			= tmp.rolling(window=100,win_type='gaussian',center=True,min_periods=1).mean(std=10.0)
 	time_bins		= np.arange(tmp.index[0], tmp.index[-1]+bin_size, bin_size) # assuming microseconds
 	index 			= np.digitize(tmp2.index.values, time_bins)
 	tmp3 			= tmp2.groupby(index).mean()
@@ -349,7 +392,7 @@ def computeAngularVelocityTuningCurves(spikes, angle, ep, nb_bins = 31, bin_size
 	tmp4			= np.diff(tmp2.values)/np.diff(tmp2.as_units('s').index.values)	
 	velocity 		= nts.Tsd(t=tmp2.index.values[1:], d = tmp4)
 	velocity 		= velocity.restrict(ep)	
-	bins 			= np.linspace(-np.pi, np.pi, nb_bins)
+	bins 			= np.linspace(-2*np.pi, 2*np.pi, nb_bins)
 	idx 			= bins[0:-1]+np.diff(bins)/2
 	velo_curves		= pd.DataFrame(index = idx, columns = list(spikes.keys()))
 
@@ -462,6 +505,36 @@ def splitWake(ep):
 	tmp[1,1] = ep.values[0,1]
 	tmp[0,1] = tmp[1,0] = ep.values[0,0] + np.diff(ep.values[0])/2
 	return nts.IntervalSet(start = tmp[:,0], end = tmp[:,1])
+
+def centerTuningCurves(tcurve):
+	"""
+	center tuning curves by peak
+	"""
+	peak 			= pd.Series(index=tcurve.columns,data = np.array([circmean(tcurve.index.values, tcurve[i].values) for i in tcurve.columns]))
+	new_tcurve 		= []
+	for p in tcurve.columns:	
+		x = tcurve[p].index.values - tcurve[p].index[tcurve[p].index.get_loc(peak[p], method='nearest')]
+		x[x<-np.pi] += 2*np.pi
+		x[x>np.pi] -= 2*np.pi
+		tmp = pd.Series(index = x, data = tcurve[p].values).sort_index()
+		new_tcurve.append(tmp.values)
+	new_tcurve = pd.DataFrame(index = np.linspace(-np.pi, np.pi, tcurve.shape[0]+1)[0:-1], data = np.array(new_tcurve).T, columns = tcurve.columns)
+	return new_tcurve
+
+def offsetTuningCurves(tcurve, diffs):
+	"""
+	offseting tuning curves synced by diff
+	"""	
+	new_tcurve 		= []
+	for p in tcurve.columns:	
+		x = tcurve[p].index.values - tcurve[p].index[tcurve[p].index.get_loc(diffs[p], method='nearest')]
+		x[x<-np.pi] += 2*np.pi
+		x[x>np.pi] -= 2*np.pi
+		tmp = pd.Series(index = x, data = tcurve[p].values).sort_index()
+		new_tcurve.append(tmp.values)
+	new_tcurve = pd.DataFrame(index = np.linspace(-np.pi, np.pi, tcurve.shape[0]+1)[0:-1], data = np.array(new_tcurve).T, columns = tcurve.columns)
+	return new_tcurve
+
 
 #########################################################
 # LFP FUNCTIONS
@@ -596,3 +669,115 @@ def computeSpeed(position, ep, bin_size = 0.1):
 	speed 		= nts.Tsd(t = tmp.index.values[0:-1]+ bin_size/2, d = distance/bin_size)
 	speed 		= speed.restrict(ep)
 	return speed
+
+#######################################################
+# SYNCHRONY HELPERS
+#######################################################
+@jit(nopython=True, parallel=True)
+def getSyncAsync(spk1, spk2):
+	spksync = []
+	spkasync = []
+	for t in spk2:
+		d = np.abs(t-spk1)
+		idx = d<4
+		if np.sum(idx):
+			spksync.append(t)
+		else:
+			spkasync.append(t)
+	spksync = np.array(spksync)
+	spkasync = np.array(spkasync)
+	return spksync, spkasync
+
+
+def getSpikesSyncAsync(spks, hd_neurons):
+	"""
+	"""		
+	allsync = {}
+	allasync = {}
+	n = len(spks)
+	for i in range(n):
+		for j in range(n):
+			if i != j:				
+				spk1 = spks[i]
+				spk2 = spks[j]
+				spksync, spkasync = getSyncAsync(spk1, spk2)
+				allsync[(hd_neurons[i],hd_neurons[j])] = nts.Ts(spksync, time_units = 'ms')
+				allasync[(hd_neurons[i],hd_neurons[j])] = nts.Ts(spkasync, time_units = 'ms')
+
+	return allsync, allasync
+
+	
+def sample_frates(frates_value, time_index, hd_neurons, n = 30):
+	spikes_random = {}
+	for i in range(len(hd_neurons)):
+		l = frates_value[:,i]
+		s = np.random.poisson(l, size=(int(n),int(len(frates_value))))
+		tmp = {}
+		for j in range(len(s)):
+			tmp[j] = nts.Ts(time_index[s[j]>0])
+		spikes_random[hd_neurons[i]] = tmp
+	return spikes_random
+
+def sampleSpikesFromAngularPosition(tcurve, angles, ep, bin_size = 1000):
+	"""
+	"""
+	hd_neurons = tcurve.columns.values
+	bin_size = 1000  # us
+	angles = pd.Series(index = angles.index, data = np.unwrap(angles.values))
+	bins = np.arange(ep.loc[0,'start'], ep.loc[0, 'end'], bin_size)
+	tmp = angles.groupby(np.digitize(angles.index.values, bins)-1).mean()
+	angle2 = pd.Series(index = np.arange(len(bins)), data = np.nan)
+	angle2.loc[tmp.index] = tmp.values
+	angle2 = angle2.interpolate()
+	angle2.index = bins + np.max(np.diff(bins)/2)
+	angle2 = angle2%(2*np.pi)
+
+	idx = np.argsort(np.abs(np.vstack(angle2.values) - tcurve.index.values), axis = 1)[:,0]
+	idx = tcurve.index[idx]
+	frates = tcurve.loc[idx]
+	frates.index = angle2.index
+
+	time_index = frates.index.values
+	frates_value = frates.values*(bin_size*1e-6)
+
+	spikes_random = sample_frates(frates_value, time_index, hd_neurons)
+
+	return spikes_random
+
+def sampleSpikesFromAngularVelocity(ahvcurve, angles, ep, bin_size = 1000):
+	"""
+	"""
+	hd_neurons = ahvcurve.columns.values
+	bin_size = 1000  # us
+
+	tmp 			= pd.Series(index = angles.index.values, data = np.unwrap(angles.values))
+	tmp2 			= tmp.rolling(window=100,win_type='gaussian',center=True,min_periods=1).mean(std=10.0)
+	time_bins		= np.arange(tmp.index[0], tmp.index[-1]+10000, 10000) # assuming microseconds
+	index 			= np.digitize(tmp2.index.values, time_bins)
+	tmp3 			= tmp2.groupby(index).mean()
+	tmp3.index 		= time_bins[np.unique(index)-1]+bin_size/2
+	tmp3 			= nts.Tsd(tmp3)
+	tmp4			= np.diff(tmp3.values)/np.diff(tmp3.as_units('s').index.values)
+	tmp2 			= nts.Tsd(tmp2)
+	tmp4			= np.diff(tmp2.values)/np.diff(tmp2.as_units('s').index.values)	
+	velocity 		= nts.Tsd(t=tmp2.index.values[1:], d = tmp4)
+	velocity 		= velocity.restrict(ep)	
+	
+	bins = np.arange(ep.loc[0,'start'], ep.loc[0, 'end'], bin_size)
+	tmp = velocity.groupby(np.digitize(velocity.index.values, bins)-1).mean()
+	velocity2 = pd.Series(index = np.arange(len(bins)), data = np.nan)
+	velocity2.loc[tmp.index] = tmp.values
+	velocity2 = velocity2.interpolate()
+	velocity2.index = bins + np.max(np.diff(bins)/2)
+	
+	idx = np.argsort(np.abs(np.vstack(velocity2.values) - ahvcurve.index.values), axis = 1)[:,0]
+	idx = ahvcurve.index[idx]
+	frates = ahvcurve.loc[idx]
+	frates.index = velocity2.index
+
+	time_index = frates.index.values
+	frates_value = frates.values*(bin_size*1e-6)
+
+	spikes_random = sample_frates(frates_value, time_index, hd_neurons)
+
+	return spikes_random

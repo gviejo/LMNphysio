@@ -10,7 +10,8 @@ import sys
 # data_directory = '/mnt/LocalHDD/A1410-200121A/A1410-200121A'
 # data_directory = '/mnt/DataGuillaume/LMN/A1410/A1410-200122A'
 # data_directory = '/mnt/DataGuillaume/LMN-ADN/A5002/A5002-200224A'
-data_directory = '/mnt/DataGuillaume/LMN-ADN/A5003/A5003-200317A'
+# data_directory = '/mnt/DataGuillaume/LMN-ADN/A5004/A5004-200609A'
+data_directory = '/mnt/DataGuillaume/LMN-ADN/A5007/A5007-200623A'
 
 # data_directory = '../data/A1400/A1407/A1407-190422'
 # data_directory = '/mnt/DataGuillaume/PostSub/A3003/A3003-190516A'
@@ -19,7 +20,7 @@ data_directory = '/mnt/DataGuillaume/LMN-ADN/A5003/A5003-200317A'
 # episodes = ['sleep', 'wake', 'sleep']
 # episodes = ['sleep', 'wake', 'sleep', 'wake', 'sleep', 'wake', 'sleep']
 # episodes = ['sleep', 'wake', 'sleep', 'wake', 'sleep']
-episodes = ['sleep', 'wake']
+episodes = ['sleep', 'wake', 'sleep']
 # episodes = ['sleep', 'wake', 'sleep', 'wake', 'wake', 'wake', 'sleep']
 # episodes = ['wake', 'sleep']
 events = ['1']
@@ -65,7 +66,7 @@ tokeep, stat = findHDCells(tuning_curves[1])
 velo_curves = velo_curves.rolling(window=5, win_type='gaussian', center= True, min_periods=1).mean(std = 1.0)
 speed_curves = speed_curves.rolling(window=5, win_type='gaussian', center= True, min_periods=1).mean(std = 1.0)
 
-# sys.exit()
+
 		
 cc1 = compute_CrossCorrs(spikes, wake_ep, 5, 1000, norm = False)
 cc1 = cc1.rolling(window=100, win_type='gaussian', center= True, min_periods=1).mean(std = 1.0)
@@ -90,9 +91,9 @@ for j in np.unique(shank):
 	neurons = np.where(shank == j)[0]
 	for k,i in enumerate(neurons):
 		subplot(int(np.sqrt(len(neurons)))+1,int(np.sqrt(len(neurons)))+1,k+1, projection = 'polar')
-		plot(tuning_curves[1][i], label = str(shank[i]) + ' ' + str(i), color = colors[shank[i]])
+		plot(tuning_curves[1][i], label = str(shank[i]) + ' ' + str(i))
 		if i in tokeep:
-			plot(tuning_curves[1][i], label = str(shank[i]) + ' ' + str(i), color = colors[shank[i]], linewidth = 3)
+			plot(tuning_curves[1][i], label = str(shank[i]) + ' ' + str(i), linewidth = 3)
 		legend()
 
 for j in np.unique(shank):
@@ -117,7 +118,7 @@ for j in np.unique(shank):
 
 
 
-
+sys.exit()
 
 
 
@@ -195,8 +196,8 @@ from itertools import product
 # adn = list(np.where(shank == 1)[0]) + list(np.where(shank == 2)[0])
 # lmn = list(np.where(shank > 2)[0])
 
-adn = list(np.where(shank < 3)[0])
-lmn = list(np.where(shank >= 3)[0])
+adn = list(np.where(shank <= 5)[0])
+lmn = list(np.where(shank >= 6)[0])
 
 adn = np.intersect1d(adn, tokeep)
 lmn = np.intersect1d(lmn, tokeep)

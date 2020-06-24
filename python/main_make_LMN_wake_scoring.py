@@ -20,7 +20,7 @@ infos = getAllInfos(data_directory, datasets)
 
 
 # for s in datasets:
-for s in ['A5000/A5002/A5002-200304A']:
+for s in ['A5000/A5002/A5002-200303B']:
 	print(s)
 	name 			= s.split('/')[-1]
 	path 			= os.path.join(data_directory, s)
