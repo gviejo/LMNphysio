@@ -6,7 +6,7 @@ from wrappers import *
 from functions import *
 import sys
 
-data_directory 	= '/mnt/DataGuillaume/LMN-ADN/A5001'
+data_directory 	= '/mnt/DataGuillaume/LMN-ADN/A5011'
 info 			= pd.read_csv(os.path.join(data_directory,'A5001.csv'), index_col = 0)
 
 data_directory = '/mnt/LocalHDD/DTN/A4002'

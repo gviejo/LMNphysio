@@ -6,19 +6,11 @@ from wrappers import *
 from functions import *
 import sys
 
-# data_directory = '/mnt/DataGuillaume/LMN/A1410/A1410-200116A/A1410-200116A'
-data_directory = '/mnt/LocalHDD/A4002/A4002-200121/A4002-200121'
+data_directory = '/mnt/DataGuillaume/DTN/A4007/A4007-200801'
 
-# data_directory = '../data/A1400/A1407/A1407-190422'
-# data_directory = '/mnt/DataGuillaume/PostSub/A3003/A3003-190516A'
-
-# episodes = ['sleep', 'wake', 'sleep']
-# episodes = ['sleep', 'wake', 'sleep']
 # episodes = ['sleep', 'wake', 'sleep', 'wake', 'sleep']
-# episodes = ['sleep', 'wake', 'sleep']
-# episodes = ['sleep', 'wake', 'sleep']
-# episodes = ['wake', 'sleep']
 episodes = ['sleep', 'wake']
+# events = ['1', '3']
 # events = ['1', '3']
 events = ['1']
 
@@ -26,13 +18,13 @@ events = ['1']
 
 spikes, shank 						= loadSpikeData(data_directory)
 n_channels, fs, shank_to_channel 	= loadXML(data_directory)
-position 							= loadPosition(data_directory, events, episodes)
+position 							= loadPosition(data_directory, events, episodes, 2, 1)
 wake_ep 							= loadEpoch(data_directory, 'wake', episodes)
 sleep_ep 							= loadEpoch(data_directory, 'sleep')					
 acceleration						= loadAuxiliary(data_directory)
 
 
-tuning_curves 						= computeAngularTuningCurves(spikes, position['ry'], wake_ep, 60)
+tuning_curves 						= computeAngularTuningCurves(spikes, position['ry'], wake_ep, 60, 100)
 # tuning_curves, velocity, edges 		= computeLMNAngularTuningCurves(spikes, position['ry'], wake_ep, 61)
 spatial_curves, extent				= computePlaceFields(spikes, position[['x', 'z']], wake_ep, 20)
 autocorr_wake, frate_wake 			= compute_AutoCorrs(spikes, wake_ep)

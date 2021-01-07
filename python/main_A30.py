@@ -13,22 +13,15 @@ import sys
 # data_directory = '/mnt/DataGuillaume/LMN-POSTSUB/A3004/A3004-200122B'
 # data_directory = '/mnt/DataGuillaume/LMN-POSTSUB/A3004/A3004-200122C'
 # data_directory = '/mnt/DataGuillaume/LMN-POSTSUB/A3004/A3004-200124B2'
-data_directory = '/mnt/DataGuillaume/LMN-POSTSUB/A3004/A3004-200127A'
+data_directory = '/mnt/DataGuillaume/LMN-PSB/A3007/A3007-201127A'
 episodes = ['sleep', 'wake']
 # episodes = ['sleep', 'wake', 'sleep', 'wake', 'sleep']
 # episodes = ['sleep', 'wake', 'sleep']
 # episodes = ['sleep', 'wake', 'sleep']
-<<<<<<< Updated upstream
-episodes = ['sleep', 'wake']
-# events = ['1', '3']
-events = ['1']
-=======
-# episodes = ['sleep', 'wake', 'sleep', 'wake', 'wake', 'sleep']
-# events = ['1', '3']
-# events = ['1', '3','4']
+
 events = ['1']
 
->>>>>>> Stashed changes
+
 
 
 
@@ -36,7 +29,7 @@ spikes, shank 						= loadSpikeData(data_directory)
 n_channels, fs, shank_to_channel 	= loadXML(data_directory)
 position 							= loadPosition(data_directory, events, episodes)
 wake_ep 							= loadEpoch(data_directory, 'wake', episodes)
-# sleep_ep 							= loadEpoch(data_directory, 'sleep')					
+sleep_ep 							= loadEpoch(data_directory, 'sleep')					
 
 tuning_curves2 						= computeAngularTuningCurves(spikes, position['ry'], wake_ep, 120)
 tuning_curves, velocity, edges 		= computeLMNAngularTuningCurves(spikes, position['ry'], wake_ep, 61)
@@ -56,7 +49,9 @@ for i in tuning_curves:
 
 velo_curves = velo_curves.rolling(window=5, win_type='gaussian', center= True, min_periods=1).mean(std = 1.0)
 speed_curves = speed_curves.rolling(window=5, win_type='gaussian', center= True, min_periods=1).mean(std = 1.0)
-		
+
+
+lfp = loadLFP(os.path.join(data_directory,data_directory.split('/')[-1]+'.dat'), n_channels=64, channel=0, frequency=20000.0, precision='int16')
 
 ############################################################################################### 
 # PLOT
@@ -64,16 +59,25 @@ speed_curves = speed_curves.rolling(window=5, win_type='gaussian', center= True,
 
 figure()
 for i in spikes:
-	subplot(6,7,i+1, projection = 'polar')
+	subplot(4,8,i+1, projection = 'polar')
 	plot(tuning_curves2[i], label = str(shank[i])+'-'+str(i))
 	legend()
 
 
 
+
 figure()
 for i in spikes:
-	subplot(6,7,i+1, projection = 'polar')
+	subplot(4,4,i+1, projection = 'polar')
 	plot(tuning_curves[1][i], label = str(shank[i])+'-'+str(i))
+	legend()
+
+sys.exit()
+
+figure()
+for i,n in enumerate(fs):
+	subplot(1,4,i+1, projection = 'polar')
+	plot(tuning_curves2[n])
 	legend()
 
 

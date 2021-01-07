@@ -8,7 +8,8 @@ import sys
 from pycircstat.descriptive import mean as circmean
 
 # data_directory = '/mnt/DataGuillaume/LMN/A1410/A1410-200116A/A1410-200116A'
-data_directory = '/mnt/DataGuillaume/LMN-ADN/A5002/A5002-200303B'
+# data_directory = '/mnt/DataGuillaume/LMN-ADN/A5002/A5002-200303B'
+data_directory = '/mnt/DataGuillaume/LMN/A1411/A1411-200908A'
 
 episodes = ['sleep', 'wake', 'sleep']
 # events = ['1', '3']
@@ -31,10 +32,11 @@ sleep_ep 							= refineSleepFromAccel(acceleration, sleep_ep)
 
 tuning_curves 						= computeAngularTuningCurves(spikes, position['ry'], wake_ep, 61)
 tcurves 							= smoothAngularTuningCurves(tuning_curves, 10, 2)
-tokeep, stat 						= findHDCells(tcurves)
-lmn = list(np.where(shank == 3)[0])
-lmn = np.intersect1d(lmn, tokeep)
-tokeep = lmn
+tokeep, stat 						= findHDCells(tcurves, z=10, p = 0.001)
+
+# lmn = list(np.where(shank == 3)[0])
+# lmn = np.intersect1d(lmn, tokeep)
+# tokeep = lmn
 tcurves 							= tuning_curves[tokeep]
 peaks 								= pd.Series(index=tcurves.columns,data = np.array([circmean(tcurves.index.values, tcurves[i].values) for i in tcurves.columns])).sort_values()		
 tcurves 							= tcurves[peaks.index.values]
@@ -46,8 +48,8 @@ tcurves.columns						= pd.Index(neurons)
 
 cc_wak = compute_CrossCorrs(spikes, wake_ep, norm=True)
 cc_slp = compute_CrossCorrs(spikes, sleep_ep, 0.25, 200, norm=True)
-cc_wak = cc_wak.rolling(window=10, win_type='gaussian', center = True, min_periods = 1).mean(std = 2.0)
-cc_slp = cc_slp.rolling(window=10, win_type='gaussian', center = True, min_periods = 1).mean(std = 2.0)
+cc_wak = cc_wak.rolling(window=20, win_type='gaussian', center = True, min_periods = 1).mean(std = 4.0)
+cc_slp = cc_slp.rolling(window=20, win_type='gaussian', center = True, min_periods = 1).mean(std = 4.0)
 
 s = data_directory.split("/")[-1]
 
@@ -69,11 +71,11 @@ from matplotlib import gridspec
 titles = ['wake', 'sleep']
 fig = figure()
 outergs = gridspec.GridSpec(2,2, figure = fig)
-gsA = gridspec.GridSpecFromSubplotSpec(2,10, outergs[0,:])
-for i, n in enumerate(tcurves.columns[0:10]):
+gsA = gridspec.GridSpecFromSubplotSpec(2,15, outergs[0,:])
+for i, n in enumerate(tcurves.columns[0:15]):
 	subplot(gsA[0,i], projection = 'polar')
 	plot(tcurves[n])
-for i, n in enumerate(tcurves.columns[10:]):
+for i, n in enumerate(tcurves.columns[15:]):
 	subplot(gsA[1,i], projection = 'polar')
 	plot(tcurves[n])
 

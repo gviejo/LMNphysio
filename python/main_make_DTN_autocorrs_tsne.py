@@ -13,12 +13,15 @@ from sklearn.manifold import TSNE
 # GENERAL infos
 ###############################################################################################
 data_directory = '/mnt/DataGuillaume/'
-datasets = np.loadtxt(os.path.join(data_directory,'datasets_LMN.list'), delimiter = '\n', dtype = str, comments = '#')
+datasets = np.loadtxt(os.path.join(data_directory,'datasets_DTN.list'), delimiter = '\n', dtype = str, comments = '#')
 infos = getAllInfos(data_directory, datasets)
 
 
-allauto = {e:[] for e in ['wak', 'rem', 'sws']}
-allfrates = {e:[] for e in ['wak', 'rem', 'sws']}
+# allauto = {e:[] for e in ['wak', 'rem', 'sws']}
+# allfrates = {e:[] for e in ['wak', 'rem', 'sws']}
+allauto = {e:[] for e in ['wak']}
+allfrates = {e:[] for e in ['wak']}
+alltc = []
 hd_index = []
 shanks_index = []
 
@@ -37,8 +40,8 @@ for s in datasets:
 	position 							= loadPosition(path, events, episodes)
 	wake_ep 							= loadEpoch(path, 'wake', episodes)
 	sleep_ep 							= loadEpoch(path, 'sleep')					
-	sws_ep								= loadEpoch(path, 'sws')
-	rem_ep								= loadEpoch(path, 'rem')
+	# sws_ep								= loadEpoch(path, 'sws')
+	# rem_ep								= loadEpoch(path, 'rem')
 
 	# Only taking the first wake ep
 	wake_ep = wake_ep.loc[[0]]
@@ -87,15 +90,20 @@ for s in datasets:
 	# 	if n in tokeep:
 	# 		plot(tuning_curves[1][n], color = 'red')
 
-
 	spikes = {n:spikes[n] for n in tokeep}
 	neurons = [name+'_'+str(n) for n in spikes.keys()]
 	hd_index.append([n for n in neurons if int(n.split('_')[1]) in tokeep])
 
+	tc = tuning_curves[1][tokeep]
+	tc.columns = neurons
+	alltc.append(tc)
+
+
 	############################################################################################### 
 	# COMPUTE AUTOCORRS
 	###############################################################################################
-	for e, ep, tb, tw in zip(['wak', 'rem', 'sws'], [wake_ep, rem_ep, sws_ep], [10, 10, 1], [1000, 1000, 1000]):
+	# for e, ep, tb, tw in zip(['wak', 'rem', 'sws'], [wake_ep, rem_ep, sws_ep], [10, 10, 1], [1000, 1000, 1000]):
+	for e, ep, tb, tw in zip(['wak'], [wake_ep], [10], [1000]):
 		autocorr, frates = compute_AutoCorrs(spikes, ep, tb, tw)
 		autocorr.columns = pd.Index(neurons)
 		frates.index = pd.Index(neurons)
@@ -108,6 +116,9 @@ for e in allauto.keys():
 
 frates = pd.DataFrame.from_dict(allfrates)
 
+alltc = pd.concat(alltc, 1)
+
+
 allindex = []
 data = []
 halfauto = {}
@@ -118,14 +129,15 @@ for e in allauto.keys():
 	auto = auto.drop(auto.columns[auto.apply(lambda col: col.max() > 100.0)], axis = 1)
 	# # 4. gauss filt
 	auto = auto.rolling(window = 20, win_type = 'gaussian', center = True, min_periods = 1).mean(std = 1.0)
-	auto = auto.loc[2:200]
+	auto = auto.loc[2:300]
 	# Drop nan
 	auto = auto.dropna(1)
 	halfauto[e] = auto
 	allindex.append(auto.columns)
 
 hd_index = np.hstack(hd_index)
-neurons = np.intersect1d(np.intersect1d(allindex[0], allindex[1]), allindex[2])
+neurons = hd_index
+# neurons = np.intersect1d(np.intersect1d(allindex[0], allindex[1]), allindex[2])
 # neurons = np.intersect1d(neurons, fr_index)
 
 # shanks_index = pd.concat(shanks_index)
@@ -143,33 +155,48 @@ c.loc[hd_index] = 1
 X = TSNE(2, 100).fit_transform(data)
 
 U = UMAP(n_neighbors = 15, n_components = 2).fit_transform(data)
-K = KMeans(n_clusters = 3, random_state = 0).fit(U).labels_
+K = KMeans(n_clusters = 2, random_state = 0).fit(U).labels_
 
 
 figure()
+subplot(121)
 scatter(U[:,0], U[:,1], c = K)
 
+subplot(122)
+for i in range(2):
+	plot(allauto['wak'][neurons[K==i]].mean(1).loc[-500:500], color = 'grey', alpha = 0.5)
 
 
+
+# figure()
+# count = 1
+# for j in range(len(np.unique(K))):
+# 	for e in allauto.keys():	
+# 		subplot(len(np.unique(K)),3,count)
+# 		tmp = allauto[e][neurons[K==j]]
+# 		plot(tmp.mean(1))
+# 		count += 1
+# 		title(e)
+# show()
+
+# figure()
+# count = 1
+# for e in allauto.keys():	
+# 	subplot(1,3,count)
+# 	for j in range(len(np.unique(K))):		
+# 		tmp = allauto[e][neurons[K==j]]
+# 		plot(tmp.mean(1))
+# 	count += 1
+# 	title(e)
+# show()
 
 figure()
-count = 1
-for j in range(len(np.unique(K))):
-	for e in allauto.keys():	
-		subplot(len(np.unique(K)),3,count)
-		tmp = allauto[e][neurons[K==j]]
-		plot(tmp.mean(1))
-		count += 1
-		title(e)
-show()
+for i, n in enumerate(neurons[K==1]):
+	subplot(4,5,i+1)
+	plot(allauto['wak'][n].loc[-200:200])
 
 figure()
-count = 1
-for e in allauto.keys():	
-	subplot(1,3,count)
-	for j in range(len(np.unique(K))):		
-		tmp = allauto[e][neurons[K==j]]
-		plot(tmp.mean(1))
-	count += 1
-	title(e)
-show()
+for i, n in enumerate(neurons[K==1]):
+	subplot(4,5,i+1, projection = 'polar')
+	plot(alltc[n])
+

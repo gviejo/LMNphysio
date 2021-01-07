@@ -77,8 +77,8 @@ def loadSpikeData(path, index=None, fs = 20000):
 	# Creating /Analysis/ Folder here if not already present
 	if not os.path.exists(new_path): os.makedirs(new_path)
 	files = os.listdir(path)
-	clu_files     = np.sort([f for f in files if 'clu' in f and f[0] != '.'])
-	res_files     = np.sort([f for f in files if 'res' in f and f[0] != '.'])
+	clu_files     = np.sort([f for f in files if '.clu.' in f and f[0] != '.'])
+	res_files     = np.sort([f for f in files if '.res.' in f and f[0] != '.'])
 	clu1         = np.sort([int(f.split(".")[-1]) for f in clu_files])
 	clu2         = np.sort([int(f.split(".")[-1]) for f in res_files])
 	if len(clu_files) != len(res_files) or not (clu1 == clu2).any():
@@ -237,7 +237,7 @@ def makeEpochs(path, order, file = None, start=None, end = None, time_units = 's
 
 	return None
 
-def makePositions(path, file_order, episodes, names = ['ry', 'rx', 'rz', 'x', 'y', 'z'], update_wake_epoch = True):
+def makePositions(path, file_order, episodes, n_channels=1, trackchannel=0, names = ['ry', 'rx', 'rz', 'x', 'y', 'z'], update_wake_epoch = True):
 	"""
 	Assuming that makeEpochs has been runned and a file BehavEpochs.h5 can be 
 	found in /Analysis/, this function will look into path  for analogin file 
@@ -293,7 +293,7 @@ def makePositions(path, file_order, episodes, names = ['ry', 'rx', 'rz', 'x', 'y
 			print("Exiting ...")
 			sys.exit()
 		else:
-			ttl = loadTTLPulse(analogin_file)
+			ttl = loadTTLPulse(analogin_file, n_channels, trackchannel)
 		
 		if len(ttl):
 			length = np.minimum(len(ttl), len(position))
@@ -362,12 +362,16 @@ def loadEpoch(path, epoch, episodes = None):
 	if not os.path.exists(path): # Check for path
 		print("The path "+path+" doesn't exist; Exiting ...")
 		sys.exit()
-	if epoch in ['sws', 'rem']: # loading the .epoch.evt file
+	if epoch in ['sws', 'rem']: 		
+		# loading the .epoch.evt file
 		file = os.path.join(path,os.path.basename(path)+'.'+epoch+'.evt')
 		if os.path.exists(file):
 			tmp = np.genfromtxt(file)[:,0]
 			tmp = tmp.reshape(len(tmp)//2,2)/1000
 			ep = nts.IntervalSet(start = tmp[:,0], end = tmp[:,1], time_units = 's')
+			# TO make sure it's only in sleep since using the TheStateEditor
+			sleep_ep = loadEpoch(path, 'sleep')
+			ep = sleep_ep.intersect(ep)
 			return ep
 		else:
 			print("The file ", file, "does not exist; Exiting ...")
@@ -456,7 +460,7 @@ def loadEpoch(path, epoch, episodes = None):
 					stop = np.where(index == -1)[0]
 					return nts.IntervalSet(start, stop, time_units = 's', expect_fix=True).drop_short_intervals(0.0)
 
-def loadPosition(path, events = None, episodes = None):
+def loadPosition(path, events = None, episodes = None, n_channels=1,trackchannel=0):
 	"""
 	load the position contained in /Analysis/Position.h5
 
@@ -476,7 +480,7 @@ def loadPosition(path, events = None, episodes = None):
 	if not os.path.exists(new_path): os.mkdir(new_path)
 	file = os.path.join(path, 'Analysis', 'Position.h5')
 	if not os.path.exists(file):
-		makePositions(path, events, episodes)
+		makePositions(path, events, episodes, n_channels, trackchannel)
 	if os.path.exists(file):
 		store = pd.HDFStore(file, 'r')
 		position = store['position']
@@ -487,7 +491,7 @@ def loadPosition(path, events = None, episodes = None):
 		print("Cannot find "+file+" for loading position")
 		sys.exit()    	
 
-def loadTTLPulse(file, n_channels = 1, fs = 20000):
+def loadTTLPulse(file, n_channels = 1, channel = 0, fs = 20000):
 	"""
 		load ttl from analogin.dat
 	"""
@@ -499,7 +503,10 @@ def loadTTLPulse(file, n_channels = 1, fs = 20000):
 	f.close()
 	with open(file, 'rb') as f:
 		data = np.fromfile(f, np.uint16).reshape((n_samples, n_channels))
-	data = data.flatten().astype(np.int32)
+	if n_channels == 1:
+		data = data.flatten().astype(np.int32)
+	else:
+		data = data[:,channel].flatten().astype(np.int32)
 	peaks,_ = scipy.signal.find_peaks(np.diff(data), height=30000)
 	timestep = np.arange(0, len(data))/fs
 	# analogin = pd.Series(index = timestep, data = data)
@@ -599,7 +606,7 @@ def downsampleDatFile(path, n_channels = 32, fs = 20000):
 	duration 	= n_samples/fs
 	f.close()
 
-	chunksize 	= 100000000
+	chunksize 	= 200000000
 	eeg 		= np.zeros((int(n_samples/16),n_channels), dtype = np.int16)
 
 	for n in range(n_channels):
@@ -736,6 +743,39 @@ def loadMeanWaveforms(path):
 	maxch.to_hdf(os.path.join(new_path, 'MaxWaveForms.h5'), key='channel', mode='w')
 	return meanwavef, maxch
 
+def loadOptoEp(path, epoch, n_channels = 2, channel = 0, fs = 20000):
+	"""
+		load ttl from analogin.dat
+	"""
+	files = os.listdir(os.path.join(path, 'Analysis'))
+	if 'OptoEpochs.h5' in files:
+		new_file = os.path.join(path, 'Analysis/OptoEpochs.h5')
+		opto_ep = pd.read_hdf(new_file)
+		return nts.IntervalSet(opto_ep)
+	else:
+		files = os.listdir(path)
+		afile = os.path.join(path, [f for f in files if '_'+str(epoch)+'_' in f][0])
+		f = open(afile, 'rb')
+		startoffile = f.seek(0, 0)
+		endoffile = f.seek(0, 2)
+		bytes_size = 2        
+		n_samples = int((endoffile-startoffile)/n_channels/bytes_size)
+		f.close()
+		with open(afile, 'rb') as f:
+			data = np.fromfile(f, np.uint16).reshape((n_samples, n_channels))
+		data = data[:,channel].flatten().astype(np.int32)
+
+		start,_ = scipy.signal.find_peaks(np.diff(data), height=30000)
+		end,_ = scipy.signal.find_peaks(np.diff(data)*-1, height=30000)
+		start += 1	
+		timestep = np.arange(0, len(data))/fs
+		# aliging based on epoch_TS.csv
+		epochs = pd.read_csv(os.path.join(path, 'Epoch_TS.csv'), header = None)
+		timestep = timestep + epochs.loc[epoch,0]
+		opto_ep = nts.IntervalSet(start = timestep[start], end = timestep[end], time_units = 's')
+		pd.DataFrame(opto_ep).to_hdf(os.path.join(path, 'Analysis/OptoEpochs.h5'), 'opto')
+		return opto_ep	
+
 ##########################################################################################################
 # TODO
 ##########################################################################################################
@@ -789,41 +829,25 @@ def loadHDCellInfo(path, index):
 
 
 def loadLFP(path, n_channels=90, channel=64, frequency=1250.0, precision='int16'):
-	import neuroseries as nts
+	import neuroseries as nts	
+	f = open(path, 'rb')
+	startoffile = f.seek(0, 0)
+	endoffile = f.seek(0, 2)
+	bytes_size = 2		
+	n_samples = int((endoffile-startoffile)/n_channels/bytes_size)
+	duration = n_samples/frequency
+	interval = 1/frequency
+	f.close()
+	fp = np.memmap(path, np.int16, 'r', shape = (n_samples, n_channels))		
+	timestep = np.arange(0, n_samples)/frequency
+
 	if type(channel) is not list:
-		f = open(path, 'rb')
-		startoffile = f.seek(0, 0)
-		endoffile = f.seek(0, 2)
-		bytes_size = 2		
-		n_samples = int((endoffile-startoffile)/n_channels/bytes_size)
-		duration = n_samples/frequency
-		interval = 1/frequency
-		f.close()
-		try:
-			with open(path, 'rb') as f:
-				data = np.fromfile(f, np.int16).reshape((n_samples, n_channels))[:,channel]
-		except MemoryError:
-			# chunksize = 100000
-			# eeg = np.zeros((int(n_samples),n_channels), dtype = np.int16)
-			print("memory error")
-			sys.exit()
-
-
-		timestep = np.arange(0, len(data))/frequency
-		return nts.Tsd(timestep, data, time_units = 's')
+		timestep = np.arange(0, n_samples)/frequency
+		return nts.Tsd(timestep, fp[:,channel], time_units = 's')
 	elif type(channel) is list:
-		f = open(path, 'rb')
-		startoffile = f.seek(0, 0)
-		endoffile = f.seek(0, 2)
-		bytes_size = 2
-		
-		n_samples = int((endoffile-startoffile)/n_channels/bytes_size)
-		duration = n_samples/frequency
-		f.close()
-		with open(path, 'rb') as f:
-			data = np.fromfile(f, np.int16).reshape((n_samples, n_channels))[:,channel]
-		timestep = np.arange(0, len(data))/frequency
-		return nts.TsdFrame(timestep, data, time_units = 's')
+		timestep = np.arange(0, n_samples)/frequency
+		return nts.TsdFrame(timestep, fp[:,channel], time_units = 's')
+
 
 def loadBunch_Of_LFP(path,  start, stop, n_channels=90, channel=64, frequency=1250.0, precision='int16'):
 	import neuroseries as nts	
@@ -839,4 +863,19 @@ def loadBunch_Of_LFP(path,  start, stop, n_channels=90, channel=64, frequency=12
 	elif type(channel) is list:
 		timestep = np.arange(0, len(data))/frequency		
 		return nts.TsdFrame(timestep, data[:,channel], time_units = 's')
+
+def loadUpDown(path):
+	import neuroseries as nts
+	import os
+	name = path.split("/")[-1]
+	files = os.listdir(path)
+	if name + '.evt.py.dow' in files:
+		tmp = np.genfromtxt(path+'/'+name+'.evt.py.dow')[:,0]
+		tmp = tmp.reshape(len(tmp)//2,2)/1000
+		down_ep = nts.IntervalSet(start = tmp[:,0], end = tmp[:,1], time_units = 's')
+	if name + '.evt.py.upp' in files:
+		tmp = np.genfromtxt(path+'/'+name+'.evt.py.upp')[:,0]
+		tmp = tmp.reshape(len(tmp)//2,2)/1000
+		up_ep = nts.IntervalSet(start = tmp[:,0], end = tmp[:,1], time_units = 's')
+	return (down_ep, up_ep)
 

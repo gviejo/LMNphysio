@@ -12,7 +12,7 @@ import _pickle as cPickle
 # GENERAL infos
 ###############################################################################################
 data_directory = '/mnt/DataGuillaume/'
-datasets = np.loadtxt(os.path.join(data_directory,'datasets_LMN.list'), delimiter = '\n', dtype = str, comments = '#')
+datasets = np.loadtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#')
 infos = getAllInfos(data_directory, datasets)
 
 
@@ -29,7 +29,6 @@ allpeaks = []
 
 
 for s in datasets:
-# for s in ['A5000/A5002/A5002-200304A']:	
 	print(s)
 	name = s.split('/')[-1]
 	path = os.path.join(data_directory, s)
@@ -50,9 +49,6 @@ for s in datasets:
 	# Only taking the first wake ep
 	wake_ep = wake_ep.loc[[0]]
 
-	# # Taking only neurons from LMN
-	if 'A5002' in s:
-		spikes = {n:spikes[n] for n in np.intersect1d(np.where(shank.flatten()>2)[0], np.where(shank.flatten()<4)[0])}		
 
 	############################################################################################### 
 	# COMPUTING TUNING CURVES
@@ -78,32 +74,23 @@ for s in datasets:
 	tokeep = np.intersect1d(tokeep2[0], tokeep2[1])
 	tokeep2 = np.union1d(tokeep2[0], tokeep2[1])
 
-	
+	# NEURONS FROM ADN	
+	if 'A5011' in s:
+		adn = np.where(shank <=3)[0]
+		lmn = np.where(shank >3)[0]
 
-	# spikes = {n:spikes[n] for n in tokeep}
+	adn = np.intersect1d(adn, tokeep)
+	lmn = np.intersect1d(lmn, tokeep)
 
-	# spatial_curves, extent				= computePlaceFields(spikes, position[['x', 'z']], wake_ep, 21)
-	# autocorr_wake, frate_wake 			= compute_AutoCorrs(spikes, wake_ep)
-	# autocorr_sleep, frate_sleep 		= compute_AutoCorrs(spikes, sleep_ep)
-	# velo_curves 						= computeAngularVelocityTuningCurves(spikes, position['ry'], wake_ep, nb_bins = 30)
-	# mean_frate 							= computeMeanFiringRate(spikes, [wake_ep, rem_ep, sws_ep], ['wake', 'rem', 'sws'])
-	# speed_curves 						= computeSpeedTuningCurves(spikes, position[['x', 'z']], wake_ep)
-
-
-
-	# velo_curves = velo_curves.rolling(window=5, win_type='gaussian', center= True, min_periods=1).mean(std = 1.0)
-	# speed_curves = speed_curves.rolling(window=5, win_type='gaussian', center= True, min_periods=1).mean(std = 1.0)
-
+	spikes = {n:spikes[n] for n in tokeep}
 			
 	############################################################################################### 
 	# CROSS CORRELATION
 	###############################################################################################
 	cc_wak = compute_CrossCorrs(spikes, wake_ep, norm=True)
-	cc_rem = compute_CrossCorrs(spikes, rem_ep, norm=True)
-	
+	cc_rem = compute_CrossCorrs(spikes, rem_ep, norm=True)	
 	cc_sws = compute_CrossCorrs(spikes, sws_ep, 2, 2000, norm=True)
 
-	
 
 	cc_wak = cc_wak.rolling(window=10, win_type='gaussian', center = True, min_periods = 1).mean(std = 2.0)
 	cc_rem = cc_rem.rolling(window=10, win_type='gaussian', center = True, min_periods = 1).mean(std = 2.0)
@@ -120,18 +107,19 @@ for s in datasets:
 	cc_wak.columns = pd.Index(new_index)
 	cc_rem.columns = pd.Index(new_index)
 	cc_sws.columns = pd.Index(new_index)
-	pairs = pd.Series(index = new_index, data = np.nan)
-	for i,j in pairs.index:	
+	pairs = pd.DataFrame(index = new_index, columns = ['ang diff', 'struct'])
+	for i,j in pairs.index:
 		if i in neurons and j in neurons:
 			a = peaks[i] - peaks[j]
-			pairs[(i,j)] = np.minimum(np.abs(a), 2*np.pi - np.abs(a))
+			pairs.loc[(i,j),'ang diff'] = np.minimum(np.abs(a), 2*np.pi - np.abs(a))
+			if int(i.split('_')[1]) in adn and int(j.split('_')[1]) in lmn:
+				pairs.loc[(i,j),'struct'] = 'adn-lmn'
+			elif int(i.split('_')[1]) in adn and int(j.split('_')[1]) in adn:
+				pairs.loc[(i,j),'struct'] = 'adn-adn'
+			elif int(i.split('_')[1]) in lmn and int(j.split('_')[1]) in lmn:
+				pairs.loc[(i,j),'struct'] = 'lmn-lmn'
 
-
-	pairs = pairs.dropna().sort_values()
-
-
-
-
+	
 	#######################
 	# SAVING
 	#######################
@@ -151,8 +139,6 @@ allcc_sws 	= pd.concat(allcc_sws, 1)
 allpeaks 	= pd.concat(allpeaks, 0)
 
 
-allpairs = allpairs.sort_values()
-
 
 sess_groups = pd.DataFrame(pd.Series({k:k.split("_")[0] for k in alltcurves.columns.values})).groupby(0).groups
 
@@ -168,8 +154,11 @@ datatosave = {	'tcurves':alltcurves,
 				'peaks':allpeaks
 				}
 
-# cPickle.dump(datatosave, open(os.path.join('../figures/figures_ipn_2020', 'All_crosscor.pickle'), 'wb'))
+cPickle.dump(datatosave, open(os.path.join('../data', 'All_crosscor_ADN_LMN.pickle'), 'wb'))
 
+
+
+from matplotlib import gridspec
 
 ##########################################################
 # TUNING CURVES
@@ -188,50 +177,85 @@ for i, g in enumerate(sess_groups.keys()):
 # CROSS CORR
 titles = ['wake', 'REM', 'NREM']
 figure()
-subplot(2,4,1)
-plot(allpairs.values, np.arange(len(allpairs))[::-1])
-for i, cc in enumerate([allcc_wak, allcc_rem, allcc_sws]):
-	subplot(2,4,i+2)
-	tmp = cc[allpairs.index].T.values
-	imshow(scipy.ndimage.gaussian_filter(tmp, 2), aspect = 'auto', cmap = 'jet')
+gs = gridspec.GridSpec(3, 5)
 
-	title(titles[i])
+for i, st in enumerate(['adn-adn', 'adn-lmn', 'lmn-lmn']):
+	group = allpairs[allpairs['struct']==st].sort_values(by='ang diff').index.values
+	subplot(gs[i,0])
+	plot(allpairs.loc[group, 'ang diff'].values, np.arange(len(group))[::-1])
+	ylabel(st)
+	for j, cc in enumerate([allcc_wak, allcc_rem, allcc_sws]):
+		subplot(gs[i,j+1])
+		tmp = cc[group]		
+		tmp = tmp - tmp.mean(0)
+		tmp = tmp / tmp.std(0)
+		tmp = scipy.ndimage.gaussian_filter(tmp.T, (2, 2))
+
+		imshow(tmp, aspect = 'auto', cmap = 'jet', interpolation = 'bilinear')
+		
+		title(titles[j])
+		xticks([0, np.where(cc.index.values == 0)[0][0], len(cc)], [cc.index[0], 0, cc.index[-1]])
+
+	subplot(gs[i,-1])
+	cc = allcc_sws[group]
+	cc = cc - cc.mean(0)
+	cc = cc / cc.std(0)
+	cc = cc.loc[-50:50]
+	tmp = scipy.ndimage.gaussian_filter(cc.T.values, (1, 1))
+	# tmp = cc.loc[-50:50].T
+	imshow(tmp, aspect = 'auto', cmap = 'jet', interpolation = 'bilinear')
+	
+	title(titles[j])
 	xticks([0, np.where(cc.index.values == 0)[0][0], len(cc)], [cc.index[0], 0, cc.index[-1]])
 
-	subplot(2,3,i+3+1)
-	plot(cc, alpha = 0.5)
 
-
-##########################################################
-# EXEMPLES
-groups = allpairs.groupby(np.digitize(allpairs, [0, np.pi/3, 2*np.pi/3, np.pi])).groups
-
-figure()
-for i, g in enumerate(groups.keys()):
-	for j, cc in enumerate([allcc_wak, allcc_rem, allcc_sws]):
-		subplot(3,3,j+1+i*3)
-		plot(cc[groups[g]], color = 'grey', alpha = 0.6)
-		if i == 0:
-			title(titles[j])
-
-show()
-
-
-
-
-cc = allcc_sws[allpairs.index]
-tmp1 = cc.loc[:0].rolling(window=100, win_type='gaussian', center= True, min_periods=1).mean(std = 10.0)
-tmp2 = cc.loc[0:].rolling(window=100, win_type='gaussian', center= True, min_periods=1).mean(std = 10.0)
-cc2 = pd.concat((tmp1, tmp2))
-
-figure()
-imshow(scipy.ndimage.gaussian_filter(cc2.values.T, 2), aspect = 'auto', cmap = 'jet')
-xticks([0, np.where(cc2.index.values == 0)[0][0], len(cc2)], [cc2.index[0], 0, cc2.index[-1]])
-
-
-
-tmp = (np.vstack((cc2.loc[:-20].values,cc2.loc[20:].values))).T
 
 
 figure()
-imshow(scipy.ndimage.gaussian_filter(tmp, 2), aspect = 'auto', cmap = 'jet')
+gs = gridspec.GridSpec(2, 2)
+
+
+group = allpairs[allpairs['struct']=='adn-lmn'].sort_values(by='ang diff').index.values
+subplot(gs[0,0])
+cc = allcc_wak[group]
+cc = cc - cc.mean(0)
+cc = cc / cc.std(0)
+cc = cc.loc[-50:50]
+tmp = scipy.ndimage.gaussian_filter(cc.T.values, (1, 1))
+# tmp = cc.loc[-50:50].T
+imshow(tmp, aspect = 'auto', cmap = 'jet', interpolation = 'bilinear')
+xticks([0, np.where(cc.index.values == 0)[0][0], len(cc)], [cc.index[0], 0, cc.index[-1]])
+
+subplot(gs[0,1])
+plot(cc.mean(1))
+
+subplot(gs[1,0])
+for i, gr in enumerate(np.array_split(group, 2)):
+	tmp = cc[gr].mean(1)
+	tmp = tmp - tmp.mean(0)
+	tmp = tmp / tmp.std(0)
+	plot(tmp, label = i)
+legend()
+
+subplot(gs[1,1])
+for i, gr in enumerate(np.array_split(group, 4)):
+	tmp = cc[gr].mean(1)
+	tmp = tmp - tmp.mean(0)
+	tmp = tmp / tmp.std(0)
+	plot(tmp, label = i)
+legend()
+
+	# subplot(gs[i,-1])
+	# cc = allcc_sws[group]
+	# cc = cc - cc.mean(0)
+	# cc = cc / cc.std(0)
+	# cc = cc.loc[-50:50]
+	# tmp = scipy.ndimage.gaussian_filter(cc.T.values, (1, 1))
+	# # tmp = cc.loc[-50:50].T
+	# imshow(tmp, aspect = 'auto', cmap = 'jet', interpolation = 'bilinear')
+	
+	# title(titles[j])
+	# xticks([0, np.where(cc.index.values == 0)[0][0], len(cc)], [cc.index[0], 0, cc.index[-1]])
+
+
+

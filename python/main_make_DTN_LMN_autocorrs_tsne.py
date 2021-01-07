@@ -13,12 +13,19 @@ from sklearn.manifold import TSNE
 # GENERAL infos
 ###############################################################################################
 data_directory = '/mnt/DataGuillaume/'
-datasets = np.loadtxt(os.path.join(data_directory,'datasets_LMN.list'), delimiter = '\n', dtype = str, comments = '#')
-infos = getAllInfos(data_directory, datasets)
+datasets_DTN = np.loadtxt(os.path.join(data_directory,'datasets_DTN.list'), delimiter = '\n', dtype = str, comments = '#')
+infos_DTN = getAllInfos(data_directory, datasets_DTN)
+datasets_LMN = np.loadtxt(os.path.join(data_directory,'datasets_LMN.list'), delimiter = '\n', dtype = str, comments = '#')
+infos_LMN = getAllInfos(data_directory, datasets_LMN)
+datasets = np.hstack((datasets_LMN, datasets_DTN))
+infos = {**infos_DTN, **infos_LMN}
 
 
-allauto = {e:[] for e in ['wak', 'rem', 'sws']}
-allfrates = {e:[] for e in ['wak', 'rem', 'sws']}
+# allauto = {e:[] for e in ['wak', 'rem', 'sws']}
+# allfrates = {e:[] for e in ['wak', 'rem', 'sws']}
+allauto = {e:[] for e in ['wak']}
+allfrates = {e:[] for e in ['wak']}
+
 hd_index = []
 shanks_index = []
 
@@ -37,8 +44,8 @@ for s in datasets:
 	position 							= loadPosition(path, events, episodes)
 	wake_ep 							= loadEpoch(path, 'wake', episodes)
 	sleep_ep 							= loadEpoch(path, 'sleep')					
-	sws_ep								= loadEpoch(path, 'sws')
-	rem_ep								= loadEpoch(path, 'rem')
+	# sws_ep								= loadEpoch(path, 'sws')
+	# rem_ep								= loadEpoch(path, 'rem')
 
 	# Only taking the first wake ep
 	wake_ep = wake_ep.loc[[0]]
@@ -95,7 +102,8 @@ for s in datasets:
 	############################################################################################### 
 	# COMPUTE AUTOCORRS
 	###############################################################################################
-	for e, ep, tb, tw in zip(['wak', 'rem', 'sws'], [wake_ep, rem_ep, sws_ep], [10, 10, 1], [1000, 1000, 1000]):
+	# for e, ep, tb, tw in zip(['wak', 'rem', 'sws'], [wake_ep, rem_ep, sws_ep], [10, 10, 1], [1000, 1000, 1000]):
+	for e, ep, tb, tw in zip(['wak'], [wake_ep], [1], [1000]):
 		autocorr, frates = compute_AutoCorrs(spikes, ep, tb, tw)
 		autocorr.columns = pd.Index(neurons)
 		frates.index = pd.Index(neurons)
@@ -118,14 +126,15 @@ for e in allauto.keys():
 	auto = auto.drop(auto.columns[auto.apply(lambda col: col.max() > 100.0)], axis = 1)
 	# # 4. gauss filt
 	auto = auto.rolling(window = 20, win_type = 'gaussian', center = True, min_periods = 1).mean(std = 1.0)
-	auto = auto.loc[2:200]
+	auto = auto.loc[2:400]
 	# Drop nan
 	auto = auto.dropna(1)
 	halfauto[e] = auto
 	allindex.append(auto.columns)
 
 hd_index = np.hstack(hd_index)
-neurons = np.intersect1d(np.intersect1d(allindex[0], allindex[1]), allindex[2])
+neurons = hd_index
+# neurons = np.intersect1d(np.intersect1d(allindex[0], allindex[1]), allindex[2])
 # neurons = np.intersect1d(neurons, fr_index)
 
 # shanks_index = pd.concat(shanks_index)
@@ -140,16 +149,34 @@ c = pd.Series(index = neurons, data = 0)
 c.loc[hd_index] = 1
 
 
-X = TSNE(2, 100).fit_transform(data)
+# X = TSNE(2, 100).fit_transform(data)
 
-U = UMAP(n_neighbors = 15, n_components = 2).fit_transform(data)
-K = KMeans(n_clusters = 3, random_state = 0).fit(U).labels_
+U = UMAP(n_neighbors = 5, n_components = 2).fit_transform(data)
+K = KMeans(n_clusters = 2, random_state = 0).fit(U).labels_
+
+LMN = np.array([i for i,n in enumerate(neurons) if 'A14' in n])
+DTN = np.array([i for i,n in enumerate(neurons) if 'A40' in n])
 
 
 figure()
-scatter(U[:,0], U[:,1], c = K)
+plot(U[:,0], U[:,1], 'o', color = 'grey', markersize = 10)
+plot(U[LMN][:,0], U[LMN][:,1], 'o', color = 'red', markersize = 5, label = 'LMN')
+plot(U[DTN][:,0], U[DTN][:,1], 'o', color = 'blue', markersize = 5, label = 'DTN')
+legend()
 
 
+
+figure()
+for i in range(2):
+	subplot(2,2,i+1)
+	plot(allauto['wak'][neurons[K==i]], color = 'grey', alpha = 0.5)
+	subplot(2,2,2+i+1)
+	plot(allauto['wak'][neurons[K==i]].loc[-200:200], color = 'grey', alpha = 0.5)
+
+
+figure()
+for i in range(2):
+	plot(allauto['wak'][neurons[K==i]].mean(1).loc[-500:500], color = 'grey', alpha = 0.5)
 
 
 figure()
@@ -173,3 +200,13 @@ for e in allauto.keys():
 	count += 1
 	title(e)
 show()
+
+figure()
+for i, n in enumerate(neurons[K==0]):
+	subplot(7,7,i+1)
+	plot(allauto['wak'][n].loc[-200:200])
+
+figure()
+for i, n in enumerate(neurons[K==1]):
+	subplot(7,5,i+1)
+	plot(allauto['wak'][n].loc[-200:200])

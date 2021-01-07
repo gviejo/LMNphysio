@@ -5,11 +5,12 @@ from pylab import *
 from wrappers import *
 from functions import *
 import sys
+from pycircstat.descriptive import mean as circmean
 
 # data_directory = '/mnt/DataGuillaume/LMN/A1410/A1410-200116A/A1410-200116A'
 # data_directory = '/mnt/LocalHDD/A1410-200121A/A1410-200121A'
 # data_directory = '/mnt/DataGuillaume/LMN/A1410/A1410-200122A'
-data_directory = '/mnt/DataGuillaume/LMN/A1407/A1407-190416'
+data_directory = '/mnt/DataGuillaume/LMN/A1411/A1411-200909A'
 
 # data_directory = '../data/A1400/A1407/A1407-190422'
 # data_directory = '/mnt/DataGuillaume/PostSub/A3003/A3003-190516A'

@@ -15,8 +15,9 @@ datasets = np.loadtxt(os.path.join(data_directory,'datasets_LMN.list'), delimite
 # datasets = np.atleast_1d(np.loadtxt(os.path.join(data_directory,'datasets_DTN.list'), delimiter = '\n', dtype = str, comments = '#'))
 infos = getAllInfos(data_directory, datasets)
 
-datasets = ['LMN-ADN/A5002/'+s for s in infos['A5002'].index[1:-5]]
-
+# datasets = ['LMN-ADN/A5002/'+s for s in infos['A5002'].index[1:-5]]
+# datasets = ['LMN/A1411/A1411-200907A', 'LMN/A1411/A1411-200909A', 'LMN/A1411/A1411-200910A']
+datasets = ['LMN/A1411/A1411-200911A']
 
 for s in datasets:
 	print(s)
@@ -29,12 +30,15 @@ for s in datasets:
 	position		= loadPosition(path, events, episodes)
 	wake_ep 		= loadEpoch(path, 'wake', episodes)
 	sleep_ep		= loadEpoch(path, 'sleep')
-	acceleration						= loadAuxiliary(path, 2)
+	if 'A14' in s:
+		acceleration						= loadAuxiliary(path, 1)
+	else:
+		acceleration						= loadAuxiliary(path, 2)
 	if 'A5001' in s and 3 in acceleration.columns:
 		acceleration = acceleration[[3,4,5]]
 		acceleration.columns = range(3)
 	elif 'A5002' in s:
-		acceleration = acceleration[[0,1,2]]
+		acceleration = acceleration[[0,1,2]]		
 	newsleep_ep 						= refineSleepFromAccel(acceleration, sleep_ep)
 
 
@@ -57,7 +61,8 @@ for s in datasets:
 		lfp 		= loadLFP(os.path.join(data_directory,s,name+'.eeg'), n_channels, 1, 1250, 'int16')
 	elif 'A4002' in s:
 		lfp 		= loadLFP(os.path.join(data_directory,s,name+'.eeg'), n_channels, 49, 1250, 'int16')
-
+	elif 'A1411'in s:
+		lfp 		= loadLFP(os.path.join(data_directory,s,name+'.eeg'), n_channels, 0, 1250, 'int16')
 	lfp 		= downsample(lfp, 1, 5)
 
 

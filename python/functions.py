@@ -6,6 +6,7 @@ import sys, os
 import scipy
 from scipy import signal
 from itertools import combinations
+from pycircstat.descriptive import mean as circmean
 
 '''
 Utilities functions
@@ -220,6 +221,59 @@ def compute_AllPairsCrossCorrs(spks, ep, binsize=10, nbins = 2000, norm = False)
 			cc[(i,j)] = tmp
 	return cc
 
+def compute_AsyncCrossCorrs(spks, ep, binsize=10, nbins = 2000, norm = False, edge = 20):
+	"""
+		
+	"""	
+	neurons = list(spks.keys())
+	times = np.arange(0, binsize*(nbins+1), binsize) - (nbins*binsize)/2
+	cc = pd.DataFrame(index = times, columns = list(combinations(neurons, 2)))
+		
+	for i,j in cc.columns:		
+		spk1 = spks[i].restrict(ep).as_units('ms').index.values
+		spk2 = spks[j].restrict(ep).as_units('ms').index.values		
+
+		spksync = []
+		spkasync = []
+		for t in spk2:			
+			if np.sum(np.abs(t-spk1)<edge):
+				spksync.append(t)
+			else:
+				spkasync.append(t)
+
+
+		# tmp = crossCorr(spk1, spk2, binsize, nbins)		
+		tmp = crossCorr(spk1, np.array(spkasync), binsize, nbins)
+		fr = len(spkasync)/ep.tot_length('s')
+		if norm:
+			cc[(i,j)] = tmp/fr
+		else:
+			cc[(i,j)] = tmp
+	return cc
+
+def compute_RandomCrossCorrs(spks, ep,  binsize=10, nbins = 2000, norm = False, percent = 0.5):
+	"""
+		
+	"""	
+	neurons = list(spks.keys())
+	times = np.arange(0, binsize*(nbins+1), binsize) - (nbins*binsize)/2
+	cc = pd.DataFrame(index = times, columns = list(combinations(neurons, 2)))
+		
+	for i,j in cc.columns:		
+		spk1 = spks[i].restrict(ep).as_units('ms').index.values
+		spk2 = spks[j].restrict(ep).as_units('ms').index.values		
+
+		spk1_random = np.sort(np.random.choice(spk1, int(len(spk1)*percent), replace=False))
+		spk2_random = np.sort(np.random.choice(spk2, int(len(spk2)*percent), replace=False))
+
+		# tmp = crossCorr(spk1, spk2, binsize, nbins)		
+		tmp = crossCorr(spk1_random, spk2_random, binsize, nbins)
+		fr = len(spk2_random)/ep.tot_length('s')
+		if norm:
+			cc[(i,j)] = tmp/fr
+		else:
+			cc[(i,j)] = tmp
+	return cc
 
 #########################################################
 # VARIOUS
@@ -282,6 +336,24 @@ def computeAngularTuningCurves(spikes, angle, ep, nb_bins = 180, frequency = 120
 		tuning_curves[k] = spike_count*frequency	
 
 	return tuning_curves
+
+def computeSpatialInfo(tc, angle, ep):
+	nb_bins = tc.shape[0]+1
+	bins 	= np.linspace(0, 2*np.pi, nb_bins)
+	angle 			= angle.restrict(ep)
+	# Smoothing the angle here
+	tmp 			= pd.Series(index = angle.index.values, data = np.unwrap(angle.values))
+	tmp2 			= tmp.rolling(window=50,win_type='gaussian',center=True,min_periods=1).mean(std=10.0)
+	angle			= nts.Tsd(tmp2%(2*np.pi))
+	pf = tc.values
+	occupancy, _ 	= np.histogram(angle, bins)
+	occ = np.atleast_2d(occupancy/occupancy.sum()).T
+	f = np.sum(pf * occ, 0)
+	pf = pf / f
+	SI = np.sum(occ * pf * np.log2(pf), 0)
+	SI = pd.DataFrame(index = tc.columns, columns = ['SI'], data = SI)
+	return SI
+
 
 def findHDCells(tuning_curves, z = 50, p = 0.0001 , m = 1):
 	"""
@@ -781,3 +853,83 @@ def sampleSpikesFromAngularVelocity(ahvcurve, angles, ep, bin_size = 1000):
 	spikes_random = sample_frates(frates_value, time_index, hd_neurons)
 
 	return spikes_random
+
+def loadShankStructure(generalinfo):
+	shankStructure = {}
+	for k,i in zip(generalinfo['shankStructure'][0][0][0][0],range(len(generalinfo['shankStructure'][0][0][0][0]))):
+		if len(generalinfo['shankStructure'][0][0][1][0][i]):
+			shankStructure[k[0]] = generalinfo['shankStructure'][0][0][1][0][i][0]-1
+		else :
+			shankStructure[k[0]] = []
+	
+	return shankStructure	
+
+def binSpikeTrain(spikes, epochs, bin_size, std=0):
+	if epochs is None:
+		start = np.inf
+		end = 0
+		for n in spikes:
+			start = np.minimum(spikes[n].index.values[0], start)
+			end = np.maximum(spikes[n].index.values[-1], end)
+		epochs = nts.IntervalSet(start = start, end = end)
+
+	bins = np.arange(epochs['start'].iloc[0], epochs['end'].iloc[-1] + bin_size*1000, bin_size*1000)
+	rate = []
+	for i,n in enumerate(spikes.keys()):
+		count, _ = np.histogram(spikes[n].index.values, bins)
+		rate.append(count)
+	rate = np.array(rate)	
+	rate = nts.TsdFrame(t = bins[0:-1]+bin_size//2, d = rate.T)
+	if std:
+		rate = rate.as_dataframe()
+		rate = rate.rolling(window=std*20,win_type='gaussian',center=True,min_periods=1).mean(std=std)	
+		rate = nts.TsdFrame(rate)
+	rate = rate.restrict(epochs)
+	rate.columns = list(spikes.keys())
+	return rate
+
+def shuffleByIntervalSpikes(spikes, epochs):
+	shuffled = {}
+	for n in spikes.keys():
+		isi = []
+		for i in epochs.index:
+			spk = spikes[n].restrict(epochs.loc[[i]])
+			tmp = np.diff(spk.index.values)
+			np.random.shuffle(tmp)
+			isi.append(tmp)
+		shuffled[n] = nts.Ts(t = np.cumsum(np.hstack(isi)))
+	return shuffled
+
+######################################################################################
+# OPTO STUFFS
+######################################################################################
+def computeRasterOpto(spikes, opto_ep, bin_size = 100):
+	"""
+	Bin size in ms
+	edge in ms
+	"""
+	rasters = {}
+	frates = {}
+
+	# assuming all opto stim are the same for a session
+	stim_duration = opto_ep.loc[0,'end'] - opto_ep.loc[0,'start']
+	
+	bins = np.arange(0, stim_duration + 2*stim_duration + bin_size*1000, bin_size*1000)
+
+	for n in spikes.keys():
+		rasters[n] = []
+		r = []
+		for e in opto_ep.index:
+			ep = nts.IntervalSet(start = opto_ep.loc[e,'start'] - stim_duration,
+								end = opto_ep.loc[e,'end'] + stim_duration)
+			spk = spikes[n].restrict(ep)
+			tmp = pd.Series(index = spk.index.values - ep.loc[0,'start'], data = e)
+			rasters[n].append(tmp)
+			count, _ = np.histogram(tmp.index.values, bins)
+			r.append(count)
+		r = np.array(r)
+		frates[n] = pd.Series(index = bins[0:-1]/1000, data = r.mean(0))
+		rasters[n] = pd.concat(rasters[n])
+
+	frates = pd.concat(frates, 1)
+	return frates, rasters

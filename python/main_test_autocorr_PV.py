@@ -16,6 +16,14 @@ data_directory = '/mnt/DataGuillaume/'
 datasets = np.loadtxt(os.path.join(data_directory,'datasets_LMN.list'), delimiter = '\n', dtype = str, comments = '#')
 infos = getAllInfos(data_directory, datasets)
 
+datasets = [	'LMN-ADN/A5002/A5002-200303A',
+				'LMN-ADN/A5002/A5002-200303B',
+       			'LMN-ADN/A5002/A5002-200304A', 
+       			'LMN-ADN/A5002/A5002-200305A',
+       			'LMN-ADN/A5002/A5002-200309A',
+       			'LMN/A1407/A1407-190416', 
+       			'LMN/A1407/A1407-190417',
+       			'LMN/A1407/A1407-190422']
 
 allauto = {e:[] for e in ['wak', 'rem', 'sws']}
 allfrates = {e:[] for e in ['wak', 'rem', 'sws']}
@@ -46,7 +54,9 @@ for s in datasets:
 	# # Taking only neurons from LMN
 	if 'A50' in s:
 		# spikes = {n:spikes[n] for n in np.intersect1d(np.where(shank.flatten()>2)[0], np.where(shank.flatten()<4)[0])}
-		spikes = {n:spikes[n] for n in np.where(shank.flatten()>2)[0]}
+		spikes = {n:spikes[n] for n in np.where(shank.flatten()==3)[0]}
+	if 'A14' in s:
+		spikes = {n:spikes[n] for n in np.where(shank.flatten()==1)[0]}
 	# 	neurons = [name+'_'+str(n) for n in spikes.keys()]
 	# 	shanks_index.append(pd.Series(index = neurons, data = shank[shank>2].flatten()))
 	# else:
@@ -86,17 +96,16 @@ for s in datasets:
 	# 	plot(tcurves2[1][n])
 	# 	if n in tokeep:
 	# 		plot(tuning_curves[1][n], color = 'red')
-
-
-	spikes = {n:spikes[n] for n in tokeep}
+	
+	# spikes = {n:spikes[n] for n in tokeep}
 	neurons = [name+'_'+str(n) for n in spikes.keys()]
 	hd_index.append([n for n in neurons if int(n.split('_')[1]) in tokeep])
 
 	############################################################################################### 
 	# COMPUTE AUTOCORRS
 	###############################################################################################
-	for e, ep, tb, tw in zip(['wak', 'rem', 'sws'], [wake_ep, rem_ep, sws_ep], [10, 10, 1], [1000, 1000, 1000]):
-		autocorr, frates = compute_AutoCorrs(spikes, ep, tb, tw)
+	for e, ep in zip(['wak', 'rem', 'sws'], [wake_ep, rem_ep, sws_ep]):
+		autocorr, frates = compute_AutoCorrs(spikes, ep, 0.5, 200)
 		autocorr.columns = pd.Index(neurons)
 		frates.index = pd.Index(neurons)
 		allauto[e].append(autocorr)
@@ -105,6 +114,8 @@ for s in datasets:
 for e in allauto.keys():
 	allauto[e] = pd.concat(allauto[e], 1)
 	allfrates[e] = pd.concat(allfrates[e])
+
+
 
 frates = pd.DataFrame.from_dict(allfrates)
 
@@ -117,8 +128,10 @@ for e in allauto.keys():
 	# 3. lower than 100 
 	auto = auto.drop(auto.columns[auto.apply(lambda col: col.max() > 100.0)], axis = 1)
 	# # 4. gauss filt
-	auto = auto.rolling(window = 20, win_type = 'gaussian', center = True, min_periods = 1).mean(std = 1.0)
-	auto = auto.loc[2:200]
+	auto = auto.rolling(window = 40, win_type = 'gaussian', center = True, min_periods = 1).mean(std = 1.0)
+	auto = auto.loc[0.5:40]
+	# 5 firing rate > 1 
+	auto  = auto[frates[np.sum(frates>1.0,1)==3].index]
 	# Drop nan
 	auto = auto.dropna(1)
 	halfauto[e] = auto
@@ -137,39 +150,43 @@ from sklearn.cluster import KMeans
 
 hd_index = np.intersect1d(neurons, hd_index)
 c = pd.Series(index = neurons, data = 0)
-c.loc[hd_index] = 1
+# c.loc[hd_index] = 1
 
 
-X = TSNE(2, 100).fit_transform(data)
+X = TSNE(2, 10).fit_transform(data)
 
-U = UMAP(n_neighbors = 15, n_components = 2).fit_transform(data)
-K = KMeans(n_clusters = 3, random_state = 0).fit(U).labels_
+U = UMAP(n_neighbors = 20, n_components = 2).fit_transform(data)
 
+K = KMeans(n_clusters = 2, random_state = 0).fit(U).labels_
+
+U = pd.DataFrame(index = neurons, data = X)
 
 figure()
-scatter(U[:,0], U[:,1], c = K)
+
+scatter(U[0], U[1], s = 50, c = K)
+scatter(U.loc[hd_index,0], U.loc[hd_index,1], s = 20, c = 'red', label = 'HD')
+legend()
 
 
-
+colors = ['green', 'orange']
 
 figure()
 count = 1
-for j in range(len(np.unique(K))):
+for j in range(2):
 	for e in allauto.keys():	
-		subplot(len(np.unique(K)),3,count)
-		tmp = allauto[e][neurons[K==j]]
-		plot(tmp.mean(1))
-		count += 1
+		subplot(3,3,count)
+		plot(allauto[e][neurons[K==j]], color = colors[j])
 		title(e)
-show()
-
-figure()
-count = 1
-for e in allauto.keys():	
-	subplot(1,3,count)
-	for j in range(len(np.unique(K))):		
-		tmp = allauto[e][neurons[K==j]]
-		plot(tmp.mean(1))
-	count += 1
+		count += 1
+for e in allauto.keys():
+	subplot(3,3,count)
+	plot(allauto[e][neurons[K==0]].mean(1), color = 'green', linewidth = 2)
+	# plot(allauto[e][neurons[K==0]], color ='red', alpha = 0.3)
+	plot(allauto[e][neurons[K==1]].mean(1), color = 'orange', linewidth = 2)
+	# plot(allauto[e][neurons[K==1]], color ='green', alpha = 0.3)
 	title(e)
+	count += 1
+
+
+
 show()

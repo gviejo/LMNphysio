@@ -16,9 +16,16 @@ data_directory = '/mnt/DataGuillaume/'
 datasets = np.loadtxt(os.path.join(data_directory,'datasets_LMN.list'), delimiter = '\n', dtype = str, comments = '#')
 infos = getAllInfos(data_directory, datasets)
 
+datasets = [	'LMN-ADN/A5002/A5002-200303A',
+				'LMN-ADN/A5002/A5002-200303B',
+       			'LMN-ADN/A5002/A5002-200304A', 
+       			'LMN-ADN/A5002/A5002-200305A',
+       			'LMN-ADN/A5002/A5002-200309A',
+       			'LMN/A1407/A1407-190416',
+       			'LMN/A1407/A1407-190417',
+       			'LMN/A1407/A1407-190422']
 
-allauto = {e:[] for e in ['wak', 'rem', 'sws']}
-allfrates = {e:[] for e in ['wak', 'rem', 'sws']}
+allwave = []
 hd_index = []
 shanks_index = []
 
@@ -46,15 +53,15 @@ for s in datasets:
 	# # Taking only neurons from LMN
 	if 'A50' in s:
 		# spikes = {n:spikes[n] for n in np.intersect1d(np.where(shank.flatten()>2)[0], np.where(shank.flatten()<4)[0])}
-		spikes = {n:spikes[n] for n in np.where(shank.flatten()>2)[0]}
+		spikes = {n:spikes[n] for n in np.where(shank.flatten()==3)[0]}
+	if 'A14' in s:
+		spikes = {n:spikes[n] for n in np.where(shank.flatten()==1)[0]}
 	# 	neurons = [name+'_'+str(n) for n in spikes.keys()]
 	# 	shanks_index.append(pd.Series(index = neurons, data = shank[shank>2].flatten()))
 	# else:
 	# 	neurons = [name+'_'+str(n) for n in spikes.keys()]
 	# 	shanks_index.append(pd.Series(index = neurons, data = shank.flatten()))
 	
-	
-
 	
 	# ############################################################################################### 
 	# # COMPUTING TUNING CURVES
@@ -86,90 +93,90 @@ for s in datasets:
 	# 	plot(tcurves2[1][n])
 	# 	if n in tokeep:
 	# 		plot(tuning_curves[1][n], color = 'red')
-
-
-	spikes = {n:spikes[n] for n in tokeep}
+	
+	# spikes = {n:spikes[n] for n in tokeep}
 	neurons = [name+'_'+str(n) for n in spikes.keys()]
 	hd_index.append([n for n in neurons if int(n.split('_')[1]) in tokeep])
 
 	############################################################################################### 
-	# COMPUTE AUTOCORRS
+	# 
 	###############################################################################################
-	for e, ep, tb, tw in zip(['wak', 'rem', 'sws'], [wake_ep, rem_ep, sws_ep], [10, 10, 1], [1000, 1000, 1000]):
-		autocorr, frates = compute_AutoCorrs(spikes, ep, tb, tw)
-		autocorr.columns = pd.Index(neurons)
-		frates.index = pd.Index(neurons)
-		allauto[e].append(autocorr)
-		allfrates[e].append(frates)
+	meanwavef, maxch = loadMeanWaveforms(path)	
+	meanwavef = meanwavef[list(spikes.keys())]
+	for i,n in zip(meanwavef.columns,neurons):
+		tmp = meanwavef[i].values.reshape(40,len(meanwavef[i].values)//40)
+		allwave.append(pd.DataFrame(data = tmp[:,maxch[i]], columns = [n]))
+	
+	
+allwave = pd.concat(allwave, 1) 
 
-for e in allauto.keys():
-	allauto[e] = pd.concat(allauto[e], 1)
-	allfrates[e] = pd.concat(allfrates[e])
+sys.exit()
 
-frates = pd.DataFrame.from_dict(allfrates)
 
-allindex = []
-data = []
-halfauto = {}
-for e in allauto.keys():
-	# 1. starting at 2
-	auto = allauto[e].loc[0.5:]
-	# 3. lower than 100 
-	auto = auto.drop(auto.columns[auto.apply(lambda col: col.max() > 100.0)], axis = 1)
-	# # 4. gauss filt
-	auto = auto.rolling(window = 20, win_type = 'gaussian', center = True, min_periods = 1).mean(std = 1.0)
-	auto = auto.loc[2:200]
-	# Drop nan
-	auto = auto.dropna(1)
-	halfauto[e] = auto
-	allindex.append(auto.columns)
+neurons = allwave.columns
 
 hd_index = np.hstack(hd_index)
-neurons = np.intersect1d(np.intersect1d(allindex[0], allindex[1]), allindex[2])
-# neurons = np.intersect1d(neurons, fr_index)
 
-# shanks_index = pd.concat(shanks_index)
-
-data = np.hstack([halfauto[e][neurons].values.T for e in halfauto.keys()])
+data = allwave.values.T
 
 from umap import UMAP
 from sklearn.cluster import KMeans
 
-hd_index = np.intersect1d(neurons, hd_index)
-c = pd.Series(index = neurons, data = 0)
-c.loc[hd_index] = 1
 
+U = UMAP(n_neighbors = 20, n_components = 2).fit_transform(data)
 
-X = TSNE(2, 100).fit_transform(data)
+K = KMeans(n_clusters = 2, random_state = 0).fit(U).labels_
 
-U = UMAP(n_neighbors = 15, n_components = 2).fit_transform(data)
-K = KMeans(n_clusters = 3, random_state = 0).fit(U).labels_
-
+U = pd.DataFrame(index = neurons, data = U)
 
 figure()
-scatter(U[:,0], U[:,1], c = K)
+
+scatter(U[0], U[1], s = 50, c = K)
+scatter(U.loc[hd_index,0], U.loc[hd_index,1], s = 20, c = 'red', label = 'HD')
+legend()
 
 
-
-
-figure()
-count = 1
-for j in range(len(np.unique(K))):
-	for e in allauto.keys():	
-		subplot(len(np.unique(K)),3,count)
-		tmp = allauto[e][neurons[K==j]]
-		plot(tmp.mean(1))
-		count += 1
-		title(e)
-show()
+colors = ['green', 'orange']
 
 figure()
 count = 1
-for e in allauto.keys():	
-	subplot(1,3,count)
-	for j in range(len(np.unique(K))):		
-		tmp = allauto[e][neurons[K==j]]
-		plot(tmp.mean(1))
+for j in range(2):
+	subplot(1,2,count)
+	plot(allwave[neurons[K==j]], color = colors[j])
 	count += 1
-	title(e)
+
+
+neurons2 = neurons[K==0]
+hd_index2 = np.intersect1d(hd_index, neurons2)
+allwave2 = allwave[neurons2]
+data2 = allwave2.values.T
+
+U2 = UMAP(n_neighbors = 10, n_components = 2).fit_transform(data2)
+K2 = KMeans(n_clusters = 2, random_state = 0).fit(U2).labels_
+U2 = pd.DataFrame(index = neurons2, data = U2)
+
+figure()
+
+scatter(U2[0], U2[1], s = 50, c = K2)
+scatter(U2.loc[hd_index2,0], U2.loc[hd_index2,1], s = 20, c = 'red', label = 'HD')
+legend()
+
+
+colors = ['green', 'orange']
+
+figure()
+count = 1
+for j in range(2):
+	subplot(2,2,count)
+	plot(allwave[neurons2[K2==j]], color = colors[j])
+	count += 1
+subplot(2,2,3)
+plot(allwave[neurons2[K2==0]], color = colors[0], alpha = 0.3)
+plot(allwave[neurons2[K2==1]], color = colors[1], alpha = 0.3)
+
+show()
+subplot(2,2,4)
+plot(allwave[neurons2[K2==0]].mean(1), color = colors[0])
+plot(allwave[neurons2[K2==1]].mean(1), color = colors[1])
+
 show()

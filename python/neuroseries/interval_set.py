@@ -229,6 +229,21 @@ class IntervalSet(pd.DataFrame):
         threshold = TimeUnits.format_timestamps(np.array((threshold,), dtype=np.int64).ravel(), time_units)[0]
         return self.loc[(self['end']-self['start']) > threshold]
 
+    def drop_long_intervals(self, threshold, time_units=None):
+        """
+        Drops the long intervals in the interval set.
+
+        :param threshold: time threshold for "short" intervals
+        :type threshold: numeric
+        :param time_units: the time units for the threshold
+        :type time_units: str
+        :return: a copied IntervalSet with the dropped intervals
+        :rtype: neuroseries.interval_set.IntervalSet
+        """
+        threshold = TimeUnits.format_timestamps(np.array((threshold,), dtype=np.int64).ravel(), time_units)[0]
+        return self.loc[(self['end']-self['start']) < threshold]
+
+
     def as_units(self, units=None):
         """
         returns a DataFrame with time expressed in the desired unit

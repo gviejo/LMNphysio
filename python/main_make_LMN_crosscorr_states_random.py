@@ -100,8 +100,7 @@ for s in datasets:
 	###############################################################################################
 	cc_wak = compute_CrossCorrs(spikes, wake_ep, norm=True)
 	cc_rem = compute_CrossCorrs(spikes, rem_ep, norm=True)
-	
-	cc_sws = compute_CrossCorrs(spikes, sws_ep, 2, 2000, norm=True)
+	cc_sws = compute_RandomCrossCorrs(spikes, sws_ep, 2, 2000, norm=True, percent = 0.25)
 
 	
 
@@ -168,7 +167,7 @@ datatosave = {	'tcurves':alltcurves,
 				'peaks':allpeaks
 				}
 
-# cPickle.dump(datatosave, open(os.path.join('../figures/figures_ipn_2020', 'All_crosscor.pickle'), 'wb'))
+cPickle.dump(datatosave, open(os.path.join('../figures/figures_ipn_2020', 'All_crosscor_random.pickle'), 'wb'))
 
 
 ##########################################################
@@ -219,19 +218,30 @@ show()
 
 
 
-cc = allcc_sws[allpairs.index]
-tmp1 = cc.loc[:0].rolling(window=100, win_type='gaussian', center= True, min_periods=1).mean(std = 10.0)
-tmp2 = cc.loc[0:].rolling(window=100, win_type='gaussian', center= True, min_periods=1).mean(std = 10.0)
-cc2 = pd.concat((tmp1, tmp2))
+
+
+sys.exit()
+
+from matplotlib import gridspec
+
+gs = gridspec.GridSpec(np.sum(shank==5),np.sum(shank==3))
 
 figure()
-imshow(scipy.ndimage.gaussian_filter(cc2.values.T, 2), aspect = 'auto', cmap = 'jet')
-xticks([0, np.where(cc2.index.values == 0)[0][0], len(cc2)], [cc2.index[0], 0, cc2.index[-1]])
+for i,n in enumerate(np.where(shank==5)[0]):
+	for j,m in enumerate(np.where(shank==3)[0]):
+		subplot(gs[i,j])
+		plot(cc_wak[(m,n)])
+		# xticks([])
+		yticks([])
+show()
 
 
-
-tmp = (np.vstack((cc2.loc[:-20].values,cc2.loc[20:].values))).T
-
-
+gs = gridspec.GridSpec(1,np.sum(shank==5))
 figure()
-imshow(scipy.ndimage.gaussian_filter(tmp, 2), aspect = 'auto', cmap = 'jet')
+for i,n in enumerate(np.where(shank==5)[0]):
+	# for j,m in enumerate(np.where(shank==3)[0]):
+	subplot(gs[0,i])
+	plot(cc_wak[(66,n)])
+	# xticks([])
+	yticks([])
+show()

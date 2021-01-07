@@ -19,6 +19,7 @@ infos = getAllInfos(data_directory, datasets)
 
 allauto = {e:[] for e in ['wak', 'rem', 'sws']}
 allfrates = {e:[] for e in ['wak', 'rem', 'sws']}
+alltc = []
 hd_index = []
 shanks_index = []
 
@@ -52,8 +53,6 @@ for s in datasets:
 	# else:
 	# 	neurons = [name+'_'+str(n) for n in spikes.keys()]
 	# 	shanks_index.append(pd.Series(index = neurons, data = shank.flatten()))
-	
-	
 
 	
 	# ############################################################################################### 
@@ -61,7 +60,7 @@ for s in datasets:
 	# ###############################################################################################
 	tuning_curves = {1:computeAngularTuningCurves(spikes, position['ry'], wake_ep, 121)}
 	for i in tuning_curves:
-		tuning_curves[i] = smoothAngularTuningCurves(tuning_curves[i], 20, 4)
+		tuning_curves[i] = smoothAngularTuningCurves(tuning_curves[i], 10, 2)
 
 	# CHECKING HALF EPOCHS
 	wake2_ep = splitWake(wake_ep)
@@ -93,6 +92,18 @@ for s in datasets:
 	hd_index.append([n for n in neurons if int(n.split('_')[1]) in tokeep])
 
 	############################################################################################### 
+	# CENTERING TUNING CURVES
+	###############################################################################################
+	tc = tuning_curves[1][tokeep]
+
+	tc = centerTuningCurves(tc)
+
+	tc = tc / tc.max(0)
+	
+	tc.columns = pd.Index(neurons)
+	alltc.append(tc)
+
+	############################################################################################### 
 	# COMPUTE AUTOCORRS
 	###############################################################################################
 	for e, ep, tb, tw in zip(['wak', 'rem', 'sws'], [wake_ep, rem_ep, sws_ep], [10, 10, 1], [1000, 1000, 1000]):
@@ -106,6 +117,7 @@ for e in allauto.keys():
 	allauto[e] = pd.concat(allauto[e], 1)
 	allfrates[e] = pd.concat(allfrates[e])
 
+alltc = pd.concat(alltc, 1)
 frates = pd.DataFrame.from_dict(allfrates)
 
 allindex = []
@@ -118,7 +130,7 @@ for e in allauto.keys():
 	auto = auto.drop(auto.columns[auto.apply(lambda col: col.max() > 100.0)], axis = 1)
 	# # 4. gauss filt
 	auto = auto.rolling(window = 20, win_type = 'gaussian', center = True, min_periods = 1).mean(std = 1.0)
-	auto = auto.loc[2:200]
+	auto = auto.loc[2:600]
 	# Drop nan
 	auto = auto.dropna(1)
 	halfauto[e] = auto
@@ -126,11 +138,10 @@ for e in allauto.keys():
 
 hd_index = np.hstack(hd_index)
 neurons = np.intersect1d(np.intersect1d(allindex[0], allindex[1]), allindex[2])
-# neurons = np.intersect1d(neurons, fr_index)
 
-# shanks_index = pd.concat(shanks_index)
 
-data = np.hstack([halfauto[e][neurons].values.T for e in halfauto.keys()])
+
+data = np.hstack([halfauto[e][neurons].values.T for e in halfauto.keys()]+[alltc[neurons].values.T])
 
 from umap import UMAP
 from sklearn.cluster import KMeans
@@ -166,10 +177,14 @@ show()
 figure()
 count = 1
 for e in allauto.keys():	
-	subplot(1,3,count)
+	subplot(1,4,count)
 	for j in range(len(np.unique(K))):		
 		tmp = allauto[e][neurons[K==j]]
 		plot(tmp.mean(1))
 	count += 1
 	title(e)
+subplot(1,4,4)
+for j in range(len(np.unique(K))):
+	tmp = alltc[neurons[K==j]]
+	plot(tmp.mean(1))
 show()
