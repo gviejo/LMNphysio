@@ -10,7 +10,7 @@ from pycircstat.descriptive import mean as circmean
 # data_directory = '/mnt/DataGuillaume/LMN/A1410/A1410-200116A/A1410-200116A'
 # data_directory = '/mnt/LocalHDD/A1410-200121A/A1410-200121A'
 # data_directory = '/mnt/DataGuillaume/LMN/A1410/A1410-200122A'
-data_directory = '/mnt/DataGuillaume/LMN/A1411/A1411-200909A'
+data_directory = '/mnt/DataGuillaume/LMN/A1411/A1411-200910A'
 
 # data_directory = '../data/A1400/A1407/A1407-190422'
 # data_directory = '/mnt/DataGuillaume/PostSub/A3003/A3003-190516A'
@@ -19,11 +19,11 @@ data_directory = '/mnt/DataGuillaume/LMN/A1411/A1411-200909A'
 # episodes = ['sleep', 'wake', 'sleep']
 # episodes = ['sleep', 'wake', 'sleep', 'wake', 'sleep']
 # episodes = ['sleep', 'wake', 'sleep']
-episodes = ['sleep', 'wake', 'sleep']
+episodes = ['sleep', 'wake', 'sleep', 'wake', 'sleep']
 # episodes = ['wake', 'sleep']
 # episodes = ['wake']
-# events = ['1', '3']
-events = ['1']
+events = ['1', '3']
+# events = ['1']
 
 
 

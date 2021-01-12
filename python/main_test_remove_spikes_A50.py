@@ -9,6 +9,7 @@ from sklearn.ensemble import GradientBoostingClassifier
 from pycircstat.descriptive import mean as circmean
 from sklearn.model_selection import KFold
 from sklearn.decomposition import PCA
+import matplotlib.gridspec as gridspec
 
 def zscore_rate(rate):
 	rate = rate.values
@@ -56,79 +57,49 @@ for i in tcurves.columns:
 
 
 
-speed = computeSpeed(position[['x', 'z']], wake_ep)
-speed = speed.rolling(window=100,win_type='gaussian',center=True,min_periods=1).mean(std=4.0)
-idx = np.diff((speed > 0.005)*1.0)
-start = np.where(idx == 1)[0]
-end = np.where(idx == -1)[0]
-if start[0] > end[0]:
-	start = np.hstack(([0], start))
-if start[-1] > end[-1]:
-	end = np.hstack((end, [len(idx)]))
-
-newwake_ep = nts.IntervalSet(start = speed.index.values[start], end = speed.index.values[end])
-newwake_ep = newwake_ep.drop_short_intervals(1, time_units='s')
-
-
 adn = np.intersect1d(tokeep, np.where(shank<=3)[0])
 lmn = np.intersect1d(tokeep, np.where(shank==5)[0])
 
-wak_rate = zscore_rate(binSpikeTrain({n:spikes[n] for n in tokeep}, newwake_ep, 300, 3))
-wak_shuffle_rate = zscore_rate(binSpikeTrain(shuffleByIntervalSpikes({n:spikes[n] for n in tokeep}, newwake_ep), None, 300, 3))
 
-sws_rate = binSpikeTrain({n:spikes[n] for n in tokeep}, sws_ep, 5, 3)
-index = sws_rate.index.values
-sws_rate = zscore_rate(sws_rate)
+##################################################################
+# Compute Cross-corr by removing some spikes
+##################################################################
+ccs = {'adn':{}, 'lmn':{}}
 
-Xtrain = np.vstack((wak_rate, wak_shuffle_rate))
-Ytrain = np.hstack((np.zeros(len(wak_rate)), np.ones(len(wak_shuffle_rate))))
+tocut = np.arange(0, 1, 0.1)
 
-Xtrain_adn = Xtrain[:,0:len(adn)]
-Xtrain_lmn = Xtrain[:,-len(lmn):]
+for i, cut in enumerate(tocut):
+	for gr, name in zip([adn, lmn], ['adn', 'lmn']):
+		tmp = {n:nts.Ts(spikes[n].restrict(sws_ep).as_series().sample(frac=1-cut)) for n in gr}
+		cc = compute_CrossCorrs(tmp, sws_ep, 2, 2000, norm=True)
+		cc = cc.rolling(window=10, win_type='gaussian', center = True, min_periods = 1).mean(std = 2.0)
 
-kf = KFold(n_splits=3, shuffle=True)
-c = np.zeros((len(Ytrain), 2))
-for train_index, test_index in kf.split(Xtrain):
-	clf = GradientBoostingClassifier(n_estimators=100, learning_rate=0.1,
-    max_depth=1, random_state=0).fit(Xtrain_adn[train_index], Ytrain[train_index])
-	c[test_index,0] = clf.predict(Xtrain_adn[test_index])	
-	clf = GradientBoostingClassifier(n_estimators=100, learning_rate=0.1,
-    max_depth=1, random_state=0).fit(Xtrain_lmn[train_index], Ytrain[train_index])
-	c[test_index,1] = clf.predict(Xtrain_lmn[test_index])	
+		tcurves = tuning_curves[gr]
+		peaks 	= pd.Series(index=tcurves.columns,data = np.array([circmean(tcurves.index.values, tcurves[i].values) for i in tcurves.columns])).sort_values()
+		tcurves 		= tcurves[peaks.index.values]
 
+		new_index = cc.columns
+		pairs = pd.Series(index = new_index, data = np.nan)
+		for i,j in pairs.index:	
+			a = peaks[i] - peaks[j]
+			pairs[(i,j)] = np.minimum(np.abs(a), 2*np.pi - np.abs(a))
+		pairs = pairs.dropna().sort_values()
 
-pc_adn = PCA(n_components=2).fit_transform(Xtrain_adn)
-pc_lmn = PCA(n_components=2).fit_transform(Xtrain_lmn)
+		cc = cc[pairs.index]
+		ccs[name][cut] = cc
+
 
 figure()
-subplot(221)
-scatter(pc_adn[:,0], pc_adn[:,1], c = Ytrain, s= 1)
-title('adn')
-subplot(222)
-scatter(pc_adn[:,0], pc_adn[:,1], c = c[:,0], s= 1)
-title('adn')
-subplot(223)
-scatter(pc_lmn[:,0], pc_lmn[:,1], c = Ytrain, s= 1)
-title('lmn')
-subplot(224)
-scatter(pc_lmn[:,0], pc_lmn[:,1], c = c[:,1], s= 1)
-title('lmn')
+gs = gridspec.GridSpec(2, len(tocut))
+for i, cut in enumerate(tocut):
+	for j, name in enumerate(['adn', 'lmn']):
+		subplot(gs[j,i])
+		tmp = ccs[name][cut].T.values
+		imshow(scipy.ndimage.gaussian_filter(tmp, 2), aspect = 'auto', cmap = 'jet')		
 
 
 
-Xtest = sws_rate
-p = np.zeros((len(Xtest),2))
-
-clf = GradientBoostingClassifier(n_estimators=300, learning_rate=0.1,
-    max_depth=1, random_state=0).fit(Xtrain_adn, c[:,0])
-p[:,0] = (np.diff(clf.predict_proba(Xtest[:,0:len(adn)]), 1)).flatten()
-clf = GradientBoostingClassifier(n_estimators=300, learning_rate=0.1,
-    max_depth=1, random_state=0).fit(Xtrain_lmn, c[:,1])
-p[:,1] = np.diff(clf.predict_proba(Xtest[:,-len(lmn):]), 1).flatten()
-
-
-proba = nts.TsdFrame(t = index, d = p)
-
+sys.exit()
 
 
 tcurves = tcurves[tokeep]
@@ -151,21 +122,6 @@ plot(tmp)
 # plot(tmp2)
 
 sys.exit()
-
-##################################
-# TEST removing some spikes
-##################################
-figure()
-ax = subplot(211)
-for i,n in enumerate(adn):
-	tmp = spikes[n].restrict(sws_ep).fillna(peaks[n])
-	plot(tmp, '|', markersize = 10)	
-subplot(212, sharex = ax)
-for i,n in enumerate(lmn):
-	tmp = spikes[n].restrict(sws_ep).fillna(peaks[n]).as_series().sample(frac=0.5)
-	plot(tmp, '|', markersize = 10)	
-
-
 
 
 

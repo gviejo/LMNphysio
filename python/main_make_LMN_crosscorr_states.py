@@ -99,8 +99,7 @@ for s in datasets:
 	# CROSS CORRELATION
 	###############################################################################################
 	cc_wak = compute_CrossCorrs(spikes, wake_ep, norm=True)
-	cc_rem = compute_CrossCorrs(spikes, rem_ep, norm=True)
-	
+	cc_rem = compute_CrossCorrs(spikes, rem_ep, norm=True)	
 	cc_sws = compute_CrossCorrs(spikes, sws_ep, 2, 2000, norm=True)
 
 	

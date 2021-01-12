@@ -8,10 +8,13 @@ import sys
 from pycircstat.descriptive import mean as circmean
 
 
-data_directory = '/mnt/DataGuillaume/Opto/A6700/A6701/A6701-201209A'
+data_directory = '/mnt/DataGuillaume/Opto/A6700/A6701/A6701-201208A'
 
-episodes = ['sleep', 'wake', 'sleep', 'wake', 'sleep']
-events = ['1', '3']
+# episodes = ['sleep', 'wake', 'sleep', 'wake', 'sleep']
+# events = ['1', '3']
+
+episodes = ['sleep', 'wake', 'sleep']
+events = ['1']
 
 
 
