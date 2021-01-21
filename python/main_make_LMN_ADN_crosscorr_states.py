@@ -27,7 +27,6 @@ allscurves = []
 allpeaks = []
 
 
-
 for s in datasets:
 	print(s)
 	name = s.split('/')[-1]
@@ -48,14 +47,13 @@ for s in datasets:
 
 	# Only taking the first wake ep
 	wake_ep = wake_ep.loc[[0]]
-
+	
 
 	############################################################################################### 
 	# COMPUTING TUNING CURVES
 	###############################################################################################
-	tuning_curves = {1:computeAngularTuningCurves(spikes, position['ry'], wake_ep, 121)}
-	for i in tuning_curves:
-		tuning_curves[i] = smoothAngularTuningCurves(tuning_curves[i], 20, 4)
+	tuning_curves = computeAngularTuningCurves(spikes, position['ry'], wake_ep, 121)	
+	tuning_curves = smoothAngularTuningCurves(tuning_curves, 20, 4)
 
 	# CHECKING HALF EPOCHS
 	wake2_ep = splitWake(wake_ep)
@@ -72,7 +70,6 @@ for s in datasets:
 		tcurves2.append(tcurves_half)
 
 	tokeep = np.intersect1d(tokeep2[0], tokeep2[1])
-	tokeep2 = np.union1d(tokeep2[0], tokeep2[1])
 
 	# NEURONS FROM ADN	
 	if 'A5011' in s:
@@ -96,7 +93,7 @@ for s in datasets:
 	cc_rem = cc_rem.rolling(window=10, win_type='gaussian', center = True, min_periods = 1).mean(std = 2.0)
 	cc_sws = cc_sws.rolling(window=10, win_type='gaussian', center = True, min_periods = 1).mean(std = 2.0)
 
-	tcurves 							= tuning_curves[1][tokeep]
+	tcurves 							= tuning_curves[tokeep]
 	peaks 								= pd.Series(index=tcurves.columns,data = np.array([circmean(tcurves.index.values, tcurves[i].values) for i in tcurves.columns])).sort_values()		
 	tcurves 							= tcurves[peaks.index.values]
 	neurons 							= [name+'_'+str(n) for n in tcurves.columns.values]

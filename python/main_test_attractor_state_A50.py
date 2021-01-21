@@ -138,17 +138,27 @@ lmn = peaks.loc[lmn].sort_values().index.values
 
 
 figure()
-ax = subplot(311)
+ax = subplot(211)
 for i,n in enumerate(adn):
 	plot(spikes[n].restrict(sws_ep).fillna(peaks[n]), '|', markersize = 10)	
-subplot(312, sharex = ax)
+subplot(212, sharex = ax)
 for i,n in enumerate(lmn):
 	plot(spikes[n].restrict(sws_ep).fillna(peaks[n]), '|', markersize = 10)	
-subplot(313, sharex = ax)
-tmp = proba.as_dataframe()
-tmp2 = tmp.rolling(window=100,win_type='gaussian',center=True,min_periods=1).mean(std=10.0)
-plot(tmp)
+# subplot(313, sharex = ax)
+# tmp = proba.as_dataframe()
+# tmp2 = tmp.rolling(window=100,win_type='gaussian',center=True,min_periods=1).mean(std=10.0)
+# plot(tmp)
 # plot(tmp2)
+
+
+figure()
+ax = subplot(211)
+for i,n in enumerate(adn):
+	plot(spikes[n].restrict(wake_ep).fillna(peaks[n]), '|', markersize = 10)	
+subplot(212, sharex = ax)
+for i,n in enumerate(lmn):
+	plot(spikes[n].restrict(wake_ep).fillna(peaks[n]), '|', markersize = 10)	
+
 
 sys.exit()
 

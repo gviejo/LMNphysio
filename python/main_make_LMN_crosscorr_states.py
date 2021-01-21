@@ -52,7 +52,7 @@ for s in datasets:
 
 	# # Taking only neurons from LMN
 	if 'A5002' in s:
-		spikes = {n:spikes[n] for n in np.intersect1d(np.where(shank.flatten()>2)[0], np.where(shank.flatten()<4)[0])}		
+		spikes = {n:spikes[n] for n in np.intersect1d(np.where(shank.flatten()>2)[0], np.where(shank.flatten()<4)[0])}			
 
 	############################################################################################### 
 	# COMPUTING TUNING CURVES
@@ -69,7 +69,7 @@ for s in datasets:
 	for i in range(2):
 		# tcurves_half = computeLMNAngularTuningCurves(spikes, position['ry'], wake2_ep.loc[[i]])[0][1]
 		tcurves_half = computeAngularTuningCurves(spikes, position['ry'], wake2_ep.loc[[i]], 121)
-		tcurves_half = smoothAngularTuningCurves(tcurves_half, 10, 2)
+		tcurves_half = smoothAngularTuningCurves(tcurves_half, 20, 4)
 		tokeep, stat = findHDCells(tcurves_half)
 		tokeep2.append(tokeep)
 		stats2.append(stat)
@@ -78,23 +78,12 @@ for s in datasets:
 	tokeep = np.intersect1d(tokeep2[0], tokeep2[1])
 	tokeep2 = np.union1d(tokeep2[0], tokeep2[1])
 
-	
+	# Checking firing rate
+	spikes = {n:spikes[n] for n in tokeep}
+	mean_frate 							= computeMeanFiringRate(spikes, [wake_ep, rem_ep, sws_ep], ['wake', 'rem', 'sws'])	
+	# tokeep = mean_frate[(mean_frate.loc[tokeep]>4).all(1)].index.values
+	tokeep = mean_frate[mean_frate.loc[tokeep,'sws']>4].index.values
 
-	# spikes = {n:spikes[n] for n in tokeep}
-
-	# spatial_curves, extent				= computePlaceFields(spikes, position[['x', 'z']], wake_ep, 21)
-	# autocorr_wake, frate_wake 			= compute_AutoCorrs(spikes, wake_ep)
-	# autocorr_sleep, frate_sleep 		= compute_AutoCorrs(spikes, sleep_ep)
-	# velo_curves 						= computeAngularVelocityTuningCurves(spikes, position['ry'], wake_ep, nb_bins = 30)
-	# mean_frate 							= computeMeanFiringRate(spikes, [wake_ep, rem_ep, sws_ep], ['wake', 'rem', 'sws'])
-	# speed_curves 						= computeSpeedTuningCurves(spikes, position[['x', 'z']], wake_ep)
-
-
-
-	# velo_curves = velo_curves.rolling(window=5, win_type='gaussian', center= True, min_periods=1).mean(std = 1.0)
-	# speed_curves = speed_curves.rolling(window=5, win_type='gaussian', center= True, min_periods=1).mean(std = 1.0)
-
-			
 	############################################################################################### 
 	# CROSS CORRELATION
 	###############################################################################################
@@ -218,6 +207,7 @@ show()
 
 
 
+
 cc = allcc_sws[allpairs.index]
 tmp1 = cc.loc[:0].rolling(window=100, win_type='gaussian', center= True, min_periods=1).mean(std = 10.0)
 tmp2 = cc.loc[0:].rolling(window=100, win_type='gaussian', center= True, min_periods=1).mean(std = 10.0)
@@ -229,8 +219,10 @@ xticks([0, np.where(cc2.index.values == 0)[0][0], len(cc2)], [cc2.index[0], 0, c
 
 
 
-tmp = (np.vstack((cc2.loc[:-20].values,cc2.loc[20:].values))).T
+cc2 = allcc_sws[allpairs.index]
+
+tmp = (np.vstack((cc2.loc[:-100].values,cc2.loc[100:].values))).T
 
 
 figure()
-imshow(scipy.ndimage.gaussian_filter(tmp, 2), aspect = 'auto', cmap = 'jet')
+imshow(scipy.ndimage.gaussian_filter(tmp, 10), aspect = 'auto', cmap = 'jet')
