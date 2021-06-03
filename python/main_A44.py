@@ -8,9 +8,9 @@ import sys
 from pycircstat.descriptive import mean as circmean
 
 
-data_directory = '/mnt/Data2/Opto/A8000/A8004/A8004-210405A'
+data_directory = '/media/guillaume/Seagate/Kraken/K2/A6403/A6403-201228'
 
-episodes = ['sleep', 'wake', 'sleep', 'sleep', 'sleep']
+episodes = ['sleep', 'wake']
 # events = ['1', '3']
 
 # episodes = ['sleep', 'wake', 'sleep']
@@ -21,68 +21,56 @@ events = ['1']
 spikes, shank 						= loadSpikeData(data_directory)
 n_channels, fs, shank_to_channel 	= loadXML(data_directory)
 
-position 							= loadPosition(data_directory, events, episodes, 2, 1)
+position 							= loadPosition(data_directory, events, episodes, 2, 0)
 wake_ep 							= loadEpoch(data_directory, 'wake', episodes)
 sleep_ep 							= loadEpoch(data_directory, 'sleep')					
-acceleration						= loadAuxiliary(data_directory)
-sleep_ep 							= refineSleepFromAccel(acceleration, sleep_ep)
+# acceleration						= loadAuxiliary(data_directory)
+# sleep_ep 							= refineSleepFromAccel(acceleration, sleep_ep)
 
 #################
 # TUNING CURVES
 tuning_curves 						= computeAngularTuningCurves(spikes, position['ry'], wake_ep, 60)
-#tuning_curves, velocity, edges 		= computeLMNAngularTuningCurves(spikes, position['ry'], wake_ep, 61)
+tuning_curves						= smoothAngularTuningCurves(tuning_curves, 10, 2)
 
-for i in tuning_curves:
-	tuning_curves[i] = smoothAngularTuningCurves(tuning_curves[i], 10, 2)
+tokeep, stat 						= findHDCells(tuning_curves, z=10, p = 0.001)
 
-tokeep, stat 						= findHDCells(tuning_curves[1], z=10, p = 0.001)
-
-tcurves 							= tuning_curves[1][tokeep]
+tcurves 							= tuning_curves[tokeep]
 peaks 								= pd.Series(index=tcurves.columns,data = np.array([circmean(tcurves.index.values, tcurves[i].values) for i in tcurves.columns])).sort_values()		
 tcurves 							= tcurves[peaks.index.values]
+
+figure()
+for i in tuning_curves.columns:
+	subplot(int(np.ceil(np.sqrt(tuning_curves.shape[1]))),int(np.ceil(np.sqrt(tuning_curves.shape[1]))),i+1, projection='polar')
+	plot(tuning_curves[i])
+
+tcurves = tuning_curves
 
 
 #################
 # OPTO
-opto_ep = loadOptoEp(data_directory, 3, 2, 0)
-frates, rasters = computeRasterOpto(spikes, opto_ep)
+opto_ep = loadOptoEp(data_directory, 1, 2, 1)
+opto_ep2 = opto_ep.merge_close_intervals(1e6)
+
+evt_file = os.path.join(data_directory, 'opto_ep.evt.py.opt')
+writeNeuroscopeEvents(evt_file, opto_ep, 'Opto')
 
 start = []
 end = []
-for i in opto_ep.index.values:
-	start.append(opto_ep.loc[i,'start']-20000000)
-	end.append(opto_ep.loc[i,'start'])
+for i in opto_ep2.index.values:
+	start.append(int(opto_ep2.loc[i,'start']-opto_ep2.loc[[i]].tot_length()))
+	end.append(opto_ep2.loc[i,'start'])
 
 nonopto_ep = nts.IntervalSet(start = start, end = end)
 
-idx =  np.hstack([np.arange(0, 5), np.arange(6,20)])
-opto_ep = opto_ep.loc[idx]
 
-nonopto_ep = nonopto_ep.loc[idx]
+frates, rasters = computeRasterOpto(spikes, opto_ep2, 1000)
+frates2, rasters2 = computeRasterOpto(spikes, nonopto_ep, 1000)
 
-tc_opto 		= computeAngularTuningCurves(spikes, position['ry'], opto_ep, 61)
+
+tc_opto 		= computeAngularTuningCurves(spikes, position['ry'], opto_ep2, 61)
 tc_nonopto		= computeAngularTuningCurves(spikes, position['ry'], nonopto_ep, 61)
-
-#################
-# CROSS-CORR
-cc_wak = compute_CrossCorrs(spikes, wake_ep, norm=True)
-cc_slp = compute_CrossCorrs(spikes, nonopto_ep, 2, 2000, norm=True)
-cc_opt = compute_CrossCorrs(spikes, opto_ep, 2, 2000, norm=True)
-
-cc_wak = cc_wak.rolling(window=20, win_type='gaussian', center = True, min_periods = 1).mean(std = 4.0)
-cc_slp = cc_slp.rolling(window=20, win_type='gaussian', center = True, min_periods = 1).mean(std = 4.0)
-cc_opt = cc_opt.rolling(window=20, win_type='gaussian', center = True, min_periods = 1).mean(std = 4.0)
-
-
-pairs = pd.Series(index = cc_wak.columns)
-for i,j in pairs.index:	
-	if i in peaks.index.values and j in peaks.index.values:
-		a = peaks[i] - peaks[j]
-		pairs[(i,j)] = np.minimum(np.abs(a), 2*np.pi - np.abs(a))
-
-pairs = pairs.dropna().sort_values()
-
-
+tc_opto			= smoothAngularTuningCurves(tc_opto, 10, 2)
+tc_nonopto		= smoothAngularTuningCurves(tc_nonopto, 10, 2)
 
 ############################################################################################### 
 # PLOT
@@ -95,27 +83,18 @@ for i, n in enumerate(tcurves.columns):
 
 fig = figure()
 for i, n in enumerate(tc_opto.columns):
-	subplot(4, 4, i+1, projection = 'polar')
-	plot(tc_opto[n], label = 'opto')
+	subplot(4, 4, i+1, projection = 'polar')	
+	plot(tc_opto[n], label = 'opto')	
 	plot(tc_nonopto[n], label = 'non-opto')
 	if i == 0: legend()
 
-fig = figure()
-subplot(1,4,1)
-plot(pairs.values, np.arange(len(pairs))[::-1])
-titles = ['wake', 'sleep', 'opto']
-for i, cc in enumerate([cc_wak, cc_slp, cc_opt]):
-	subplot(1,4,i+2)
-	imshow(cc[pairs.index].T, aspect = 'auto', cmap = 'jet', interpolation = 'bilinear')
-	title(titles[i])
-	xticks([0, np.where(cc.index.values == 0)[0][0], len(cc)], [cc.index[0], 0, cc.index[-1]])
 
 
 from matplotlib import gridspec
 from matplotlib.gridspec import GridSpecFromSubplotSpec
 
-start = 20000
-stop = 40000
+start = 120000
+stop = 240000
 fig = figure()
 # gs = gridspec.GridSpec(3,4)
 subplot(3,4,1)
@@ -125,14 +104,18 @@ axvline(start)
 axvline(stop)
 for i, n in enumerate(rasters.keys()):
 	subgs = GridSpecFromSubplotSpec(2, 1, subplot(3,4,i+2))
-	subplot(subgs[0,0])
+	subplot(subgs[0,0])	
 	plot(frates[n])
+	plot(frates2[n])
 	axvline(start)
 	axvline(stop)
 	subplot(subgs[1,0])
 	plot(rasters[n], '.', markersize = 2)
 	axvline(start*1000)
 	axvline(stop*1000)
+
+
+
 
 sys.exit()
 

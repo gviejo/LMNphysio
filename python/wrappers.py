@@ -651,6 +651,25 @@ def loadUFOs(path):
 	return (nts.IntervalSet(ripples[:,0], ripples[:,2], time_units = 's'), 
 			nts.Ts(ripples[:,1], time_units = 's'))
 
+def loadRipples(path):
+	"""
+	Name of the file should end with .evt.py.rip
+	"""
+	import os
+	name = path.split("/")[-1]
+	files = os.listdir(path)
+	filename = os.path.join(path, name+'.evt.py.rip')
+	if name+'.evt.py.rip' in files:
+		tmp = np.genfromtxt(path + '/' + name + '.evt.py.rip')[:,0]
+		ripples = tmp.reshape(len(tmp)//3,3)/1000
+	else:
+		print("No ripples in ", path)
+		sys.exit()
+	return (nts.IntervalSet(ripples[:,0], ripples[:,2], time_units = 's'), 
+			nts.Ts(ripples[:,1], time_units = 's'))
+
+
+
 def loadMeanWaveforms(path):
 	"""
 	load waveforms
@@ -765,8 +784,8 @@ def loadOptoEp(path, epoch, n_channels = 2, channel = 0, fs = 20000):
 			data = np.fromfile(f, np.uint16).reshape((n_samples, n_channels))
 		data = data[:,channel].flatten().astype(np.int32)
 
-		start,_ = scipy.signal.find_peaks(np.diff(data), height=30000)
-		end,_ = scipy.signal.find_peaks(np.diff(data)*-1, height=30000)
+		start,_ = scipy.signal.find_peaks(np.diff(data), height=3000)
+		end,_ = scipy.signal.find_peaks(np.diff(data)*-1, height=3000)
 		start += 1	
 		timestep = np.arange(0, len(data))/fs
 		# aliging based on epoch_TS.csv

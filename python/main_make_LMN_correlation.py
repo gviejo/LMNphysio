@@ -20,7 +20,7 @@ def zscore_rate(rate):
 # GENERAL infos
 ###############################################################################################
 data_directory = '/mnt/DataGuillaume/'
-datasets = np.loadtxt(os.path.join(data_directory,'datasets_LMN.list'), delimiter = '\n', dtype = str, comments = '#')
+datasets = np.loadtxt(os.path.join(data_directory,'datasets_KS25.txt'), delimiter = '\n', dtype = str, comments = '#')
 infos = getAllInfos(data_directory, datasets)
 
 
@@ -50,7 +50,10 @@ for s in datasets:
 
 	# # Taking only neurons from LMN
 	if 'A5002' in s:
-		spikes = {n:spikes[n] for n in np.intersect1d(np.where(shank.flatten()>2)[0], np.where(shank.flatten()<4)[0])}			
+		spikes = {n:spikes[n] for n in np.where(shank==3)[0]}
+
+	if 'A5011' in s:
+		spikes = {n:spikes[n] for n in np.where(shank==5)[0]}
 
 	speed = computeSpeed(position[['x', 'z']], wake_ep)
 	speed = speed.rolling(window=100,win_type='gaussian',center=True,min_periods=1).mean(std=4.0)
@@ -93,14 +96,14 @@ for s in datasets:
 	spikes = {n:spikes[n] for n in tokeep}
 	mean_frate 							= computeMeanFiringRate(spikes, [wake_ep, rem_ep, sws_ep], ['wake', 'rem', 'sws'])	
 	# tokeep = mean_frate[(mean_frate.loc[tokeep]>4).all(1)].index.values
-	tokeep = mean_frate[mean_frate.loc[tokeep,'sws']>1].index.values
+	tokeep = mean_frate[mean_frate.loc[tokeep,'sws']>2].index.values
 
 	############################################################################################### 
 	# PEARSON CORRELATION
 	###############################################################################################
 	wak_rate = zscore_rate(binSpikeTrain({n:spikes[n] for n in tokeep}, newwake_ep, 300, 1))
 	rem_rate = zscore_rate(binSpikeTrain({n:spikes[n] for n in tokeep}, rem_ep, 300, 1))
-	sws_rate = zscore_rate(binSpikeTrain({n:spikes[n] for n in tokeep}, sws_ep, 50, 1))
+	sws_rate = zscore_rate(binSpikeTrain({n:spikes[n] for n in tokeep}, sws_ep, 60, 1))
 
 	r_wak = np.corrcoef(wak_rate.T)[np.triu_indices(len(tokeep),1)]
 	r_rem = np.corrcoef(rem_rate.T)[np.triu_indices(len(tokeep),1)]
@@ -126,6 +129,7 @@ figure()
 subplot(121)
 plot(allr['wak'], allr['sws'], 'o', color = 'red', alpha = 0.5)
 m, b = np.polyfit(allr['wak'].values, allr['sws'].values, 1)
+x = np.linspace(allr['wak'].min(), allr['wak'].max(),5)
 plot(x, x*m + b)
 xlabel('wake')
 ylabel('sws')
@@ -139,3 +143,16 @@ plot(x, x*m + b)
 xlabel('wake')
 ylabel('rem')
 title('r = '+str(np.round(m, 3)))
+
+figure()
+plot(allr['wak'], allr['sws'], 'o', color = 'red', alpha = 0.5)
+m, b = np.polyfit(allr['wak'].values, allr['sws'].values, 1)
+x = np.linspace(allr['wak'].min(), allr['wak'].max(),5)
+plot(x, x*m + b)
+xlabel('wake')
+ylabel('sws')
+title('r = '+str(np.round(m, 3)))
+
+
+datatosave = {'allr':allr}
+cPickle.dump(datatosave, open(os.path.join('../figures/figures_II_2021', 'All_correlation.pickle'), 'wb'))

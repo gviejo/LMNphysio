@@ -8,7 +8,7 @@ import sys
 from pycircstat.descriptive import mean as circmean
 
 
-data_directory = '/mnt/DataGuillaume/LMN-ADN/A5002/A5002-200303B'
+data_directory = '/mnt/DataGuillaume/LMN-ADN/A5022/A5022-210528A'
 
 
 episodes = ['sleep', 'wake', 'sleep']
@@ -33,11 +33,11 @@ acceleration 						= acceleration[[0,1,2]]
 acceleration.columns 				= pd.Index(np.arange(3))
 sleep_ep 							= refineSleepFromAccel(acceleration, sleep_ep)
 
-sys.exit()
+
 
 # tuning_curves 						= computeAngularTuningCurves(spikes, position['ry'], wake_ep, 60)
 tuning_curves, velocity, edges 		= computeLMNAngularTuningCurves(spikes, position['ry'], wake_ep.loc[[0]], 61)
-spatial_curves, extent				= computePlaceFields(spikes, position[['x', 'z']], wake_ep.loc[[0]], 30)
+spatial_curves, extent				= computePlaceFields(spikes, position[['x', 'z']], wake_ep.loc[[0]], 20)
 autocorr_wake, frate_wake 			= compute_AutoCorrs(spikes, wake_ep)
 # autocorr_sleep, frate_sleep 		= compute_AutoCorrs(spikes, sleep_ep)
 velo_curves 						= computeAngularVelocityTuningCurves(spikes, position['ry'], wake_ep.loc[[0]], nb_bins = 30, norm=False)
@@ -57,21 +57,21 @@ tokeep, stat = findHDCells(tuning_curves[1], z = 10, p = 0.001)
 
 # downsampleDatFile(data_directory, n_channels)
 
-sys.exit()
 
 
 
+# sys.exit()
 
 		
-cc1 = compute_CrossCorrs(spikes, wake_ep, 5, 1000, norm = False)
-cc1 = cc1.rolling(window=100, win_type='gaussian', center= True, min_periods=1).mean(std = 1.0)
-cc2 = compute_CrossCorrs(spikes, wake_ep, 0.20, 400, norm = True)
-cc2 = cc2.rolling(window=100, win_type='gaussian', center= True, min_periods=1).mean(std = 2.0)
+# cc1 = compute_CrossCorrs(spikes, wake_ep, 5, 1000, norm = False)
+# cc1 = cc1.rolling(window=100, win_type='gaussian', center= True, min_periods=1).mean(std = 1.0)
+# cc2 = compute_CrossCorrs(spikes, wake_ep, 0.20, 400, norm = True)
+# cc2 = cc2.rolling(window=100, win_type='gaussian', center= True, min_periods=1).mean(std = 2.0)
 
-cc3 = compute_CrossCorrs(spikes, sleep_ep, 5, 300, norm = False)
-cc3 = cc3.rolling(window=100, win_type='gaussian', center= True, min_periods=1).mean(std = 1.0)
-cc4 = compute_CrossCorrs(spikes, sleep_ep, 0.20, 400, norm = True)
-cc4 = cc4.rolling(window=100, win_type='gaussian', center= True, min_periods=1).mean(std = 2.0)
+# cc3 = compute_CrossCorrs(spikes, sleep_ep, 5, 300, norm = False)
+# cc3 = cc3.rolling(window=100, win_type='gaussian', center= True, min_periods=1).mean(std = 1.0)
+# cc4 = compute_CrossCorrs(spikes, sleep_ep, 0.20, 400, norm = True)
+# cc4 = cc4.rolling(window=100, win_type='gaussian', center= True, min_periods=1).mean(std = 2.0)
 
 
 

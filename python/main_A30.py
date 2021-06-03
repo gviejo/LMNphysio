@@ -4,7 +4,9 @@ import neuroseries as nts
 from pylab import *
 from wrappers import *
 from functions import *
+from matplotlib import gridspec
 import sys
+from scipy.ndimage.filters import gaussian_filter
 
 # data_directory = '/mnt/DataGuillaume/LMN/A1407/A1407-190429'
 # data_directory = '/mnt/DataGuillaume/LMN/A1407/A1407-190425'
@@ -13,8 +15,8 @@ import sys
 # data_directory = '/mnt/DataGuillaume/LMN-POSTSUB/A3004/A3004-200122B'
 # data_directory = '/mnt/DataGuillaume/LMN-POSTSUB/A3004/A3004-200122C'
 # data_directory = '/mnt/DataGuillaume/LMN-POSTSUB/A3004/A3004-200124B2'
-data_directory = '/mnt/DataGuillaume/LMN-PSB/A3007/A3007-201127A'
-episodes = ['sleep', 'wake']
+data_directory = '/mnt/Data2/Opto/A8000/A8004/A8004-210405A'
+episodes = ['sleep', 'wake', 'sleep', 'sleep', 'sleep']
 # episodes = ['sleep', 'wake', 'sleep', 'wake', 'sleep']
 # episodes = ['sleep', 'wake', 'sleep']
 # episodes = ['sleep', 'wake', 'sleep']
@@ -31,40 +33,93 @@ position 							= loadPosition(data_directory, events, episodes)
 wake_ep 							= loadEpoch(data_directory, 'wake', episodes)
 sleep_ep 							= loadEpoch(data_directory, 'sleep')					
 
-tuning_curves2 						= computeAngularTuningCurves(spikes, position['ry'], wake_ep, 120)
-tuning_curves, velocity, edges 		= computeLMNAngularTuningCurves(spikes, position['ry'], wake_ep, 61)
-spatial_curves, extent				= computePlaceFields(spikes, position[['x', 'z']], wake_ep, 20)
-autocorr_wake, frate_wake 			= compute_AutoCorrs(spikes, wake_ep)
-# autocorr_sleep, frate_sleep 		= compute_AutoCorrs(spikes, sleep_ep)
+tuning_curves 						= computeAngularTuningCurves(spikes, position['ry'], wake_ep, 120)
+
+sys.exit()
+
+spatial_curves, extent				= computePlaceFields(spikes, position[['x', 'z']], wake_ep, 30)
+
 velo_curves 						= computeAngularVelocityTuningCurves(spikes, position['ry'], wake_ep, nb_bins = 30, norm=False)
-# sys.exit()
-# mean_frate 							= computeMeanFiringRate(spikes, [wake_ep, sleep_ep], ['wake', 'sleep'])
-speed_curves 						= computeSpeedTuningCurves(spikes, position[['x', 'z']], wake_ep)
 
-# downsampleDatFile(data_directory)
 
-tuning_curves2 = smoothAngularTuningCurves(tuning_curves2, 10, 2)
-for i in tuning_curves:
-	tuning_curves[i] = smoothAngularTuningCurves(tuning_curves[i], 10, 2)
+tuning_curves = smoothAngularTuningCurves(tuning_curves, 10, 2)
 
 velo_curves = velo_curves.rolling(window=5, win_type='gaussian', center= True, min_periods=1).mean(std = 1.0)
-speed_curves = speed_curves.rolling(window=5, win_type='gaussian', center= True, min_periods=1).mean(std = 1.0)
 
+# CHECKING HALF EPOCHS
+wake2_ep = splitWake(wake_ep)
+tokeep2 = []
+stats2 = []
+tcurves2 = []
+for i in range(2):
+	# tcurves_half = computeLMNAngularTuningCurves(spikes, position['ry'], wake2_ep.loc[[i]])[0][1]
+	tcurves_half = computeAngularTuningCurves(spikes, position['ry'], wake2_ep.loc[[i]], 121)
+	tcurves_half = smoothAngularTuningCurves(tcurves_half, 20, 4)
+	tokeep, stat = findHDCells(tcurves_half)
+	tokeep2.append(tokeep)
+	stats2.append(stat)
+	tcurves2.append(tcurves_half)
 
-lfp = loadLFP(os.path.join(data_directory,data_directory.split('/')[-1]+'.dat'), n_channels=64, channel=0, frequency=20000.0, precision='int16')
+tokeep = np.intersect1d(tokeep2[0], tokeep2[1])
+
+tokeep = np.intersect1d(np.where(shank<=4)[0], tokeep)
+
 
 ############################################################################################### 
 # PLOT
 ###############################################################################################
 
+colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'wheat', 'indianred', 'royalblue']
+
+shank = shank.flatten()
+
 figure()
-for i in spikes:
-	subplot(4,8,i+1, projection = 'polar')
-	plot(tuning_curves2[i], label = str(shank[i])+'-'+str(i))
-	legend()
+count = 1
+for j in np.unique(shank):
+	neurons = np.where(shank == j)[0]
+	for k,i in enumerate(neurons):
+		subplot(int(np.sqrt(len(spikes)))+1,int(np.sqrt(len(spikes)))+1,count, projection = 'polar')
+		plot(tuning_curves[i], label = str(shank[i]) + ' ' + str(i), color = colors[shank[i]-1])
+		# plot(tuning_curves2[1][i], '--', color = colors[shank[i]-1])
+		# if i in tokeep:
+		# 	plot(tuning_curves[1][i], label = str(shank[i]) + ' ' + str(i), color = colors[shank[i]-1], linewidth = 3)
+		# legend()
+		count+=1
+		gca().set_xticklabels([])
 
 
 
+figure()
+count = 1
+for j in np.unique(shank):
+	neurons = np.where(shank == j)[0]
+	for k,i in enumerate(neurons):
+		subplot(int(np.sqrt(len(spikes)))+1,int(np.sqrt(len(spikes)))+1,count)
+		tmp = spatial_curves[i].values
+		tmp = gaussian_filter(tmp, 1)
+		imshow(tmp, interpolation = 'bilinear', cmap = 'jet')	
+		colorbar()
+		count += 1
+
+
+figure()
+gs = gridspec.GridSpec(3, len(tokeep))
+for i, n in enumerate(tokeep):	
+	subplot(gs[0,i], projection = 'polar')
+	plot(tuning_curves[n])
+	xticks([])
+	title(shank[n])
+	subplot(gs[1,i])
+	tmp = spatial_curves[n].values
+	tmp = gaussian_filter(tmp, 1)
+	imshow(tmp, interpolation = 'bilinear', cmap = 'jet')	
+	colorbar()
+	subplot(gs[2,i])
+	plot(velo_curves[n])
+
+
+
+sys.exit()
 
 figure()
 for i in spikes:
@@ -132,17 +187,17 @@ for i in spikes:
 show()
 
 cc = compute_CrossCorrs(spikes, wake_ep, 5, 1000, norm = True)
-cc = cc.rolling(window=100, win_type='gaussian', center= True, min_periods=1).mean(std = 5.0)
+cc = cc.rolling(window=100, win_type='gaussian', center= True, min_periods=1).mean(std = 1.0)
 
 
-for k in range(1,4):
+for k in range(1,8):
 	figure()
-	count = 0 
-	for i in np.where(shank == 0)[0]:	
-	    for j in np.where(shank == k)[0]:
-	        subplot(5,5,count+1) 
+	count = 0
+	for i in np.where(shank <= 4)[0]:	
+	    for j in np.where(shank > 4)[0]:
+	        subplot(10,10,count+1) 
 	        plot(cc[(i,j)], label = str(i)+'/'+str(j)) 
-	        legend() 
+	        # legend() 
 	        count+=1
 	        # xticks([])
 	        yticks([])

@@ -1,0 +1,107 @@
+import numpy as np
+import pandas as pd
+import neuroseries as nts
+from pylab import *
+from wrappers import *
+from functions import *
+import sys
+from pycircstat.descriptive import mean as circmean
+from matplotlib.gridspec import GridSpecFromSubplotSpec
+
+
+
+data_directory = '/mnt/Data2/Opto/A8000/A8001/A8001-210514A'
+
+episodes = ['sleep']
+# events = ['1', '3']
+
+# episodes = ['sleep', 'wake', 'sleep']
+events = []
+
+
+
+spikes, shank 						= loadSpikeData(data_directory)
+n_channels, fs, shank_to_channel 	= loadXML(data_directory)
+
+position 							= loadPosition(data_directory, events, episodes, 2, 1)
+wake_ep 							= loadEpoch(data_directory, 'wake', episodes)
+sleep_ep 							= loadEpoch(data_directory, 'sleep')					
+acceleration						= loadAuxiliary(data_directory)
+#sleep_ep 							= refineSleepFromAccel(acceleration, sleep_ep)
+
+#################
+# TUNING CURVES
+tuning_curves 						= computeAngularTuningCurves(spikes, position['ry'], wake_ep, 60)
+#tuning_curves, velocity, edges 		= computeLMNAngularTuningCurves(spikes, position['ry'], wake_ep, 61)
+
+
+tuning_curves = smoothAngularTuningCurves(tuning_curves, 10, 2)
+
+tokeep, stat 						= findHDCells(tuning_curves, z=10, p = 0.001)
+
+#tcurves 							= tuning_curves[1][tokeep]
+#peaks 								= pd.Series(index=tcurves.columns,data = np.array([circmean(tcurves.index.values, tcurves[i].values) for i in tcurves.columns])).sort_values()		
+#tcurves 							= tcurves[peaks.index.values]
+
+#################
+# OPTO
+opto_ep = loadOptoEp(data_directory, 0, 1, 0)
+
+opto_ep = opto_ep.merge_close_intervals(40000)
+
+frates, rasters = computeRasterOpto(spikes, opto_ep, 1000)
+
+
+colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'wheat', 'indianred', 'royalblue']
+shank = shank.flatten()
+
+
+figure()
+count = 1
+for j in np.unique(shank):
+	neurons = np.where(shank == j)[0]
+	for k,i in enumerate(neurons):
+		subplot(int(np.sqrt(len(spikes)))+1,int(np.sqrt(len(spikes)))+1,count, projection = 'polar')
+		plot(tuning_curves[i], label = str(shank[i]) + ' ' + str(i), color = colors[shank[i]-1])
+		# plot(tuning_curves2[1][i], '--', color = colors[shank[i]-1])
+		if i in tokeep:
+			plot(tuning_curves[i], label = str(shank[i]) + ' ' + str(i), color = colors[shank[i]-1], linewidth = 3)
+		# legend()
+		count+=1
+		gca().set_xticklabels([])
+
+
+
+groups = np.array_split(list(spikes.keys()), 5)
+for i, neurons in enumerate(groups):		
+	figure()
+	count = 1
+	for k,n in enumerate(neurons):
+		ax = subplot(int(np.sqrt(len(neurons)))+1,int(np.sqrt(len(neurons)))+1,count)
+		subgs = GridSpecFromSubplotSpec(2, 1, ax)
+		subplot(subgs[0,0])		
+		bar(frates[n].index.values, frates[n].values, np.diff(frates[n].index.values)[0])
+		axvline(20000000)
+		axvline(40000000)
+		title(n)
+		subplot(subgs[1,0])
+		plot(rasters[n], '.', markersize = 0.24)
+		count+=1
+		gca().set_xticklabels([])
+		axvline(20000000)
+		axvline(40000000)
+
+
+figure()
+n = 81
+subplot(211)		
+bar(frates[n].index.values, frates[n].values, np.diff(frates[n].index.values)[0])
+axvline(20000000)
+axvline(40000000)
+title(n)
+subplot(212)
+plot(rasters[n], '.', markersize = 1)
+count+=1
+gca().set_xticklabels([])
+axvline(20000000)
+axvline(40000000)

@@ -64,22 +64,22 @@ for s in sessions:
 	idx 			= bins[0:-1]+np.diff(bins)/2
 	velo_curves		= pd.DataFrame(index = idx, columns = np.arange(len(spikes)))
 	# refining with low linear speed
-	# xy 			= position[['x', 'z']]
-	# index 		= np.digitize(xy.index.values, time_bins)
-	# tmp 		= xy.groupby(index).mean()
-	# tmp.index 	= time_bins[np.unique(index)-1]+bin_size/2	
-	# distance	= np.sqrt(np.power(np.diff(tmp['x']), 2) + np.power(np.diff(tmp['z']), 2))	
-	# speed 		= nts.Tsd(t = tmp.index.values[0:-1]+ bin_size/2, d = distance/(bin_size*1e-6))
-	# speed 		= speed.restrict(ep)
-	# speed2 		= speed.rolling(window=100, win_type='gaussian', center= True, min_periods=1).mean(std = 5.0)
-	# idx 		= (speed2 < 0.05)*1
-	# start 		= np.where(np.diff(idx) == 1)[0]
-	# end 		= np.where(np.diff(idx) == -1)[0]
-	# if start[0] > end[0]:
-	# 	start = np.hstack((np.zeros(1), start))
-	# if start[-1] > end[-1]:
-	# 	end = np.hstack((end, len(idx)-1))	
-	# new_ep = nts.IntervalSet(start = idx.index.values[start.astype('int')], end = idx.index.values[end.astype('int')])
+	xy 			= position[['x', 'z']]
+	index 		= np.digitize(xy.index.values, time_bins)
+	tmp 		= xy.groupby(index).mean()
+	tmp.index 	= time_bins[np.unique(index)-1]+bin_size/2	
+	distance	= np.sqrt(np.power(np.diff(tmp['x']), 2) + np.power(np.diff(tmp['z']), 2))	
+	speed 		= nts.Tsd(t = tmp.index.values[0:-1]+ bin_size/2, d = distance/(bin_size*1e-6))
+	speed 		= speed.restrict(ep)
+	speed2 		= speed.rolling(window=100, win_type='gaussian', center= True, min_periods=1).mean(std = 5.0)
+	idx 		= (speed2 < 0.05)*1
+	start 		= np.where(np.diff(idx) == 1)[0]
+	end 		= np.where(np.diff(idx) == -1)[0]
+	if start[0] > end[0]:
+		start = np.hstack((np.zeros(1), start))
+	if start[-1] > end[-1]:
+		end = np.hstack((end, len(idx)-1))	
+	new_ep = nts.IntervalSet(start = idx.index.values[start.astype('int')], end = idx.index.values[end.astype('int')])
 
 	# plot(speed2)
 	# [plot([new_ep.iloc[i,0], new_ep.iloc[i,1]], [-0.1, -0.1]) for i in new_ep.index.values]

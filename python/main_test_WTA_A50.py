@@ -84,8 +84,8 @@ newspikes = {n:[] for n in lmn}
 # 	newspikes[n] = nts.Ts(t = t)
 for i,n in enumerate(lmn):
 	idx = np.where(rate[:,i] > 2)[0]+1
- 	t = idx_spk[n][idx_spk[n].as_series().isin(idx)].index.values
- 	newspikes[n] = nts.Ts(t = t)
+	t = idx_spk[n][idx_spk[n].as_series().isin(idx)].index.values
+	newspikes[n] = nts.Ts(t = t)
 
 
 

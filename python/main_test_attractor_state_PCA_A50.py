@@ -10,6 +10,7 @@ from pycircstat.descriptive import mean as circmean
 from sklearn.model_selection import KFold
 from sklearn.decomposition import PCA
 from mpl_toolkits.mplot3d import Axes3D
+import hsluv
 
 def zscore_rate(rate):
 	rate = rate.values
@@ -21,7 +22,7 @@ def zscore_rate(rate):
 # GENERAL infos
 ###############################################################################################
 
-data_directory = '/mnt/DataGuillaume/LMN-ADN/A5011/A5011-201015A'
+data_directory = '/mnt/DataGuillaume/LMN-ADN/A5011/A5011-201011A'
 
 episodes = ['sleep', 'wake', 'sleep']
 
@@ -203,3 +204,16 @@ tmp = np.vstack((cc_bad.loc[:-100].values,cc_bad.loc[100:].values)).T
 imshow(scipy.ndimage.gaussian_filter(tmp, 4), aspect = 'auto')
 # xticks([0, np.where(cc_bad.index.values == 0)[0][0], len(cc_bad)], [cc_bad.index[0], 0, cc_bad.index[-1]])
 
+
+
+figure()
+ax = subplot(211)
+for i,n in enumerate(adn):
+	clr = hsluv.hsluv_to_rgb([peaks[n]*180/np.pi,85,45])
+	plot(spikes[n].restrict(sws_ep).fillna(peaks[n]), '|', markersize = 10, color = clr)	
+ylim(0, 2*np.pi)
+subplot(212, sharex = ax)
+for i,n in enumerate(lmn):
+	clr = hsluv.hsluv_to_rgb([peaks[n]*180/np.pi,85,45])
+	plot(spikes[n].restrict(sws_ep).fillna(peaks[n]), '|', markersize = 10, color = clr)
+ylim(0, 2*np.pi)

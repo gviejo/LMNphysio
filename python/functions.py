@@ -7,6 +7,7 @@ import scipy
 from scipy import signal
 from itertools import combinations
 from pycircstat.descriptive import mean as circmean
+from pylab import *
 
 '''
 Utilities functions
@@ -900,7 +901,7 @@ def shuffleByIntervalSpikes(spikes, epochs):
 		shuffled[n] = nts.Ts(t = np.cumsum(np.hstack(isi)))
 	return shuffled
 
-def plotTuningCurves(tcurves, tokeep = []):
+def plotTuningCurves(tcurves, tokeep = []):	
 	figure()
 	for i in tcurves.columns:
 		subplot(int(np.ceil(np.sqrt(tcurves.shape[1]))),int(np.ceil(np.sqrt(tcurves.shape[1]))),i+1, projection='polar')
@@ -940,7 +941,8 @@ def computeRasterOpto(spikes, opto_ep, bin_size = 100):
 			r.append(count)
 		r = np.array(r)
 		frates[n] = pd.Series(index = bins[0:-1]/1000, data = r.mean(0))
-		rasters[n] = pd.concat(rasters[n])
+		rasters[n] = pd.concat(rasters[n])		
 
 	frates = pd.concat(frates, 1)
+	frates = nts.TsdFrame(t = frates.index.values, d = frates.values, time_units = 'ms')
 	return frates, rasters

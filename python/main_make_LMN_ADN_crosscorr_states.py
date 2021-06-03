@@ -7,12 +7,14 @@ from functions import *
 import sys
 from pycircstat.descriptive import mean as circmean
 import _pickle as cPickle
+import itertools
 
 ############################################################################################### 
 # GENERAL infos
 ###############################################################################################
 data_directory = '/mnt/DataGuillaume/'
 datasets = np.loadtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#')
+# if datasets.dtype == '<U27': datasets = [str(datasets)]
 infos = getAllInfos(data_directory, datasets)
 
 
@@ -74,13 +76,15 @@ for s in datasets:
 	# NEURONS FROM ADN	
 	if 'A5011' in s:
 		adn = np.where(shank <=3)[0]
-		lmn = np.where(shank >3)[0]
+		lmn = np.where(shank ==5)[0]
 
 	adn = np.intersect1d(adn, tokeep)
 	lmn = np.intersect1d(lmn, tokeep)
 
+	tokeep = np.hstack((adn, lmn))
+
 	spikes = {n:spikes[n] for n in tokeep}
-			
+				
 	############################################################################################### 
 	# CROSS CORRELATION
 	###############################################################################################
@@ -105,18 +109,16 @@ for s in datasets:
 	cc_rem.columns = pd.Index(new_index)
 	cc_sws.columns = pd.Index(new_index)
 	pairs = pd.DataFrame(index = new_index, columns = ['ang diff', 'struct'])
-	for i,j in pairs.index:
-		if i in neurons and j in neurons:
+	for i,j in new_index:
 			a = peaks[i] - peaks[j]
-			pairs.loc[(i,j),'ang diff'] = np.minimum(np.abs(a), 2*np.pi - np.abs(a))
-			if int(i.split('_')[1]) in adn and int(j.split('_')[1]) in lmn:
-				pairs.loc[(i,j),'struct'] = 'adn-lmn'
-			elif int(i.split('_')[1]) in adn and int(j.split('_')[1]) in adn:
-				pairs.loc[(i,j),'struct'] = 'adn-adn'
-			elif int(i.split('_')[1]) in lmn and int(j.split('_')[1]) in lmn:
-				pairs.loc[(i,j),'struct'] = 'lmn-lmn'
+			# pairs.loc[(i,j),'ang diff'] = np.minimum(np.abs(a), 2*np.pi - np.abs(a))
+			pairs.loc[(i,j),'ang diff'] = np.abs(np.arctan2(np.sin(a), np.cos(a)))
+	lmn_neurons = [name+'_'+str(n) for n in np.sort(lmn)]
+	adn_neurons = [name+'_'+str(n) for n in np.sort(adn)]
+	pairs.loc[list(itertools.combinations(lmn_neurons, 2)),'struct'] = 'lmn-lmn'
+	pairs.loc[list(itertools.combinations(adn_neurons, 2)),'struct'] = 'adn-adn'
+	pairs.loc[list(itertools.product(adn_neurons, lmn_neurons)),'struct'] = 'adn-lmn'
 
-	
 	#######################
 	# SAVING
 	#######################
@@ -177,7 +179,8 @@ figure()
 gs = gridspec.GridSpec(3, 5)
 
 for i, st in enumerate(['adn-adn', 'adn-lmn', 'lmn-lmn']):
-	group = allpairs[allpairs['struct']==st].sort_values(by='ang diff').index.values
+	subpairs = allpairs[allpairs['struct']==st]
+	group = subpairs.sort_values(by='ang diff').index.values
 	subplot(gs[i,0])
 	plot(allpairs.loc[group, 'ang diff'].values, np.arange(len(group))[::-1])
 	ylabel(st)
@@ -206,7 +209,7 @@ for i, st in enumerate(['adn-adn', 'adn-lmn', 'lmn-lmn']):
 	xticks([0, np.where(cc.index.values == 0)[0][0], len(cc)], [cc.index[0], 0, cc.index[-1]])
 
 
-
+sys.exit()
 
 figure()
 gs = gridspec.GridSpec(2, 2)
