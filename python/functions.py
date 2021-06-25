@@ -945,4 +945,4 @@ def computeRasterOpto(spikes, opto_ep, bin_size = 100):
 
 	frates = pd.concat(frates, 1)
 	frates = nts.TsdFrame(t = frates.index.values, d = frates.values, time_units = 'ms')
-	return frates, rasters
+	return frates, rasters, bins, stim_duration

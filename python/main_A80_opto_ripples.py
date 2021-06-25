@@ -10,54 +10,93 @@ from matplotlib.gridspec import GridSpecFromSubplotSpec
 
 
 
-data_directory = '/mnt/Data2/Opto/A8000/A8008/A8008-210603'
+data_directory = '/mnt/Data2/Opto/A8000/A8009/A8009-210609A'
 
-episodes = ['sleep', 'wake', 'sleep']
+episodes = ['sleep', 'sleep']
 # events = ['1', '3']
 
 # episodes = ['sleep', 'wake', 'sleep']
-events = ['1']
+events = []
 
 
-
-spikes, shank 						= loadSpikeData(data_directory)
+#spikes, shank 						= loadSpikeData(data_directory)
 n_channels, fs, shank_to_channel 	= loadXML(data_directory)
+sleep_ep 							= loadEpoch(data_directory, 'sleep')
+
+rip_ep, rip_tsd 					= loadRipples(data_directory)
+
+opto_ep = loadOptoEp(data_directory, epoch=1, n_channels = 1, channel = 0)
+opto_ep2 = opto_ep.merge_close_intervals(30e6)
+
+opto_ep2 = opto_ep2.loc[0:14]
+
+rip_spikes = rip_tsd.restrict(sleep_ep.loc[[1]])
+
+rasters = {}
+frates = {}
+
+tmp = opto_ep.intersect(opto_ep2.loc[[0]]).merge_close_intervals(40000)
+bins = tmp.values.flatten()
+bins = bins - bins[0]
+
+bins2 = np.unique(np.hstack(((bins-bins[-2])[:-1],bins,(bins+bins[-1])[2:])))
+
+
+rasters = []
+rate = []
+for e in opto_ep2.index:
+	start = opto_ep2.loc[e,'start']	
+	idx = np.digitize(rip_spikes.index.values, bins2+start)
+	idx = idx[~np.logical_or(idx==0, idx==len(bins2))]
+	r = np.zeros(len(bins2)-1)
+	for j in idx: r[j-1] += 1
+	rate.append(r)
+
+	ep = nts.IntervalSet(start = start + bins2[0], end = start+(bins2[-1] - bins2[0])/2)
+
+	tmp = rip_spikes.restrict(ep).index.values
+	tmp = pd.Series(index = tmp - ep.loc[0,'start'] + bins2[0], data = e)
+	rasters.append(tmp)
+
+
+rate = np.array(rate)
+
+rate = pd.Series(index = bins2[0:-1], data = rate.sum(0))
+
+rasters = pd.concat(rasters)
+
+
+figure()
+subplot(211)		
+bar(rate.index.values, rate.values, np.diff(bins2)/2)
+# [axvline(t, linewidth=0.1) for t in bins3]
+subplot(212)
+plot(rasters, '+', markersize = 2)
+#gca().set_xticklabels([])
+xlim(bins2[0], bins2[-1])
+#axvline(stim_duration)
+#axvline(stim_duration*2)
+bins3 = bins2[np.logical_and(bins2>=0, bins2<bins[-1])]
+[axvline(t, linewidth=0.1) for t in bins3]
 
 
 
+idx0 = np.where(np.diff(bins2) <= 600000)[0]
+idx1 = np.where(np.diff(bins2) >= 600000)[0]
 
-position 							= loadPosition(data_directory, events, episodes, 2, 0)
-wake_ep 							= loadEpoch(data_directory, 'wake', episodes)
-sleep_ep 							= loadEpoch(data_directory, 'sleep')					
-acceleration						= loadAuxiliary(data_directory)
-#sleep_ep 							= refineSleepFromAccel(acceleration, sleep_ep)
+rate0 = rate.iloc[idx0]
+rate1 = rate.iloc[idx1]
 
-#################
-# TUNING CURVES
-tuning_curves 						= computeAngularTuningCurves(spikes, position['ry'], wake_ep, 60)
-#tuning_curves, velocity, edges 		= computeLMNAngularTuningCurves(spikes, position['ry'], wake_ep, 61)
+bar(rate0.index.values, rate0.values, np.diff(bins2)[idx0]/2, color = 'green')
+bar(rate1.index.values, rate1.values, np.diff(bins2)[idx1]/2, color = 'red')
 
-
-tuning_curves = smoothAngularTuningCurves(tuning_curves, 10, 2)
-
-tokeep, stat 						= findHDCells(tuning_curves, z=10, p = 0.001)
-
-#tcurves 							= tuning_curves[1][tokeep]
-#peaks 								= pd.Series(index=tcurves.columns,data = np.array([circmean(tcurves.index.values, tcurves[i].values) for i in tcurves.columns])).sort_values()		
-#tcurves 							= tcurves[peaks.index.values]
 
 sys.exit()
-
-#################
-# OPTO
-opto_ep = loadOptoEp(data_directory, epoch=2, n_channels = 1, channel = 0)
-
-
 ################
 # SLEEP
 ################
-opto_ep = opto_ep.merge_close_intervals(40000)
-frates, rasters, bins, stim_duration = computeRasterOpto(spikes, opto_ep, 1000)
+
+
 
 
 
@@ -103,14 +142,14 @@ for i, neurons in enumerate(groups):
 		#axvline(40000000)
 
 
-sys.exit()
+
 
 ############ WAKE##################################
 # WAAKE
 ################
 opto_ep = loadOptoEp(data_directory, epoch=1, n_channels = 2, channel = 1)
-opto_ep = opto_ep.merge_close_intervals(500000)
-frates, rasters, bins, stim_duration = computeRasterOpto(spikes, opto_ep, 100)
+#opto_ep = opto_ep.merge_close_intervals(500000)
+frates, rasters = computeRasterOpto(spikes, opto_ep, 1)
 
 rasters = {}
 frates = {}

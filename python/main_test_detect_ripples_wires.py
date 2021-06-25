@@ -7,9 +7,9 @@ from functions import *
 import sys
 
 
-data_directory = '/mnt/DataGuillaume/LMN-ADN/A5022/A5022-210528A'
-episodes = ['sleep', 'wake', 'sleep']
-events = ['1']
+data_directory = '/mnt/Data2/Opto/A8000/A8009/A8009-210609A'
+episodes = ['sleep', 'sleep']
+events = []
 
 
 
@@ -18,7 +18,7 @@ n_channels, fs, shank_to_channel 	= loadXML(data_directory)
 # position 							= loadPosition(data_directory, events, episodes)
 # wake_ep 							= loadEpoch(data_directory, 'wake', episodes)
 sleep_ep 							= loadEpoch(data_directory, 'sleep', episodes)					
-acceleration						= loadAuxiliary(data_directory)
+#acceleration						= loadAuxiliary(data_directory)
 
 #sleep_ep = refineSleepFromAccel(acceleration, sleep_ep)
 sws_ep								= loadEpoch(data_directory, 'sws')
@@ -35,14 +35,14 @@ sws_ep								= loadEpoch(data_directory, 'sws')
 lfp 		= loadLFP(os.path.join(data_directory,data_directory.split('/')[-1]+'.eeg'), n_channels, 3, 1250, 'int16')
 
 
-lfp = lfp.restrict(sws_ep)
+#lfp = lfp.restrict(sws_ep)
 
 
 frequency = 1250.0
 low_cut = 100
 high_cut = 300
 windowLength = 51
-low_thresFactor = 1.5
+low_thresFactor = 1
 high_thresFactor = 5
 minRipLen = 20 # ms
 maxRipLen = 200 # ms
@@ -147,8 +147,8 @@ show()
 ###########################################################################################################
 # Writing for neuroscope
 
-rip_ep			= sws_ep.intersect(rip_ep)	
-rip_tsd 		= rip_tsd.restrict(sws_ep)
+#rip_ep			= sws_ep.intersect(rip_ep)	
+#rip_tsd 		= rip_tsd.restrict(sws_ep)
 
 start = rip_ep.as_units('ms')['start'].values
 peaks = rip_tsd.as_units('ms').index.values

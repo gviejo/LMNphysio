@@ -25,7 +25,7 @@ infos = getAllInfos(data_directory, datasets)
 
 
 allr = []
-
+count = []
 
 for s in datasets:
 	print(s)
@@ -92,6 +92,8 @@ for s in datasets:
 	tokeep = np.intersect1d(tokeep2[0], tokeep2[1])
 	tokeep2 = np.union1d(tokeep2[0], tokeep2[1])
 
+	count.append(len(tokeep))
+
 	# Checking firing rate
 	spikes = {n:spikes[n] for n in tokeep}
 	mean_frate 							= computeMeanFiringRate(spikes, [wake_ep, rem_ep, sws_ep], ['wake', 'rem', 'sws'])	
@@ -156,3 +158,5 @@ title('r = '+str(np.round(m, 3)))
 
 datatosave = {'allr':allr}
 cPickle.dump(datatosave, open(os.path.join('../figures/figures_II_2021', 'All_correlation.pickle'), 'wb'))
+
+savefig('../figures/fig_correlation_lmn.eps', format='eps')
