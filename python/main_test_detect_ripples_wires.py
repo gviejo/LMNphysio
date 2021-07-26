@@ -7,9 +7,9 @@ from functions import *
 import sys
 
 
-data_directory = '/mnt/Data2/Opto/A8000/A8009/A8009-210609A'
-episodes = ['sleep', 'sleep']
-events = []
+data_directory = '/mnt/DataGuillaume/LMN-ADN/A5026/A5026-210725A'
+episodes = ['sleep', 'wake', 'sleep']
+events = ['1']
 
 
 
@@ -32,10 +32,10 @@ sws_ep								= loadEpoch(data_directory, 'sws')
 # sys.exit()
 		
 
-lfp 		= loadLFP(os.path.join(data_directory,data_directory.split('/')[-1]+'.eeg'), n_channels, 3, 1250, 'int16')
+lfp 		= loadLFP(os.path.join(data_directory,data_directory.split('/')[-1]+'.eeg'), n_channels, 6, 1250, 'int16')
 
 
-#lfp = lfp.restrict(sws_ep)
+lfp = lfp.restrict(sws_ep)
 
 
 frequency = 1250.0
@@ -43,8 +43,8 @@ low_cut = 100
 high_cut = 300
 windowLength = 51
 low_thresFactor = 1
-high_thresFactor = 5
-minRipLen = 20 # ms
+high_thresFactor = 2
+minRipLen = 10 # ms
 maxRipLen = 200 # ms
 minInterRippleInterval = 20 # ms
 limit_peak = 20
@@ -123,6 +123,8 @@ for s, e in rip_ep.values:
 rip_max = np.array(rip_max)
 rip_tsd = np.array(rip_tsd)
 
+#sys.exit()
+
 tokeep = np.logical_and(rip_max > high_thresFactor, rip_max < limit_peak)
 
 rip_ep = rip_ep[tokeep].reset_index(drop=True)
@@ -130,13 +132,15 @@ rip_tsd = nts.Tsd(t = rip_tsd[tokeep], d = rip_max[tokeep])
 
 
 # t1, t2 = (6002729000,6003713000)
-t1, t2 = (672048000,672807000)
+t1, t2 = (59362000,60344000)
 figure()
 ax = subplot(211)
+plot(lfp)
 plot(lfp.loc[t1:t2])
 plot(signal.loc[t1:t2])
 # plot(lfp.restrict(rip_ep).loc[t1:t2], '.')
 subplot(212,sharex = ax)
+plot(nSS)
 plot(nSS.loc[t1:t2])
 axhline(low_thresFactor)
 show()

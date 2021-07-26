@@ -7,9 +7,10 @@ from functions import *
 import sys
 from matplotlib.gridspec import GridSpecFromSubplotSpec
 
-data_directory = '/mnt/DataGuillaume/LMN-ADN/A5022/A5022-210528A'
+data_directory = '/mnt/DataGuillaume/LMN-ADN/A5026/A5026-210725A'
 episodes = ['sleep', 'wake', 'sleep']
 events = ['1']
+
 
 
 spikes, shank 						= loadSpikeData(data_directory)
@@ -45,7 +46,20 @@ tmp2 = np.array(tmp2)
 cc_rip2 = pd.DataFrame(index = cc_rip.index, columns = cc_rip.columns, data = tmp2.T)
 
 
+for i, s in enumerate(np.unique(shank)):
+	figure()	
+	for j, n in enumerate(np.where(shank==s)[0]):
+		ax = subplot(int(np.sqrt(np.sum(shank==s)))+1,int(np.sqrt(np.sum(shank==s)))+1,j+1)
+		gs = GridSpecFromSubplotSpec(1,2,ax)
+		subplot(gs[0,0], projection = 'polar')
+		plot(tuning_curves[n])
+		subplot(gs[0,1])
+		plot(cc_rip.iloc[:,n])
+		title('shank ' + str(s))
 
+
+#####################
+# TO COMPARE WITh adn papier
 
 # loading adn cc ripples
 def loadSWRMod(path, datasets, return_index = False):
@@ -141,7 +155,7 @@ def loadadndatapapier():
 swr_mod_adn = loadadndatapapier()
 
 
-lmn = np.where(shank == 5)[0]
+lmn = np.where(shank == 9)[0]
 
 
 cc_lmn = cc_rip2[lmn].loc[-500:500]

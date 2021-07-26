@@ -46,6 +46,8 @@ tokeep, stat 						= findHDCells(tuning_curves, z=10, p = 0.001)
 #peaks 								= pd.Series(index=tcurves.columns,data = np.array([circmean(tcurves.index.values, tcurves[i].values) for i in tcurves.columns])).sort_values()		
 #tcurves 							= tcurves[peaks.index.values]
 
+spks = shuffleByIntervalSpikes(spikes, wake_ep)
+
 sys.exit()
 
 #################

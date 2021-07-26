@@ -8,7 +8,7 @@ import sys
 from pycircstat.descriptive import mean as circmean
 
 
-data_directory = '/mnt/DataGuillaume/LMN-ADN/A5022/A5022-210528A'
+data_directory = '/mnt/DataGuillaume/LMN-ADN/A5026/A5026-210725A'
 
 
 episodes = ['sleep', 'wake', 'sleep']
@@ -79,7 +79,7 @@ tokeep, stat = findHDCells(tuning_curves[1], z = 10, p = 0.001)
 ############################################################################################### 
 # PLOT
 ###############################################################################################
-colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'wheat', 'indianred', 'royalblue']
+colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'wheat', 'indianred', 'royalblue', 'plum', 'forestgreen']
 
 shank = shank.flatten()
 

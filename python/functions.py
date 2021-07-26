@@ -898,7 +898,7 @@ def shuffleByIntervalSpikes(spikes, epochs):
 			tmp = np.diff(spk.index.values)
 			np.random.shuffle(tmp)
 			isi.append(tmp)
-		shuffled[n] = nts.Ts(t = np.cumsum(np.hstack(isi)))
+		shuffled[n] = nts.Ts(t = np.cumsum(np.hstack(isi)) + epochs.loc[0,'start'])
 	return shuffled
 
 def plotTuningCurves(tcurves, tokeep = []):	
