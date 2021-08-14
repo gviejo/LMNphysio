@@ -15,12 +15,15 @@ from scipy.ndimage.filters import gaussian_filter
 # data_directory = '/mnt/DataGuillaume/LMN-POSTSUB/A3004/A3004-200122B'
 # data_directory = '/mnt/DataGuillaume/LMN-POSTSUB/A3004/A3004-200122C'
 # data_directory = '/mnt/DataGuillaume/LMN-POSTSUB/A3004/A3004-200124B2'
-data_directory = '/mnt/Data2/Opto/A8000/A8004/A8004-210405A'
-episodes = ['sleep', 'wake', 'sleep', 'sleep', 'sleep']
-# episodes = ['sleep', 'wake', 'sleep', 'wake', 'sleep']
+
+data_directory = '/mnt/Data2/LMN-PSB-2/A3013/A3013-210807A'
+
+episodes = ['sleep', 'wake']
+#episodes = ['sleep', 'wake', 'wake', 'sleep', 'wake', 'wake', 'sleep']
 # episodes = ['sleep', 'wake', 'sleep']
 # episodes = ['sleep', 'wake', 'sleep']
 
+#events = ['1', '2', '4', '5']
 events = ['1']
 
 
@@ -33,21 +36,21 @@ position 							= loadPosition(data_directory, events, episodes)
 wake_ep 							= loadEpoch(data_directory, 'wake', episodes)
 sleep_ep 							= loadEpoch(data_directory, 'sleep')					
 
-tuning_curves 						= computeAngularTuningCurves(spikes, position['ry'], wake_ep, 120)
+tuning_curves 						= computeAngularTuningCurves(spikes, position['ry'], wake_ep.loc[[0]], 120)
 
-sys.exit()
 
 spatial_curves, extent				= computePlaceFields(spikes, position[['x', 'z']], wake_ep, 30)
 
 velo_curves 						= computeAngularVelocityTuningCurves(spikes, position['ry'], wake_ep, nb_bins = 30, norm=False)
 
 
-tuning_curves = smoothAngularTuningCurves(tuning_curves, 10, 2)
+tuning_curves = smoothAngularTuningCurves(tuning_curves, 20, 2)
+
 
 velo_curves = velo_curves.rolling(window=5, win_type='gaussian', center= True, min_periods=1).mean(std = 1.0)
 
 # CHECKING HALF EPOCHS
-wake2_ep = splitWake(wake_ep)
+wake2_ep = splitWake(wake_ep.loc[[0]])
 tokeep2 = []
 stats2 = []
 tcurves2 = []
@@ -62,7 +65,7 @@ for i in range(2):
 
 tokeep = np.intersect1d(tokeep2[0], tokeep2[1])
 
-tokeep = np.intersect1d(np.where(shank<=4)[0], tokeep)
+#tokeep = np.intersect1d(np.where(shank<=4)[0], tokeep)
 
 
 ############################################################################################### 
@@ -83,7 +86,7 @@ for j in np.unique(shank):
 		# plot(tuning_curves2[1][i], '--', color = colors[shank[i]-1])
 		# if i in tokeep:
 		# 	plot(tuning_curves[1][i], label = str(shank[i]) + ' ' + str(i), color = colors[shank[i]-1], linewidth = 3)
-		# legend()
+		legend()
 		count+=1
 		gca().set_xticklabels([])
 
@@ -203,3 +206,27 @@ for k in range(1,8):
 	        yticks([])
 	        axvline(0)
 	# tight_layout()
+
+
+
+
+tokeep = [5, 7, 9, 12, 16, 18, 20, 21, 23, 24, 29, 35, 39, 50]
+
+
+# CHECKING STABILITY across rigs
+tc = {}
+for i in range(4):
+	tuning_curves = computeAngularTuningCurves({n:spikes[n] for n in tokeep}, position['ry'], wake_ep.loc[[i]], 120)
+	tuning_curves = smoothAngularTuningCurves(tuning_curves, 20, 2)
+	tc[i] = tuning_curves
+
+figure()
+for j,n in enumerate(tokeep):
+	ax = subplot(3,5,j+1)
+	gs = GridSpecFromSubplotSpec(1,2,ax)
+	for i in range(2):	
+		subplot(gs[0,i], projection = 'polar')
+		plot(tc[i][n])
+		plot(tc[i+2][n])
+		xticks([])
+		yticks([])

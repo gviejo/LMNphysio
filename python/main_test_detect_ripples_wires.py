@@ -7,9 +7,12 @@ from functions import *
 import sys
 
 
-data_directory = '/mnt/DataGuillaume/LMN-ADN/A5026/A5026-210725A'
-episodes = ['sleep', 'wake', 'sleep']
-events = ['1']
+data_directory = '/mnt/Data2/LMN-PSB-2/A3013/A3013-210806A'
+episodes = ['sleep', 'wake', 'wake', 'sleep', 'wake', 'wake', 'sleep']
+# episodes = ['sleep', 'wake', 'sleep']
+# episodes = ['sleep', 'wake', 'sleep']
+
+events = ['1', '2', '4', '5']
 
 
 
@@ -32,7 +35,7 @@ sws_ep								= loadEpoch(data_directory, 'sws')
 # sys.exit()
 		
 
-lfp 		= loadLFP(os.path.join(data_directory,data_directory.split('/')[-1]+'.eeg'), n_channels, 6, 1250, 'int16')
+lfp 		= loadLFP(os.path.join(data_directory,data_directory.split('/')[-1]+'.eeg'), n_channels, 2, 1250, 'int16')
 
 
 lfp = lfp.restrict(sws_ep)
@@ -42,7 +45,7 @@ frequency = 1250.0
 low_cut = 100
 high_cut = 300
 windowLength = 51
-low_thresFactor = 1
+low_thresFactor = 1.5
 high_thresFactor = 2
 minRipLen = 10 # ms
 maxRipLen = 200 # ms
@@ -60,7 +63,7 @@ nSS = scipy.signal.filtfilt(window, 1, squared_signal)
 
 # Removing point above 100000
 nSS = pd.Series(index = lfp.index.values, data = nSS)
-nSS = nSS[nSS<300000]
+nSS = nSS[nSS<250000]
 
 nSS = (nSS - np.mean(nSS))/np.std(nSS)
 
@@ -75,6 +78,7 @@ plot(nSS)
 axhline(low_thresFactor)
 subplot(212,sharex = ax)
 plot(lfp)
+plot(signal)
 show()
 
 

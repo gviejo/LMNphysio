@@ -7,9 +7,13 @@ from functions import *
 import sys
 from matplotlib.gridspec import GridSpecFromSubplotSpec
 
-data_directory = '/mnt/DataGuillaume/LMN-ADN/A5026/A5026-210726A'
-episodes = ['sleep', 'wake', 'sleep']
-events = ['1']
+data_directory = '/mnt/Data2/LMN-PSB-2/A3013/A3013-210806A'
+episodes = ['sleep', 'wake', 'wake', 'sleep', 'wake', 'wake', 'sleep']
+# episodes = ['sleep', 'wake', 'sleep']
+# episodes = ['sleep', 'wake', 'sleep']
+
+events = ['1', '2', '4', '5']
+
 
 
 
@@ -23,43 +27,61 @@ acceleration						= loadAuxiliary(data_directory)
 sws_ep								= loadEpoch(data_directory, 'sws')
 
 tuning_curves 						= computeAngularTuningCurves(spikes, position['ry'], wake_ep, 60)
+tuning_curves = smoothAngularTuningCurves(tuning_curves, 5, 1)
 
 
-tuning_curves = smoothAngularTuningCurves(tuning_curves, 10, 1)
 
+tokeep, stat = findHDCells(tuning_curves, z = 10, p = 0.001)
 
 rip_ep, rip_tsd 					= loadRipples(data_directory)
 
 cc_rip = compute_EventCrossCorr(spikes, rip_tsd, sws_ep, binsize = 10, nbins = 400, norm=True)
+cc_rip2 = cc_rip.rolling(window=20,win_type='gaussian',center=True,min_periods=1).mean(std=1)
+###########################################################
+# FIGURES
+###########################################################
 
-tmp = cc_rip.values
-window_size 	= 2*150//5
-window 			= np.ones(int(window_size))*(1/window_size)
-tmp2 = []
-for i in range(tmp.shape[1]):
-	Hm = np.convolve(tmp[:,i], window, 'same')
-	Hstd = np.sqrt(np.var(Hm))	
-	tmp2.append((tmp[:,i] - Hm)/Hstd)
+colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'wheat', 'indianred', 'royalblue', 'plum', 'forestgreen']
 
-tmp2 = np.array(tmp2)	
-#cc_rip = cc_rip.rolling(window=100,win_type='gaussian',center=True,min_periods=1).mean(std=2)
-cc_rip2 = pd.DataFrame(index = cc_rip.index, columns = cc_rip.columns, data = tmp2.T)
+shank = shank.flatten()
 
-
-for i, s in enumerate(np.unique(shank)):
-	figure()	
-	for j, n in enumerate(np.where(shank==s)[0]):
-		ax = subplot(int(np.sqrt(np.sum(shank==s)))+1,int(np.sqrt(np.sum(shank==s)))+1,j+1)
+figure()
+count = 1
+for j in np.unique(shank):
+	neurons = np.where(shank == j)[0]
+	for k,i in enumerate(neurons):
+		ax = subplot(int(np.sqrt(len(spikes)))+1,int(np.sqrt(len(spikes)))+1,count, projection = 'polar')
 		gs = GridSpecFromSubplotSpec(1,2,ax)
 		subplot(gs[0,0], projection = 'polar')
-		plot(tuning_curves[n])
+		plot(tuning_curves[i], label = str(shank[i]) + ' ' + str(i), color = colors[shank[i]-1])		
+		if i in tokeep:
+			plot(tuning_curves[i], color = colors[shank[i]-1], linewidth = 3)
+		legend()
+		count+=1
+		gca().set_xticklabels([])
 		subplot(gs[0,1])
-		plot(cc_rip.iloc[:,n])
-		title('shank ' + str(s))
+		plot(cc_rip2[i].loc[-500:500], color = colors[shank[i]-1])
+		axvline(0, alpha = 0.4)
+
+
+figure()
+plot(cc_rip2[tokeep].loc[-500:500])
+
+show()
+
+
+
+
+
 
 
 #####################
 # TO COMPARE WITh adn papier
+
+
+
+
+
 
 # loading adn cc ripples
 def loadSWRMod(path, datasets, return_index = False):
@@ -155,37 +177,35 @@ def loadadndatapapier():
 swr_mod_adn = loadadndatapapier()
 
 
-lmn = np.where(shank == 9)[0]
+tokeep = np.where(shank == 9)[0]
+#cc_rip2 = cc_rip[tokeep].loc[-500:500]
 
 
-cc_lmn = cc_rip2[lmn].loc[-500:500]
 
-cc_lmn = cc_lmn.rolling(window=100,win_type='gaussian',center=True,min_periods=1).mean(std=2)
+tmp = cc_rip2[tokeep].values
+window_size 	= 2*150//5
+window 			= np.ones(int(window_size))*(1/window_size)
+tmp2 = []
+for i in range(tmp.shape[1]):
+	Hm = np.convolve(tmp[:,i], window, 'same')	
+	Hstd = np.sqrt(np.var(Hm))	
+	tmp2.append((tmp[:,i] - Hm)/Hstd)
+tmp2 = np.array(tmp2)	
+cc_lmn = pd.DataFrame(index = cc_rip2.index, columns = tokeep, data = tmp2.T)
 
-cc_rip = cc_rip.rolling(window=100,win_type='gaussian',center=True,min_periods=1).mean(std=2)
+cc_lmn = cc_lmn.rolling(window=20,win_type='gaussian',center=True,min_periods=1).mean(std=1)
+
+cc_lmn = cc_lmn.loc[-500:500]
+
 
 figure()
-subplot(221)
-plot(swr_mod_adn.mean(1), color = 'red')
-subplot(223)
-plot(cc_rip[lmn].loc[-500:500], color = 'green', alpha = 0.25)
-plot(cc_rip[lmn].loc[-500:500].mean(1), color = 'green')
-subplot(222)
-plot(swr_mod_adn.mean(1), color= 'red')
+subplot(121)
+plot(swr_mod_adn.mean(1), color= 'red', label = 'adn papier')
 plot(cc_lmn, color = 'green', alpha = 0.5)
-plot(cc_lmn.mean(1), color = 'green', alpha = 0.5)
-subplot(224)
-plot(swr_mod_adn.mean(1), color = 'red')
-plot(cc_lmn.mean(1), color = 'green')
+plot(cc_lmn.mean(1), color = 'green', alpha = 1, label = 'lmn')
+legend()
+subplot(122)
+plot(swr_mod_adn.mean(1), color = 'red', label = 'adn papier')
+plot(cc_lmn.mean(1), color = 'green', label = 'lmn')
+legend()
 
-
-for i, s in enumerate(np.unique(shank)):
-	figure()	
-	for j, n in enumerate(np.where(shank==s)[0]):
-		ax = subplot(int(np.sqrt(np.sum(shank==s)))+1,int(np.sqrt(np.sum(shank==s)))+1,j+1)
-		gs = GridSpecFromSubplotSpec(1,2,ax)
-		subplot(gs[0,0], projection = 'polar')
-		plot(tuning_curves[n])
-		subplot(gs[0,1])
-		plot(cc_rip.iloc[:,n])
-		title('shank ' + str(s))

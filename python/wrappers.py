@@ -739,13 +739,19 @@ def loadMeanWaveforms(path):
 			n_samples = int((endoffile-startoffile)/bytes_size)
 			f.close()			
 			n_channel = len(root.findall('spikeDetection/channelGroups/group')[s-1].findall('channels')[0])
-			data = np.fromfile(open(file, 'rb'), np.int16)
-			data = data.reshape(len(clu),nSamples,n_channel)
+
+			data = np.memmap(file, np.int16, 'r', shape = (len(clu), nSamples, n_channel))
+
+			#data = np.fromfile(open(file, 'rb'), np.int16)
+			#data = data.reshape(len(clu),nSamples,n_channel)
+
 			tmp = np.unique(clu).astype(int)
 			idx_clu = tmp[tmp>1]
 			idx_col = np.arange(count, count+len(idx_clu))	        
 			for j,k in zip(idx_clu, idx_col):
-				meanw = data[clu==j].mean(0)
+				# take only a subsample of spike if too big				
+				idx = np.sort(np.random.choice(np.where(clu==j)[0], 5000))
+				meanw = data[idx,:,:].mean(0)
 				ch = np.argmax(np.max(np.abs(meanw), 0))
 				mwf.append(meanw.flatten())
 				mch.append(ch)
