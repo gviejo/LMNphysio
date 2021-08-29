@@ -870,7 +870,7 @@ def loadOptoEp(path, epoch, n_channels = 2, channel = 0, fs = 20000):
 		epochs = pd.read_csv(os.path.join(path, 'Epoch_TS.csv'), header = None)
 		timestep = timestep + epochs.loc[epoch,0]
 		opto_ep = nts.IntervalSet(start = timestep[start], end = timestep[end], time_units = 's')
-		pd.DataFrame(opto_ep).to_hdf(os.path.join(path, 'Analysis/OptoEpochs.h5'), 'opto')
+		#pd.DataFrame(opto_ep).to_hdf(os.path.join(path, 'Analysis/OptoEpochs.h5'), 'opto')
 		return opto_ep	
 
 ##########################################################################################################

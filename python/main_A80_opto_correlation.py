@@ -16,13 +16,13 @@ def zscore_rate(rate):
 
 
 
-data_directory = '/mnt/Data2/Opto/A8000/A8010/A8010-210612A'
+data_directory = '/mnt/Data2/Opto/A8000/A8015/A8015-210826A'
 
-episodes = ['sleep', 'wake', 'sleep']
+episodes = ['sleep', 'wake', 'sleep', 'wake']
 # events = ['1', '3']
 
 # episodes = ['sleep', 'wake', 'sleep']
-events = ['1']
+events = ['1', '3']
 
 
 
@@ -30,7 +30,7 @@ spikes, shank 						= loadSpikeData(data_directory)
 n_channels, fs, shank_to_channel 	= loadXML(data_directory)
 
 
-position 							= loadPosition(data_directory, events, episodes, 2, 0)
+position 							= loadPosition(data_directory, events, episodes, 2, 1)
 wake_ep 							= loadEpoch(data_directory, 'wake', episodes)
 sleep_ep 							= loadEpoch(data_directory, 'sleep')					
 sws_ep								= loadEpoch(data_directory, 'sws')
@@ -39,11 +39,12 @@ acceleration						= loadAuxiliary(data_directory)
 
 #################
 # TUNING CURVES
-tuning_curves 						= computeAngularTuningCurves(spikes, position['ry'], wake_ep, 60)
+tuning_curves 						= computeAngularTuningCurves(spikes, position['ry'], wake_ep.loc[[0]], 60)
 #tuning_curves, velocity, edges 		= computeLMNAngularTuningCurves(spikes, position['ry'], wake_ep, 61)
 tuning_curves 						= smoothAngularTuningCurves(tuning_curves, 10, 2)
 
 tokeep, stat 						= findHDCells(tuning_curves, z=50, p = 0.001)
+#tokeep = [0, 2, 4, 5]
 
 tcurves 							= tuning_curves[tokeep]
 peaks 								= pd.Series(index=tcurves.columns,data = np.array([circmean(tcurves.index.values, tcurves[i].values) for i in tcurves.columns])).sort_values()		
@@ -52,7 +53,7 @@ tcurves 							= tcurves[peaks.index.values]
 
 #################
 # OPTO
-opto_ep 							= loadOptoEp(data_directory, epoch=2, n_channels = 1, channel = 0)
+opto_ep 							= loadOptoEp(data_directory, epoch=0, n_channels = 2, channel = 0)
 opto_ep 							= opto_ep.merge_close_intervals(40000)
 frates, rasters, bins, stim_duration = computeRasterOpto(spikes, opto_ep, 1000)
 
@@ -63,17 +64,13 @@ nopto_ep = nts.IntervalSet(
 	end = opto_ep['start']
 	)
 
-#nopto_ep = sleep_ep.loc[[1]].intersect(sws_ep).set_diff(opto_ep).merge_close_intervals(0)
-
-# [plot(nopto_ep.loc[i], np.ones(2)) for i in nopto_ep.index]
-# [plot(opto_ep.loc[i], np.ones(2)*0.95) for i in opto_ep.index]
 
 
 ###################
 # CORRELATION
-wak_rate = zscore_rate(binSpikeTrain({n:spikes[n] for n in tokeep}, wake_ep, 200, 5))
-nopto_rate = zscore_rate(binSpikeTrain({n:spikes[n] for n in tokeep}, nopto_ep, 5, 5))
-opto_rate = zscore_rate(binSpikeTrain({n:spikes[n] for n in tokeep}, opto_ep, 5, 5))
+wak_rate = zscore_rate(binSpikeTrain({n:spikes[n] for n in tokeep}, wake_ep, 200, 3))
+nopto_rate = zscore_rate(binSpikeTrain({n:spikes[n] for n in tokeep}, nopto_ep, 10, 3))
+opto_rate = zscore_rate(binSpikeTrain({n:spikes[n] for n in tokeep}, opto_ep, 10, 3))
 
 r_wak = np.corrcoef(wak_rate.T)[np.triu_indices(len(tokeep),1)]
 r_nopto = np.corrcoef(nopto_rate.T)[np.triu_indices(len(tokeep),1)]
@@ -138,62 +135,62 @@ for n in peaks.index.values:
 
 
 
-from pyglmnet import GLM
+# from pyglmnet import GLM
 
 
-def compute_GLM_CrossCorrs(spks, ep, bin_size=10, lag=5000, lag_size=50, sigma = 15):
-	bins = np.arange(ep.as_units('ms').start.iloc[0], ep.as_units('ms').end.iloc[-1], bin_size)
-	order = list(spks.keys())
-	time_lag = np.arange(-lag, lag, lag_size, dtype = np.int)
+# def compute_GLM_CrossCorrs(spks, ep, bin_size=10, lag=5000, lag_size=50, sigma = 15):
+# 	bins = np.arange(ep.as_units('ms').start.iloc[0], ep.as_units('ms').end.iloc[-1], bin_size)
+# 	order = list(spks.keys())
+# 	time_lag = np.arange(-lag, lag, lag_size, dtype = np.int)
 
-	shift = time_lag//bin_size
+# 	shift = time_lag//bin_size
 
-	# all spike counts
-	spike_counts = pd.DataFrame(index = bins[0:-1]+np.diff(bins)/2, columns = order)
-	for k in spike_counts:
-		spike_counts[k] = np.histogram(spks[k].restrict(ep).as_units('ms').index.values, bins)[0]
+# 	# all spike counts
+# 	spike_counts = pd.DataFrame(index = bins[0:-1]+np.diff(bins)/2, columns = order)
+# 	for k in spike_counts:
+# 		spike_counts[k] = np.histogram(spks[k].restrict(ep).as_units('ms').index.values, bins)[0]
 
-	spike_counts = nts.TsdFrame(t = spike_counts.index.values, d = spike_counts.values, time_units = 'ms')
-	spike_counts = spike_counts.restrict(ep)
-	spike_counts = spike_counts.as_dataframe()
-	glmcc = pd.DataFrame(index = time_lag, columns = list(combinations(order, 2)), dtype = np.float32)
+# 	spike_counts = nts.TsdFrame(t = spike_counts.index.values, d = spike_counts.values, time_units = 'ms')
+# 	spike_counts = spike_counts.restrict(ep)
+# 	spike_counts = spike_counts.as_dataframe()
+# 	glmcc = pd.DataFrame(index = time_lag, columns = list(combinations(order, 2)), dtype = np.float32)
 
-	count = 0
-	for pair in glmcc.columns:
-		print(count/len(glmcc.columns))
-		count += 1
-		# computing predictors	
-		X1 = spike_counts[pair[1]]	# predictor 
-		X2 = spike_counts.drop(list(pair), axis = 1).sum(1) # population
-		X1 = X1.rolling(window=100, win_type='gaussian', center= True, min_periods=1).mean(std = sigma)
-		X2 = X2.rolling(window=100, win_type='gaussian', center= True, min_periods=1).mean(std = 3)
-		X_train = pd.concat([X1,X2], axis = 1)
-		X_train = X_train - X_train.mean(0)
-		X_train = X_train / X_train.std(0)
+# 	count = 0
+# 	for pair in glmcc.columns:
+# 		print(count/len(glmcc.columns))
+# 		count += 1
+# 		# computing predictors	
+# 		X1 = spike_counts[pair[1]]	# predictor 
+# 		X2 = spike_counts.drop(list(pair), axis = 1).sum(1) # population
+# 		X1 = X1.rolling(window=100, win_type='gaussian', center= True, min_periods=1).mean(std = sigma)
+# 		X2 = X2.rolling(window=100, win_type='gaussian', center= True, min_periods=1).mean(std = 3)
+# 		X_train = pd.concat([X1,X2], axis = 1)
+# 		X_train = X_train - X_train.mean(0)
+# 		X_train = X_train / X_train.std(0)
 
-		# target at different time lag				
-		b = []
-		for t, s in zip(time_lag, shift):
-			glm = GLM(distr="poisson", reg_lambda=0.1, solver = 'cdfast', score_metric = 'deviance', max_iter = 200)
-			# y_train = np.histogram(spks[pair[0]].restrict(ep).as_units('ms').index.values+t, bins)[0]
-			y_train = spike_counts[pair[0]].values			
-			if s < 0 : # backward
-				y_train = y_train[-s:]
-				Xtrain = X_train.values[:s]
-			elif s > 0 : # forward
-				y_train = y_train[:-s]
-				Xtrain = X_train.values[s:]
-			else:
-				Xtrain = X_train.values
+# 		# target at different time lag				
+# 		b = []
+# 		for t, s in zip(time_lag, shift):
+# 			glm = GLM(distr="poisson", reg_lambda=0.1, solver = 'cdfast', score_metric = 'deviance', max_iter = 200)
+# 			# y_train = np.histogram(spks[pair[0]].restrict(ep).as_units('ms').index.values+t, bins)[0]
+# 			y_train = spike_counts[pair[0]].values			
+# 			if s < 0 : # backward
+# 				y_train = y_train[-s:]
+# 				Xtrain = X_train.values[:s]
+# 			elif s > 0 : # forward
+# 				y_train = y_train[:-s]
+# 				Xtrain = X_train.values[s:]
+# 			else:
+# 				Xtrain = X_train.values
 
-			# sys.exit()
-			# fit glm			
-			glm.fit(Xtrain, y_train)
-			b.append(np.float32(glm.beta_[0]))
+# 			# sys.exit()
+# 			# fit glm			
+# 			glm.fit(Xtrain, y_train)
+# 			b.append(np.float32(glm.beta_[0]))
 
 
-		glmcc[pair] = np.array(b)
+# 		glmcc[pair] = np.array(b)
 
-	return glmcc
+# 	return glmcc
 
-cc_wak = compute_GLM_CrossCorrs(spikes, wake_ep, bin_size=100, lag=2000, lag_size=10)
+# cc_wak = compute_GLM_CrossCorrs(spikes, wake_ep, bin_size=100, lag=2000, lag_size=10)
