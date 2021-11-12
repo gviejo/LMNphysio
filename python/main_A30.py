@@ -8,25 +8,14 @@ from matplotlib import gridspec
 import sys
 from scipy.ndimage.filters import gaussian_filter
 
-# data_directory = '/mnt/DataGuillaume/LMN/A1407/A1407-190429'
-# data_directory = '/mnt/DataGuillaume/LMN/A1407/A1407-190425'
-# data_directory = '/mnt/DataGuillaume/PostSub/A3003/A3003-190516A'
-#data_directory = '/mnt/DataGuillaume/LMN-POSTSUB/A3004/A3004-200117C/A3004-200117C'
-# data_directory = '/mnt/DataGuillaume/LMN-POSTSUB/A3004/A3004-200122B'
-# data_directory = '/mnt/DataGuillaume/LMN-POSTSUB/A3004/A3004-200122C'
-# data_directory = '/mnt/DataGuillaume/LMN-POSTSUB/A3004/A3004-200124B2'
+data_directory = '/mnt/Data2/LMN-PSB-2/A3013/A3013-210806A'
 
-data_directory = '/mnt/Data2/LMN-PSB-2/A3013/A3013-210807A'
-
-episodes = ['sleep', 'wake']
-#episodes = ['sleep', 'wake', 'wake', 'sleep', 'wake', 'wake', 'sleep']
+#episodes = ['sleep', 'wake']
+episodes = ['sleep', 'wake', 'wake', 'sleep', 'wake', 'wake', 'sleep']
 # episodes = ['sleep', 'wake', 'sleep']
 # episodes = ['sleep', 'wake', 'sleep']
 
-#events = ['1', '2', '4', '5']
-events = ['1']
-
-
+events = ['1', '2', '4', '5']
 
 
 
@@ -210,10 +199,12 @@ for k in range(1,8):
 
 
 
-tokeep = [5, 7, 9, 12, 16, 18, 20, 21, 23, 24, 29, 35, 39, 50]
+#tokeep = [5, 7, 9, 12, 16, 18, 20, 21, 23, 24, 29, 35, 39, 50]
 
+tokeep = [3,4,5,7,10,12,16,18,20,21,23,24,26,27,29,31,32,35,37,38,39,41,50,52,59,62,63]
 
-# CHECKING STABILITY across rigs
+mean_frate = computeMeanFiringRate({n:spikes[n] for n in tokeep}, [wake_ep.loc[[i]] for i in range(4)], range(4))
+
 tc = {}
 for i in range(4):
 	tuning_curves = computeAngularTuningCurves({n:spikes[n] for n in tokeep}, position['ry'], wake_ep.loc[[i]], 120)
@@ -221,12 +212,26 @@ for i in range(4):
 	tc[i] = tuning_curves
 
 figure()
-for j,n in enumerate(tokeep):
-	ax = subplot(3,5,j+1)
-	gs = GridSpecFromSubplotSpec(1,2,ax)
-	for i in range(2):	
-		subplot(gs[0,i], projection = 'polar')
-		plot(tc[i][n])
-		plot(tc[i+2][n])
-		xticks([])
-		yticks([])
+gs = GridSpec(4,4)
+for i,j in combinations(range(4),2):
+	subplot(gs[i,j])
+	plot(tc[i].max(), tc[j].max(), 'o')	
+
+show()
+
+figure()
+gs = GridSpec(4,4)
+for i,j in combinations(range(4),2):
+	subplot(gs[i,j])
+	tmp = tc[i].max() - tc[j].max()
+	plot(np.sort(tmp), 'o')	
+
+show()
+
+figure()
+gs = GridSpec(4,4)
+for i,j in combinations(range(4),2):
+	subplot(gs[i,j])
+	plot(mean_frate[i], mean_frate[j], 'o')
+
+show()

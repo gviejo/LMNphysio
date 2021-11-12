@@ -569,6 +569,35 @@ def refineSleepFromAccel(acceleration, sleep_ep):
 
 	return newsleep_ep
 
+def refineWakeFromAngularSpeed(angle, ep, bin_size = 300, thr = 0.04):
+	"""this function only works for single epoch
+	"""
+	angle 			= angle.restrict(ep)
+	tmp 			= pd.Series(index = angle.index.values, data = np.unwrap(angle.values))
+	tmp2 			= tmp.rolling(window=100,win_type='gaussian',center=True,min_periods=1).mean(std=5.0)
+	time_bins		= np.arange(tmp.index[0], tmp.index[-1]+bin_size, bin_size*1000) # assuming milliseconds
+	index 			= np.digitize(tmp2.index.values, time_bins)
+	tmp3 			= tmp2.groupby(index).mean()
+	tmp3.index 		= time_bins[np.unique(index)-1]+bin_size/2
+	tmp3 			= nts.Tsd(tmp3)
+	tmp4			= np.diff(tmp3.values)/np.diff(tmp3.as_units('s').index.values)
+	velocity 		= nts.Tsd(t=tmp3.index.values[1:], d = tmp4)
+	velocity 		= velocity.restrict(ep)
+
+	avl 			= np.abs(velocity.values)	
+	td 				= velocity.index.values[avl>thr]	
+	td  			= td[0:len(td)-len(td)%2] # bad
+	td 				= td.reshape(len(td)//2, 2)
+	td 				= nts.IntervalSet(start = td[:,0], end = td[:,1])
+
+	td 				= td.merge_close_intervals(2*bin_size*1e3)
+	avl 			= nts.Tsd(t = velocity.index.values, d = avl)
+
+	new_epoch = ep.intersect(td)
+	new_epoch = new_epoch.drop_short_intervals(bin_size*1e3)
+	new_epoch = new_epoch.reset_index(drop = True)
+	return new_epoch
+
 def splitWake(ep):
 	if len(ep) != 1:
 		print('Cant split wake in 2')

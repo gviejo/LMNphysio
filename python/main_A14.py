@@ -37,6 +37,9 @@ acceleration						= loadAuxiliary(data_directory)
 
 # tuning_curves 						= computeAngularTuningCurves(spikes, position['ry'], wake_ep, 60)
 tuning_curves, velocity, edges 		= computeLMNAngularTuningCurves(spikes, position['ry'], wake_ep, 61)
+
+sys.exit()
+
 spatial_curves, extent				= computePlaceFields(spikes, position[['x', 'z']], wake_ep, 20)
 autocorr_wake, frate_wake 			= compute_AutoCorrs(spikes, wake_ep)
 autocorr_sleep, frate_sleep 		= compute_AutoCorrs(spikes, sleep_ep)
