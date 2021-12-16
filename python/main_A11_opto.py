@@ -9,7 +9,7 @@ import sys
 
 data_directory = '/mnt/LocalHDD/ADN/A1110/A1110-180626/A1110-180626'
 
-episodes = ['sleep', 'wake', 'sleep', 'wake']
+episodes = ['sleep', 'wake', 'sleep']
 events = ['1', '3']
 
 
