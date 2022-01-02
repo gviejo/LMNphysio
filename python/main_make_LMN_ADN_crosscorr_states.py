@@ -13,9 +13,11 @@ import itertools
 # GENERAL infos
 ###############################################################################################
 data_directory = '/mnt/DataGuillaume/'
-datasets = np.loadtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#')
-# if datasets.dtype == '<U27': datasets = [str(datasets)]
+datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#')
+shanks = pd.read_csv(os.path.join(data_directory,'ADN_LMN_shanks.txt'), header = None, index_col = 0, names = ['ADN', 'LMN'], dtype = np.str)
+
 infos = getAllInfos(data_directory, datasets)
+
 
 
 allcc_wak = []
@@ -74,23 +76,36 @@ for s in datasets:
 	tokeep = np.intersect1d(tokeep2[0], tokeep2[1])
 
 	# NEURONS FROM ADN	
-	if 'A5011' in s:
-		adn = np.where(shank <=3)[0]
-		lmn = np.where(shank ==5)[0]
+	adn = np.intersect1d(tokeep, np.hstack([np.where(shank == i)[0] for i in np.fromstring(shanks.loc[s,'ADN'], dtype=int,sep=' ')]))
+	lmn = np.intersect1d(tokeep, np.hstack([np.where(shank == i)[0] for i in np.fromstring(shanks.loc[s,'LMN'], dtype=int,sep=' ')]))
 
-	adn = np.intersect1d(adn, tokeep)
-	lmn = np.intersect1d(lmn, tokeep)
+	tokeep 	= np.hstack((adn, lmn))
+	spikes 	= {n:spikes[n] for n in tokeep}
 
-	tokeep = np.hstack((adn, lmn))
+	tcurves 		= tuning_curves[tokeep]
+	peaks 			= pd.Series(index=tcurves.columns,data = np.array([circmean(tcurves.index.values, tcurves[i].values) for i in tcurves.columns]))
 
-	spikes = {n:spikes[n] for n in tokeep}
+	speed = computeSpeed(position[['x', 'z']], wake_ep)
+	speed = speed.rolling(window=100,win_type='gaussian',center=True,min_periods=1).mean(std=4.0)
+	idx = np.diff((speed > 0.003)*1.0)
+	start = np.where(idx == 1)[0]
+	end = np.where(idx == -1)[0]
+	if len(start):
+		if start[0] > end[0]:
+			start = np.hstack(([0], start))
+		if start[-1] > end[-1]:
+			end = np.hstack((end, [len(idx)]))
+		newwake_ep = nts.IntervalSet(start = speed.index.values[start], end = speed.index.values[end])
+		newwake_ep = newwake_ep.drop_short_intervals(1, time_units='s')
+	else:
+		newwake_ep = wake_ep
 				
 	############################################################################################### 
 	# CROSS CORRELATION
 	###############################################################################################
-	cc_wak = compute_CrossCorrs(spikes, wake_ep, norm=True)
-	cc_rem = compute_CrossCorrs(spikes, rem_ep, norm=True)	
-	cc_sws = compute_CrossCorrs(spikes, sws_ep, 2, 2000, norm=True)
+	cc_wak = compute_CrossCorrs(spikes, newwake_ep, 2, 500, norm=True, reverse=True)
+	cc_rem = compute_CrossCorrs(spikes, rem_ep, norm=True, reverse=True)	
+	cc_sws = compute_CrossCorrs(spikes, sws_ep, 2, 500, norm=True, reverse=True)
 
 
 	cc_wak = cc_wak.rolling(window=10, win_type='gaussian', center = True, min_periods = 1).mean(std = 2.0)
@@ -208,54 +223,26 @@ for i, st in enumerate(['adn-adn', 'adn-lmn', 'lmn-lmn']):
 	title(titles[j])
 	xticks([0, np.where(cc.index.values == 0)[0][0], len(cc)], [cc.index[0], 0, cc.index[-1]])
 
+show()
 
-sys.exit()
 
 figure()
-gs = gridspec.GridSpec(2, 2)
-
-
-group = allpairs[allpairs['struct']=='adn-lmn'].sort_values(by='ang diff').index.values
-subplot(gs[0,0])
+subplot(121)
 cc = allcc_wak[group]
 cc = cc - cc.mean(0)
 cc = cc / cc.std(0)
 cc = cc.loc[-50:50]
 tmp = scipy.ndimage.gaussian_filter(cc.T.values, (1, 1))
-# tmp = cc.loc[-50:50].T
 imshow(tmp, aspect = 'auto', cmap = 'jet', interpolation = 'bilinear')
-xticks([0, np.where(cc.index.values == 0)[0][0], len(cc)], [cc.index[0], 0, cc.index[-1]])
 
-subplot(gs[0,1])
-plot(cc.mean(1))
-
-subplot(gs[1,0])
-for i, gr in enumerate(np.array_split(group, 2)):
-	tmp = cc[gr].mean(1)
-	tmp = tmp - tmp.mean(0)
-	tmp = tmp / tmp.std(0)
-	plot(tmp, label = i)
-legend()
-
-subplot(gs[1,1])
-for i, gr in enumerate(np.array_split(group, 4)):
-	tmp = cc[gr].mean(1)
-	tmp = tmp - tmp.mean(0)
-	tmp = tmp / tmp.std(0)
-	plot(tmp, label = i)
-legend()
-
-	# subplot(gs[i,-1])
-	# cc = allcc_sws[group]
-	# cc = cc - cc.mean(0)
-	# cc = cc / cc.std(0)
-	# cc = cc.loc[-50:50]
-	# tmp = scipy.ndimage.gaussian_filter(cc.T.values, (1, 1))
-	# # tmp = cc.loc[-50:50].T
-	# imshow(tmp, aspect = 'auto', cmap = 'jet', interpolation = 'bilinear')
-	
-	# title(titles[j])
-	# xticks([0, np.where(cc.index.values == 0)[0][0], len(cc)], [cc.index[0], 0, cc.index[-1]])
+subplot(122)
+cc = allcc_sws[group]
+cc = cc - cc.mean(0)
+cc = cc / cc.std(0)
+cc = cc.loc[-50:50]
+tmp = scipy.ndimage.gaussian_filter(cc.T.values, (1, 1))
+imshow(tmp, aspect = 'auto', cmap = 'jet', interpolation = 'bilinear')
+show()
 
 
 

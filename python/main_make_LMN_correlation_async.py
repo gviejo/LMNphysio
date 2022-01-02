@@ -89,9 +89,57 @@ for s in datasets:
 	############################################################################################### 
 	# PEARSON CORRELATION
 	###############################################################################################
-	wak_rate = zscore_rate(binSpikeTrain({n:spikes[n] for n in tokeep}, newwake_ep, 100, 1))
-	rem_rate = zscore_rate(binSpikeTrain({n:spikes[n] for n in tokeep}, rem_ep, 100, 1))
-	sws_rate = zscore_rate(binSpikeTrain({n:spikes[n] for n in tokeep}, sws_ep, 20, 5))
+	wak_rate = zscore_rate(binSpikeTrain({n:spikes[n] for n in tokeep}, newwake_ep, 100, 2))
+	rem_rate = zscore_rate(binSpikeTrain({n:spikes[n] for n in tokeep}, rem_ep, 100, 2))
+
+
+	# generate asynchronous rate for SWS
+	spikes2 = {}
+	for  n in tokeep:
+		t = spikes[n].index.values
+		spikes2[n] = nts.Ts(t = np.random.choice(t, size=int(0.5*len(t)), replace = False))
+	sws_rate = binSpikeTrain(spikes2, sws_ep, 100, 3)
+	
+	# bin_size = 3
+	# epochs = sws_ep
+	# rates = []
+	# for e in epochs.index:
+	# 	bins = np.arange(epochs.loc[e,'start'], epochs.loc[e,'end'] + bin_size*1000, bin_size*1000)
+	# 	rate = []
+	# 	for i,n in enumerate(tokeep):
+	# 		count, _ = np.histogram(spikes[n].index.values, bins)
+	# 		rate.append(count)
+	# 	rate = np.array(rate).T
+	# 	rate[np.sum(rate>0, 1) > 1] = 0
+		
+	# 	# idx = np.where(rate.sum(1)>1)[0]
+	# 	# p = (rate[idx].T / rate[idx].sum(1)).T
+	# 	# idy = np.array([np.random.choice(np.arange(p.shape[1]), p = p[i]) for i in range(len(p))])
+	# 	# tmp = rate.copy()
+	# 	# rate[idx] = 0
+	# 	# rate[idx,idy] = tmp[idx,idy]
+
+	# 	# group rows together
+	# 	n,m = rate.shape		
+	# 	n = n - n%4
+	# 	rate = rate[0:n,:]
+	# 	rate2 = rate.reshape((n//4,4,m))
+	# 	rate2 = rate2.sum(1)
+	# 	# n,m = rate2.shape		
+	# 	# if n%2: rate2 = rate2[0:n-1]
+	# 	# rate3 = rate2.reshape((n//2,2,m))
+	# 	# rate3 = rate3.sum(1)
+
+	# 	rates.append(rate2)
+
+	# rates = np.vstack(rates)
+	# rates = pd.DataFrame(rates)
+	# rates = rates.rolling(window=50,win_type='gaussian',center=True,min_periods=1).mean(std=2)	
+	# rates.columns = tokeep
+
+	sws_rate = sws_rate[sws_rate.sum(1) > np.percentile(sws_rate.sum(1), 20)]
+	
+	sws_rate = zscore_rate(sws_rate)
 
 	r_wak = np.corrcoef(wak_rate.T)[np.triu_indices(len(tokeep),1)]
 	r_rem = np.corrcoef(rem_rate.T)[np.triu_indices(len(tokeep),1)]
@@ -130,16 +178,8 @@ m, b = np.polyfit(allr['wak'].values, allr['rem'].values, 1)
 x = np.linspace(allr['wak'].min(), allr['wak'].max(), 4)
 plot(x, x*m + b)
 xlabel('wake')
-ylabel('up')
+ylabel('rem')
 r, p = scipy.stats.pearsonr(allr['wak'], allr['rem'])
 title('r = '+str(np.round(r, 3)))
-
-show()
-
-
-datatosave = {'allr':allr}
-cPickle.dump(datatosave, open(os.path.join('../data/', 'All_correlation.pickle'), 'wb'))
-
-savefig('../figures/fig_correlation_lmn.eps', format='eps')
 
 show()

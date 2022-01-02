@@ -7,12 +7,12 @@ from functions import *
 import sys
 
 
-data_directory = '/mnt/Data2/LMN-PSB-2/A3013/A3013-210806A'
-episodes = ['sleep', 'wake', 'wake', 'sleep', 'wake', 'wake', 'sleep']
+data_directory = '/mnt/DataGuillaume/LMN-ADN/A5027/A5027-210804A'
+episodes = ['sleep', 'wake', 'sleep']
 # episodes = ['sleep', 'wake', 'sleep']
 # episodes = ['sleep', 'wake', 'sleep']
 
-events = ['1', '2', '4', '5']
+events = ['1']
 
 
 

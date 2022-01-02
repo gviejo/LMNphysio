@@ -129,7 +129,7 @@ def compute_AutoCorrs(spks, ep, binsize = 5, nbins = 200):
 	autocorrs.loc[0] = 0.0
 	return autocorrs, firing_rates
 
-def compute_CrossCorrs(spks, ep, binsize=10, nbins = 2000, norm = False):
+def compute_CrossCorrs(spks, ep, binsize=10, nbins = 2000, norm = False, reverse = False):
 	"""
 		
 	"""	
@@ -139,9 +139,14 @@ def compute_CrossCorrs(spks, ep, binsize=10, nbins = 2000, norm = False):
 		
 	for i,j in cc.columns:		
 		spk1 = spks[i].restrict(ep).as_units('ms').index.values
-		spk2 = spks[j].restrict(ep).as_units('ms').index.values		
-		tmp = crossCorr(spk1, spk2, binsize, nbins)		
-		fr = len(spk2)/ep.tot_length('s')
+		spk2 = spks[j].restrict(ep).as_units('ms').index.values	
+		if reverse:	
+			tmp = crossCorr(spk2, spk1, binsize, nbins)		
+			fr = len(spk1)/ep.tot_length('s')
+		else:
+			tmp = crossCorr(spk1, spk2, binsize, nbins)		
+			fr = len(spk2)/ep.tot_length('s')
+		
 		if norm:
 			cc[(i,j)] = tmp/fr
 		else:
@@ -756,7 +761,7 @@ def writeNeuroscopeEvents(path, ep, name):
 def getAllInfos(data_directory, datasets):
 	allm = np.unique(["/".join(s.split("/")[0:2]) for s in datasets])
 	infos = {}
-	for m in allm:
+	for m in allm:				
 		path = os.path.join(data_directory, m)
 		csv_file = list(filter(lambda x: '.csv' in x, os.listdir(path)))[0]
 		infos[m.split('/')[1]] = pd.read_csv(os.path.join(path, csv_file), index_col = 0)
@@ -912,11 +917,11 @@ def binSpikeTrain(spikes, epochs, bin_size, std=0):
 	rate = nts.TsdFrame(t = bins[0:-1]+bin_size//2, d = rate.T)
 	if std:
 		rate = rate.as_dataframe()
-		rate = rate.rolling(window=std*20,win_type='gaussian',center=True,min_periods=1).mean(std=std)	
+		rate = rate.rolling(window=std*50,win_type='gaussian',center=True,min_periods=1).mean(std=std)	
 		rate = nts.TsdFrame(rate)
 	rate = rate.restrict(epochs)
 	rate.columns = list(spikes.keys())
-	return rate
+	return rate.as_dataframe()
 
 def shuffleByIntervalSpikes(spikes, epochs):
 	shuffled = {}
@@ -929,6 +934,28 @@ def shuffleByIntervalSpikes(spikes, epochs):
 			isi.append(tmp)
 		shuffled[n] = nts.Ts(t = np.cumsum(np.hstack(isi)) + epochs.loc[0,'start'])
 	return shuffled
+
+def shuffleByOrderSpikes(spikes, epochs):
+	shuffled = {}
+	for n in spikes.keys():
+		isis = []
+		for i in epochs.index:
+			spk = spikes[n].restrict(epochs.loc[[i]])			
+			isis.append(np.diff(spk.index.values))
+		isis = np.concatenate(isis)
+		newt = np.cumsum(isis)
+		# # need to realign to the start of every new epoch
+		# tmp = []
+		# for i in epochs.index:
+		# 	idx = (newt + epochs.loc[i,'start'])<epochs.loc[i,'end']
+		# 	tmp.append(newt[idx] + epochs.loc[i,'start'])
+		# 	newt = newt[~idx]
+		# tmp = np.concatenate(tmp)
+		#shuffled[n] = nts.Ts(tmp)
+		shuffled[n] = nts.Ts(t = newt)
+	return shuffled
+
+
 
 def plotTuningCurves(tcurves, tokeep = []):	
 	figure()

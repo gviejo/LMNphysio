@@ -8,7 +8,7 @@ import sys
 from pycircstat.descriptive import mean as circmean
 
 
-data_directory = '/mnt/DataGuillaume/LMN-ADN/A5027/A5027-210804A'
+data_directory = '/mnt/DataGuillaume/LMN-ADN/A5011/A5011-201014A'
 
 
 episodes = ['sleep', 'wake', 'sleep']
@@ -37,7 +37,7 @@ sleep_ep 							= refineSleepFromAccel(acceleration, sleep_ep)
 
 # tuning_curves 						= computeAngularTuningCurves(spikes, position['ry'], wake_ep, 60)
 tuning_curves, velocity, edges 		= computeLMNAngularTuningCurves(spikes, position['ry'], wake_ep.loc[[0]], 61)
-spatial_curves, extent				= computePlaceFields(spikes, position[['x', 'z']], wake_ep.loc[[0]], 20)
+spatial_curves, extent				= computePlaceFields(spikes, position[['x', 'z']], wake_ep.loc[[0]], 15)
 autocorr_wake, frate_wake 			= compute_AutoCorrs(spikes, wake_ep)
 # autocorr_sleep, frate_sleep 		= compute_AutoCorrs(spikes, sleep_ep)
 velo_curves 						= computeAngularVelocityTuningCurves(spikes, position['ry'], wake_ep.loc[[0]], nb_bins = 30, norm=False)
@@ -134,7 +134,7 @@ for j in np.unique(shank):
 		count += 1
 
 
-
+show()
 
 sys.exit()
 

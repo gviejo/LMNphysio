@@ -26,7 +26,7 @@ shanks = pd.read_csv(os.path.join(data_directory,'LMN_shanks.txt'), header = Non
 infos = getAllInfos(data_directory, datasets)
 
 
-allr = []
+allfr = []
 count = []
 
 for s in datasets:
@@ -87,59 +87,29 @@ for s in datasets:
 	newwake_ep = newwake_ep.drop_short_intervals(1, time_units='s')
 
 	############################################################################################### 
-	# PEARSON CORRELATION
+	# Firing rate
 	###############################################################################################
-	wak_rate = zscore_rate(binSpikeTrain({n:spikes[n] for n in tokeep}, newwake_ep, 100, 1))
-	rem_rate = zscore_rate(binSpikeTrain({n:spikes[n] for n in tokeep}, rem_ep, 100, 1))
-	sws_rate = zscore_rate(binSpikeTrain({n:spikes[n] for n in tokeep}, sws_ep, 20, 5))
+	frate = computeMeanFiringRate({n:spikes[n] for n in tokeep}, [wake_ep, rem_ep, sws_ep], ['wake', 'rem', 'sws'])
 
-	r_wak = np.corrcoef(wak_rate.T)[np.triu_indices(len(tokeep),1)]
-	r_rem = np.corrcoef(rem_rate.T)[np.triu_indices(len(tokeep),1)]
-	r_sws = np.corrcoef(sws_rate.T)[np.triu_indices(len(tokeep),1)]
+	frate.index = [name+'_'+str(n) for n in tokeep]
 
-	r = pd.DataFrame(data = np.vstack((r_wak, r_rem, r_sws)).T)
+	allfr.append(frate)
 
-	neurons = [name+'_'+str(n) for n in tokeep]
+allfr = pd.concat(allfr, 0)
 
-	pairs = list(combinations(neurons, 2))
-
-	r.index = pd.Index(pairs)
-	r.columns = pd.Index(['wak', 'rem', 'sws'])
-
-	#######################
-	# SAVING
-	#######################
-	allr.append(r)
-
-allr = pd.concat(allr, 0)
 
 figure()
-subplot(131)
-plot(allr['wak'], allr['sws'], 'o', color = 'red', alpha = 0.5)
-m, b = np.polyfit(allr['wak'].values, allr['sws'].values, 1)
-x = np.linspace(allr['wak'].min(), allr['wak'].max(),5)
-plot(x, x*m + b)
-xlabel('wake')
-ylabel('sws')
-r, p = scipy.stats.pearsonr(allr['wak'], allr['sws'])
-title('r = '+str(np.round(r, 3)))
 
-subplot(132)
-plot(allr['wak'], allr['rem'], 'o',  alpha = 0.5)
-m, b = np.polyfit(allr['wak'].values, allr['rem'].values, 1)
-x = np.linspace(allr['wak'].min(), allr['wak'].max(), 4)
-plot(x, x*m + b)
-xlabel('wake')
-ylabel('up')
-r, p = scipy.stats.pearsonr(allr['wak'], allr['rem'])
-title('r = '+str(np.round(r, 3)))
-
-show()
-
-
-datatosave = {'allr':allr}
-cPickle.dump(datatosave, open(os.path.join('../data/', 'All_correlation.pickle'), 'wb'))
-
-savefig('../figures/fig_correlation_lmn.eps', format='eps')
+subplot(1,2,1)
+plot(allfr['wake'], allfr['rem'], 'o', color = 'red')
+scipy.stats.pearsonr(allfr['wake'], allfr['rem'])
+xlabel('Wake')
+ylabel('REM')
+subplot(1,2,2)
+plot(np.log(allfr['wake']), np.log(allfr['sws']), 'o', color = 'red')
+xlabel('Wake')
+ylabel('SWS')
+all
+scipy.stats.pearsonr(np.log(allfr['wake'].values.astype(np.float)), np.log(allfr['sws'].values.astype(np.float)))
 
 show()

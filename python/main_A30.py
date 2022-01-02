@@ -8,7 +8,7 @@ from matplotlib import gridspec
 import sys
 from scipy.ndimage.filters import gaussian_filter
 
-data_directory = '/mnt/Data2/LMN-PSB-2/A3013/A3013-210806A'
+data_directory = '/mnt/Data2/LMN-PSB/A3007/A3007-201127A'
 
 #episodes = ['sleep', 'wake']
 episodes = ['sleep', 'wake', 'wake', 'sleep', 'wake', 'wake', 'sleep']

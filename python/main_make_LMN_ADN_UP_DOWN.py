@@ -18,10 +18,11 @@ import hsluv
 # GENERAL infos
 ###############################################################################################
 data_directory = '/mnt/DataGuillaume/'
-datasets = np.loadtxt(os.path.join(data_directory,'datasets_KS25.txt'), delimiter = '\n', dtype = str, comments = '#')
+datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#')
+shanks = pd.read_csv(os.path.join(data_directory,'ADN_LMN_shanks.txt'), header = None, index_col = 0, names = ['ADN', 'LMN'], dtype = np.str)
+
 infos = getAllInfos(data_directory, datasets)
 
-datasets = [s for s in datasets if 'A5002' in s or 'A5011' in s]
 
 for s in datasets:
 	print(s)
@@ -41,33 +42,49 @@ for s in datasets:
 	sws_ep								= loadEpoch(path, 'sws')
 	rem_ep								= loadEpoch(path, 'rem')
 
+	
 	# KEEPING SPIKES ONLY FROM THE THALAMUS
-	if 'A5002' in s:
-		spikes = {n:spikes[n] for n in np.where(shank<=2)[0]}
+	neurons = np.where(np.sum([shank==i for i in np.fromstring(shanks.loc[s, 'ADN'], dtype=int, sep=' ')], 0))[0]
+	
+	spikes = {n:spikes[n] for n in neurons}
 
-	if 'A5011' in s:
-		spikes = {n:spikes[n] for n in np.where(shank<=3)[0]}
+	############################################################################################### 
+	# COMPUTING TUNING CURVES
+	###############################################################################################
+	tuning_curves = {1:computeAngularTuningCurves(spikes, position['ry'], wake_ep, 121)}
+	for i in tuning_curves:
+		tuning_curves[i] = smoothAngularTuningCurves(tuning_curves[i], 20, 4)
 
+	# CHECKING HALF EPOCHS
+	wake2_ep = splitWake(wake_ep)
+	tokeep2 = []
+	stats2 = []
+	tcurves2 = []
+	for i in range(2):
+		# tcurves_half = computeLMNAngularTuningCurves(spikes, position['ry'], wake2_ep.loc[[i]])[0][1]
+		tcurves_half = computeAngularTuningCurves(spikes, position['ry'], wake2_ep.loc[[i]], 121)
+		tcurves_half = smoothAngularTuningCurves(tcurves_half, 20, 4)
+		tokeep, stat = findHDCells(tcurves_half)
+		tokeep2.append(tokeep)
+		stats2.append(stat)
+		tcurves2.append(tcurves_half)
+
+	tokeep = np.intersect1d(tokeep2[0], tokeep2[1])
+	
+
+	
 	#################################################################################################
 	#DETECTION UP/DOWN States
 	#################################################################################################
-	bin_size = 10000 # us
-	rates = []
-	for e in sws_ep.index:
-		ep = sws_ep.loc[[e]]
-		bins = np.arange(ep.iloc[0,0], ep.iloc[0,1], bin_size)
-		r = pd.DataFrame(index = (bins[0:-1] + np.diff(bins)/2).astype('int'), columns = np.sort(list(spikes.keys())))
-		for n in spikes.keys():
-			r[n] = np.histogram(spikes[n].restrict(ep).index.values, bins)[0]
-		rates.append(r)
-	rates = pd.concat(rates, 0)
-
+	rates = binSpikeTrain({n:spikes[n] for n in tokeep}, sws_ep, 10, 1)
 
 	total = rates.sum(1)
 
 	total2 = total.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=2)
 
-	idx = total2[total2<np.percentile(total2,30)].index.values
+	idx = total2[total2<np.percentile(total2,10)].index.values
+
+	bin_size = 10000
 
 	tmp = [[idx[0]]]
 	for i in range(1,len(idx)):
@@ -92,6 +109,7 @@ for s in datasets:
 
 	up_ep 	= nts.IntervalSet(down_ep['end'][0:-1], down_ep['start'][1:])
 	up_ep = sws_ep.intersect(up_ep)
+#	up_ep = up_ep.drop_long_intervals(1, time_units = 's')
 
 
 

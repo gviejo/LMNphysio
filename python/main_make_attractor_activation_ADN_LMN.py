@@ -11,11 +11,13 @@ from pycircstat.descriptive import mean as circmean
 from sklearn.model_selection import KFold
 from sklearn.decomposition import PCA
 
-def zscore_rate(rate):
-	rate = rate.values
+def zscore_rate(rate):	
 	rate = rate - rate.mean(0)
 	rate = rate / rate.std(0)
 	return rate
+
+def softmax(r, m, b):
+	return 1/(1+np.exp(-b*(r - m)))
 
 ############################################################################################### 
 # GENERAL infos
@@ -38,6 +40,8 @@ acceleration 						= acceleration[[0,1,2]]
 acceleration.columns 				= pd.Index(np.arange(3))
 newsleep_ep 						= refineSleepFromAccel(acceleration, sleep_ep)
 sws_ep 								= loadEpoch(data_directory, 'sws')
+
+down_ep, up_ep 						= loadUpDown(data_directory)
 
 wake_ep 							= wake_ep.loc[[0]]
 
@@ -78,81 +82,61 @@ lmn = np.intersect1d(tokeep, np.where(shank==5)[0])
 # BINNING SPIKE TRAIN
 #########################################################
 wak_rate = binSpikeTrain({n:spikes[n] for n in tokeep}, newwake_ep, 300, 3)
-wak_rate = wak_rate.rolling(window=50,win_type='gaussian',center=True,min_periods=1, axis=0).mean(std=2.0)
 wak_rate = zscore_rate(wak_rate)
+#wak_rate = softmax(wak_rate, wak_rate.mean(), 1)
 
-shspike = shuffleByOrderSpikes({n:spikes[n] for n in tokeep}, newwake_ep) # made on one epoch only
-wak_shuffle_rate = binSpikeTrain(shspike, None, 300, 3)
-wak_shuffle_rate = wak_shuffle_rate.rolling(window=50,win_type='gaussian',center=True,min_periods=1, axis=0).mean(std=2.0)
-wak_shuffle_rate = zscore_rate(wak_shuffle_rate)
+#sys.exit()
+# pc_adn = PCA(n_components=2).fit_transform(wak_rate[:,0:len(adn)].T)
+# pc_lmn = PCA(n_components=2).fit_transform(wak_rate[:,-len(adn):].T)
 
-Xtrain = np.vstack((wak_rate, wak_shuffle_rate))
-Ytrain = np.hstack((np.zeros(len(wak_rate)), np.ones(len(wak_shuffle_rate))))
+sws_rate = binSpikeTrain({n:spikes[n] for n in tokeep}, sws_ep, 15, 3)
+sws_rate = sws_rate[sws_rate.sum(1)>4]
+sws_rate = zscore_rate(sws_rate)
+#sws_rate = softmax(sws_rate, sws_rate.mean(), 2)
 
-Xtrain_adn = Xtrain[:,0:len(adn)]
-Xtrain_lmn = Xtrain[:,-len(lmn):]
+wak_rate = wak_rate.values
+sws_rate = sws_rate.values
 
-kf = KFold(n_splits=5, shuffle=True)
-c = np.zeros((len(Ytrain), 2))
-for train_index, test_index in kf.split(Xtrain):
-	clf = GradientBoostingClassifier(n_estimators=1000, learning_rate=0.01,
-    max_depth=3, random_state=0,verbose=True, tol=1e-10).fit(Xtrain_adn[train_index], Ytrain[train_index])
-	c[test_index,0] = clf.predict(Xtrain_adn[test_index])	
-	clf = GradientBoostingClassifier(n_estimators=1000, learning_rate=0.01,
-    max_depth=3, random_state=0,verbose=True, tol=1e-10).fit(Xtrain_lmn[train_index], Ytrain[train_index])
-	c[test_index,1] = clf.predict(Xtrain_lmn[test_index])	
+corr_adn = np.corrcoef(wak_rate[:,0:len(adn)].T)
+corr_lmn = np.corrcoef(wak_rate[:,-len(lmn):].T)
+corr_adn[np.diag_indices_from(corr_adn)] = 0
+corr_lmn[np.diag_indices_from(corr_lmn)] = 0
 
+r_adn_sws = np.sum(np.dot(sws_rate[:,0:len(adn)], corr_adn)*sws_rate[:,0:len(adn)], 1)
+r_lmn_sws = np.sum(np.dot(sws_rate[:,-len(lmn):], corr_lmn)*sws_rate[:,-len(lmn):], 1)
+r_sws = np.vstack((r_adn_sws, r_lmn_sws)).T
+r_adn_wak = np.sum(np.dot(wak_rate[:,0:len(adn)], corr_adn)*wak_rate[:,0:len(adn)], 1)
+r_lmn_wak = np.sum(np.dot(wak_rate[:,-len(lmn):], corr_lmn)*wak_rate[:,-len(lmn):], 1)
+r_wak = np.vstack((r_adn_wak, r_lmn_wak)).T
 
-pc_adn = PCA(n_components=2).fit_transform(Xtrain_adn)
-pc_lmn = PCA(n_components=2).fit_transform(Xtrain_lmn)
+corr_state = {'wak':[], 'sws':[]}
+# State correlation shifted in time
+for i in range(-20, 20):
+	for e, r in zip(['wak', 'sws'], [r_wak, r_sws]):
+		corr_state[e].append(scipy.stats.pearsonr(r[np.maximum(-i,0):np.minimum(len(r),len(r)-i),1], 
+			r[np.maximum(i,0):np.minimum(len(r),len(r)+i),0])[0])
+
+corr_state = pd.DataFrame(corr_state)
 
 figure()
-subplot(221)
-scatter(pc_adn[:,0], pc_adn[:,1], c = Ytrain, s= 1)
-title('adn')
-subplot(222)
-scatter(pc_adn[:,0], pc_adn[:,1], c = c[:,0], s= 1)
-title('adn')
-subplot(223)
-scatter(pc_lmn[:,0], pc_lmn[:,1], c = Ytrain, s= 1)
-title('lmn')
-subplot(224)
-scatter(pc_lmn[:,0], pc_lmn[:,1], c = c[:,1], s= 1)
-title('lmn')
-
+plot(corr_state['wak'], label = 'wake')
+plot(corr_state['sws'], label = 'sws')
+legend()
 show()
+
 
 sys.exit()
 
-sws_rate = binSpikeTrain({n:spikes[n] for n in tokeep}, sws_ep, 10, 2)
-#sws_rate = sws_rate.rolling(window=50,win_type='gaussian',center=True,min_periods=1, axis=0).mean(std=1.0)
-index = sws_rate.index.values
-sws_rate = zscore_rate(sws_rate)
+rea = pd.DataFrame(index = index, data = np.vstack([r_adn, r_lmn]).T)
 
-Xtest = sws_rate
-p = np.zeros((len(Xtest),2))
-
-Xtest_adn = Xtest[:,0:len(adn)]
-Xtest_lmn = Xtest[:,-len(lmn):]
-
-
-clf = GradientBoostingClassifier(n_estimators=1000, learning_rate=0.01,
-    max_depth=3, random_state=0,verbose=True, tol=1e-10).fit(Xtrain_adn, Ytrain)
-p[:,0] = clf.predict_proba(Xtest_adn)[:,0]
-clf = GradientBoostingClassifier(n_estimators=1000, learning_rate=0.01,
-    max_depth=3, random_state=0, verbose = True, tol=1e-10).fit(Xtrain_lmn, Ytrain)
-p[:,1] = clf.predict_proba(Xtest_lmn)[:,0]
-
-
-proba = nts.TsdFrame(t = index, d = p)
 
 tcurves = tcurves[tokeep]
 peaks = pd.Series(index=tcurves.columns,data = np.array([circmean(tcurves.index.values, tcurves[i].values) for i in tcurves.columns])).sort_values()		
 adn = peaks.loc[adn].sort_values().index.values
 lmn = peaks.loc[lmn].sort_values().index.values
 
-tmp = proba.as_dataframe()
-tmp2 = 1/(1+np.exp(-20*(tmp - 0.5)))
+tmp = rea
+#tmp2 = 1/(1+np.exp(-20*(tmp - 0.5)))
 tmp2 = tmp.rolling(window=100,win_type='gaussian',center=True,min_periods=1).mean(std=10.0)
 #plot(tmp)
 #plot(tmp2)
@@ -164,20 +148,17 @@ ax = subplot(211)
 for i,n in enumerate(adn):
 	plot(spikes[n].restrict(sws_ep).fillna(peaks[n]), '|', markersize = 10)	
 ax2 = ax.twinx()
-plot(tmp[0], alpha = 0.5)
-plot(tmp2[0])
+plot(tmp[0])
+#plot(tmp2[0])
 xlim(ex_sws.loc[0,'start'], ex_sws.loc[0,'end'])
 
 ax = subplot(212)
 for i,n in enumerate(lmn):
 	plot(spikes[n].restrict(sws_ep).fillna(peaks[n]), '|', markersize = 10)	
 ax2 = ax.twinx()
-plot(tmp[1], alpha = 0.5)
-plot(tmp2[1])
+plot(tmp[1])
+#plot(tmp2[1])
 xlim(ex_sws.loc[0,'start'], ex_sws.loc[0,'end'])
 
-figure()
-subplot(211)
-hist(tmp[0], 50, label = 'ADN')
-subplot(212)
-hist(tmp[1], 50, label = 'LMN')
+show()
+

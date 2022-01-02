@@ -7,7 +7,7 @@ from functions import *
 import sys
 from matplotlib.gridspec import GridSpecFromSubplotSpec
 
-data_directory = '/mnt/DataGuillaume/LMN-ADN/A5026/A5026-210726A'
+data_directory = '/mnt/DataGuillaume/LMN-ADN/A5021/A5021-210521A'
 episodes = ['sleep', 'wake', 'sleep']
 events = ['1']
 
@@ -57,7 +57,20 @@ for i, s in enumerate(np.unique(shank)):
 		plot(cc_rip.iloc[:,n])
 		title('shank ' + str(s))
 
+for i, s in enumerate(np.unique(shank)):
+	figure()	
+	for j, n in enumerate(np.where(shank==s)[0]):
+		ax = subplot(int(np.sqrt(np.sum(shank==s)))+1,int(np.sqrt(np.sum(shank==s)))+1,j+1)
+		gs = GridSpecFromSubplotSpec(1,2,ax)
+		subplot(gs[0,0], projection = 'polar')
+		plot(tuning_curves[n])
+		subplot(gs[0,1])
+		plot(cc_rip.iloc[:,n])
+		title('shank ' + str(s))
 
+show()
+
+sys.exit()
 #####################
 # TO COMPARE WITh adn papier
 
@@ -179,13 +192,3 @@ plot(swr_mod_adn.mean(1), color = 'red')
 plot(cc_lmn.mean(1), color = 'green')
 
 
-for i, s in enumerate(np.unique(shank)):
-	figure()	
-	for j, n in enumerate(np.where(shank==s)[0]):
-		ax = subplot(int(np.sqrt(np.sum(shank==s)))+1,int(np.sqrt(np.sum(shank==s)))+1,j+1)
-		gs = GridSpecFromSubplotSpec(1,2,ax)
-		subplot(gs[0,0], projection = 'polar')
-		plot(tuning_curves[n])
-		subplot(gs[0,1])
-		plot(cc_rip.iloc[:,n])
-		title('shank ' + str(s))

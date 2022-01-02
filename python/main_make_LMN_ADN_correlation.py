@@ -14,6 +14,13 @@ import _pickle as cPickle
 import hsluv
 from matplotlib.gridspec import GridSpec
 
+def zscore_rate(rate):
+	rate = rate.values
+	rate = rate - rate.mean(0)
+	rate = rate / rate.std(0)
+	return rate
+
+
 ############################################################################################### 
 # GENERAL infos
 ###############################################################################################
@@ -24,10 +31,7 @@ shanks = pd.read_csv(os.path.join(data_directory,'ADN_LMN_shanks.txt'), header =
 infos = getAllInfos(data_directory, datasets)
 
 
-
-allfr = []
-alladn = []
-alllmn = []
+allr = []
 
 for s in datasets:
 	print(s)
@@ -46,12 +50,11 @@ for s in datasets:
 	sleep_ep 							= loadEpoch(path, 'sleep')					
 	sws_ep								= loadEpoch(path, 'sws')
 	rem_ep								= loadEpoch(path, 'rem')
-	#down_ep, up_ep 						= loadUpDown(path)
+	down_ep, up_ep 						= loadUpDown(path)
 
 	# Only taking the first wake ep
 	wake_ep = wake_ep.loc[[0]]
 	
-
 	############################################################################################### 
 	# COMPUTING TUNING CURVES
 	###############################################################################################
@@ -98,38 +101,61 @@ for s in datasets:
 		newwake_ep = newwake_ep.drop_short_intervals(1, time_units='s')
 	else:
 		newwake_ep = wake_ep
-				
-	#################################
-	#
-	##############################
-	frate = computeMeanFiringRate(spikes, [wake_ep, rem_ep, sws_ep], ['wake', 'rem', 'sws'])
+
+	############################################################################################### 
+	# PEARSON CORRELATION
+	###############################################################################################
+	wak_rate = zscore_rate(binSpikeTrain(spikes, newwake_ep, 100, 2))
+	rem_rate = zscore_rate(binSpikeTrain(spikes, rem_ep, 100, 2))	
+	sws_rate = zscore_rate(binSpikeTrain(spikes, sws_ep, 20, 5))
+
+	rates = {'wak':pd.DataFrame(wak_rate, columns = tokeep),
+		'rem':pd.DataFrame(rem_rate, columns = tokeep),
+		'sws':pd.DataFrame(sws_rate, columns = tokeep)}
+
+	from itertools import product
+	pairs = list(product(adn, lmn))
+	r = pd.DataFrame(index = pairs, columns = rates.keys(), dtype = np.float32)
+	for i, j in pairs:
+		for ep in rates.keys():
+			r.loc[(i,j), ep] = scipy.stats.pearsonr(rates[ep][i],rates[ep][j])[0]
+
+	pairs = list(product([name+'_'+str(n) for n in adn], [name+'_'+str(n) for n in lmn]))
+
+	r.index = pd.Index(pairs)
 	
-	frate.index = [name+'_'+str(n) for n in spikes.keys()]
+	#######################
+	# SAVING
+	#######################
+	allr.append(r)
 
-	allfr.append(frate)
-	alladn.append([name+'_'+str(n) for n in adn])
-	alllmn.append([name+'_'+str(n) for n in lmn])
+allr = pd.concat(allr, 0)
 
-allfr = pd.concat(allfr, 0)
 
-alladn = np.hstack(alladn)
-alllmn = np.hstack(alllmn)
+datatosave = {'allr':allr}
+cPickle.dump(datatosave, open(os.path.join('../data/', 'All_correlation_ADN_LMN.pickle'), 'wb'))
+
 
 figure()
+subplot(131)
+plot(allr['wak'], allr['sws'], 'o', color = 'red', alpha = 0.5)
+m, b = np.polyfit(allr['wak'].values, allr['sws'].values, 1)
+x = np.linspace(allr['wak'].min(), allr['wak'].max(),5)
+plot(x, x*m + b)
+xlabel('wake')
+ylabel('sws')
+r, p = scipy.stats.pearsonr(allr['wak'], allr['sws'])
+title('r = '+str(np.round(r, 3)))
 
-subplot(2,2,1)
-plot(allfr.loc[alladn, 'wake'], allfr.loc[alladn, 'rem'], 'o', color = 'red')
-xlabel('Wake')
-ylabel('REM')
-subplot(2,2,2)
-plot(allfr.loc[alladn, 'wake'], allfr.loc[alladn, 'sws'], 'o', color = 'red')
-xlabel('Wake')
-ylabel('SWS')
-subplot(2,2,3)
-plot(allfr.loc[alllmn, 'wake'], allfr.loc[alllmn, 'rem'], 'o', color = 'green')
-xlabel('Wake')
-ylabel('REM')
-subplot(2,2,4)
-plot(allfr.loc[alllmn, 'wake'], allfr.loc[alllmn, 'sws'], 'o', color = 'green')
-xlabel('Wake')
-ylabel('SWS')
+subplot(132)
+plot(allr['wak'], allr['rem'], 'o',  alpha = 0.5)
+m, b = np.polyfit(allr['wak'].values, allr['rem'].values, 1)
+x = np.linspace(allr['wak'].min(), allr['wak'].max(), 4)
+plot(x, x*m + b)
+xlabel('wake')
+ylabel('up')
+r, p = scipy.stats.pearsonr(allr['wak'], allr['rem'])
+title('r = '+str(np.round(r, 3)))
+
+show()
+
