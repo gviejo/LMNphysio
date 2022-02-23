@@ -11,17 +11,17 @@ from matplotlib.colors import hsv_to_rgb
 from umap import UMAP
 from sklearn.manifold import Isomap
 
-data_directory = '/mnt/Data2/PSB/A6221/A6221-210714'
+data_directory = '/mnt/Data2/PSB/A8608/A8608-220106'
 
 
-episodes = ['sleep', 'wake', 'sleep', 'wake']
-events = ['1', '3']
+episodes = ['sleep', 'wake', 'wake', 'sleep', 'wake', 'wake', 'sleep']
+events = ['1', '2', '4', '5']
 
 
 
 spikes, shank 						= loadSpikeData(data_directory)
 n_channels, fs, shank_to_channel 	= loadXML(data_directory)
-position 							= loadPosition(data_directory, events, episodes, 2, 1)
+position 							= loadPosition(data_directory, events, episodes, 1, 0)
 wake_ep 							= loadEpoch(data_directory, 'wake', episodes)
 sleep_ep 							= loadEpoch(data_directory, 'sleep')					
 				

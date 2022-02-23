@@ -749,8 +749,9 @@ def loadMeanWaveforms(path):
 			idx_clu = tmp[tmp>1]
 			idx_col = np.arange(count, count+len(idx_clu))	        
 			for j,k in zip(idx_clu, idx_col):
+				print(i,j)
 				# take only a subsample of spike if too big				
-				idx = np.sort(np.random.choice(np.where(clu==j)[0], 5000))
+				idx = np.sort(np.random.choice(np.where(clu==j)[0], 100))
 				meanw = data[idx,:,:].mean(0)
 				ch = np.argmax(np.max(np.abs(meanw), 0))
 				mwf.append(meanw.flatten())

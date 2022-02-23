@@ -24,13 +24,10 @@ def zscore_rate(rate):
 	return nts.TsdFrame(rate)
 
 
-data_directory = '/mnt/Data2/LMN-PSB-2/A3013/A3013-210806A'
+data_directory = '/mnt/Data2/PSB/A8608/A8608-220106'
 
-#episodes = ['sleep', 'wake']
+
 episodes = ['sleep', 'wake', 'wake', 'sleep', 'wake', 'wake', 'sleep']
-# episodes = ['sleep', 'wake', 'sleep']
-# episodes = ['sleep', 'wake', 'sleep']
-
 events = ['1', '2', '4', '5']
 
 
@@ -40,15 +37,15 @@ spikes, shank 						= loadSpikeData(data_directory)
 n_channels, fs, shank_to_channel 	= loadXML(data_directory)
 
 
-position 							= loadPosition(data_directory, events, episodes, 2, 1)
+position 							= loadPosition(data_directory, events, episodes)
 wake_ep 							= loadEpoch(data_directory, 'wake', episodes)
 sleep_ep 							= loadEpoch(data_directory, 'sleep')					
-sws_ep								= loadEpoch(data_directory, 'sws')
-rem_ep 								= loadEpoch(data_directory, 'rem')
+# sws_ep								= loadEpoch(data_directory, 'sws')
+# rem_ep 								= loadEpoch(data_directory, 'rem')
 
 #################
 # TUNING CURVES
-tuning_curves 						= computeAngularTuningCurves(spikes, position['ry'], wake_ep.loc[[0]], 60)
+tuning_curves 						= computeAngularTuningCurves(spikes, position['ry'], wake_ep.loc[[0]], 120)
 #tuning_curves, velocity, edges 		= computeLMNAngularTuningCurves(spikes, position['ry'], wake_ep, 61)
 tuning_curves 						= smoothAngularTuningCurves(tuning_curves, 10, 2)
 
@@ -56,6 +53,17 @@ tokeep, stat 						= findHDCells(tuning_curves, z=1, p = 0.001)
 
 # mean_fr 							= computeMeanFiringRate(spikes, [wake_ep], ['wake'])
 # tokeep 								= mean_fr.index.values[np.where(mean_fr>1)[0]]
+
+
+figure()
+count = 1
+for i, n in enumerate(np.where(shank == 1)[0]):
+	subplot(int(np.sqrt(len(spikes)))+1,int(np.sqrt(len(spikes)))+1,count, projection = 'polar')
+	plot(tuning_curves[n])
+	xticks([])
+	yticks([])
+	title(n)
+	count += 1
 
 
 ###############
@@ -102,10 +110,11 @@ for i, n in enumerate(np.where(shank == 5)[0]):
 	title(n)
 	count += 1
 
+sys.exit()
 
 #neurons = [3,4,5,7,10,13,20,23,24,27,29,35,39,50,59,63]
-neurons = [3,4,5,7,10,12,16,18,20,21,23,24,26,27,29,31,32,35,37,38,39,41,50,52,59,62,63]
-#neurons = np.where(shank==5)[0]
+# neurons = [3,4,5,7,10,12,16,18,20,21,23,24,26,27,29,31,32,35,37,38,39,41,50,52,59,62,63]
+neurons = np.where(shank==1)[0]
 
 bin_size = 300
 
