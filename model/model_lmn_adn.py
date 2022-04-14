@@ -2,7 +2,7 @@
 # @Author: gviejo
 # @Date:   2022-02-21 12:10:37
 # @Last Modified by:   gviejo
-# @Last Modified time: 2022-02-27 23:31:21
+# @Last Modified time: 2022-03-15 23:55:51
 
 import scipy.io
 import sys,os
@@ -14,9 +14,10 @@ from functions import smoothAngularTuningCurves
 import sys
 from itertools import combinations, product
 
-data = nap.load_session('A5002-200303B', 'neurosuite')
-# spikes = data.spikes.getby_category("location")["lmn"]
-spikes = data.spikes.getby_category("group")[2]
+# data = nap.load_session('A5002-200303B', 'neurosuite')
+data = nap.load_session('/home/guillaume/Dropbox/LMN/A5000/A5011/A5011-201011A', 'neurosuite')
+spikes = data.spikes.getby_category("location")["lmn"]
+# spikes = data.spikes.getby_category("group")[2]
 
 spikes = spikes.getby_threshold('freq', 1.0)
 angle = data.position['ry']
@@ -37,7 +38,7 @@ lmn_neurons = tuning_curves.idxmax().sort_values()
 # 	)
 restrict_ep = nap.IntervalSet(
 	start = sws_ep.loc[0, 'start'],
-	end = sws_ep.loc[0, 'start'] + 4000.0,
+	end = sws_ep.loc[0, 'start'] + 1000.0,
 	)
 
 
@@ -67,10 +68,12 @@ start_scope()
 
 
 duration = new_ep.tot_length() * second
-phi = np.arange(0, 2*np.pi, 2*np.pi/n) # radial position of the neurons 
-tau = 25 * ms
+
+tau_adn = 100 * ms
+tau_lmn = 100 * ms
 
 dt_lmn = 1 * ms
+
 n_lmn = len(np.unique(spk_times.values))
 
 indices = spk_times.values
@@ -79,28 +82,39 @@ spk_times = spk_times.index.values * ms
 LMN_group = SpikeGeneratorGroup(n_lmn, indices, spk_times, dt=dt_lmn)
 
 
-eqs_neurons 	= '''
-dv/dt = - v/tau : 1
+eqs_adn = '''
+dv/dt = ((10/(1+exp(-(I-0.75)*60)))-v)/tau_adn : 1
+dI/dt = -I/tau_adn : 1
+'''
+# eqs_adn = '''
+# dv/dt = -v/ tau-
+# '''
+eqs_inh 	= '''
+dv/dt = - v/tau_lmn : 1
 '''
 
-
-ADN_group = NeuronGroup(n_lmn, model=eqs_neurons, threshold='v>1', reset='v=0', method = 'exact')
-
-INH_group = NeuronGroup(1, model = eqs_neurons, threshold='v>1', reset='v=0', method = 'exact')
+ADN_group = NeuronGroup(n_lmn, model=eqs_adn, threshold='v>0.95', reset='v=0.0', method = 'euler', refractory=10*ms)
+INT_group = NeuronGroup(n_lmn, model=eqs_inh, threshold='v>1', reset='v=0.0', method = 'euler', refractory=10*ms)
+#INH_group = NeuronGroup(1, model = eqs_inh, threshold='v>1', reset='v=0', method = 'exact')
 
 # ###########################################################################################################
 # # SYNAPSES
 # ###########################################################################################################
 # LMN to ADN connection
-LMN_to_ADN = Synapses(LMN_group, ADN_group, 'w : 1', on_pre='v += w')
+LMN_to_ADN = Synapses(LMN_group, ADN_group, 'w : 1', on_pre='I += w')
 LMN_to_ADN.connect(i = np.arange(n_lmn), j = np.arange(n_lmn))
-LMN_to_ADN.w = 0.7
-ADN_to_INH = Synapses(ADN_group, INH_group, 'w : 1', on_pre='v += w')
-ADN_to_INH.connect(i = np.arange(n_lmn), j = np.zeros(n_lmn, dtype=np.int))
-ADN_to_INH.w = 0.7
-INH_to_ADN = Synapses(INH_group, ADN_group, 'w : 1', on_pre='v -= w')
-INH_to_ADN.connect(i=np.zeros(n_lmn, dtype=np.int), j=np.arange(n_lmn))
-INH_to_ADN.w = 0.7
+LMN_to_ADN.w = 0.15
+LMN_to_INT = Synapses(LMN_group, INT_group, 'w : 1', on_pre='v += w')
+LMN_to_INT.connect(i = np.arange(n_lmn), j = np.arange(n_lmn))
+LMN_to_INT.w = 2.0
+
+
+# ADN_to_INH = Synapses(ADN_group, INH_group, 'w : 1', on_pre='v += w')
+# ADN_to_INH.connect(i = np.arange(n_lmn), j = np.zeros(n_lmn, dtype=np.int))
+# ADN_to_INH.w = 0.7
+# INH_to_ADN = Synapses(INH_group, ADN_group, 'w : 1', on_pre='v -= w')
+# INH_to_ADN.connect(i=np.zeros(n_lmn, dtype=np.int), j=np.arange(n_lmn))
+# INH_to_ADN.w = 0.7
 
 
 
@@ -109,7 +123,8 @@ INH_to_ADN.w = 0.7
 ###########################################################################################################
 lmn_mon = SpikeMonitor(LMN_group)
 adn_mon = SpikeMonitor(ADN_group)
-inh_mon = SpikeMonitor(INH_group)
+int_mon = SpikeMonitor(INT_group)
+
 
 ###########################################################################################################
 # RUN
@@ -124,9 +139,10 @@ adn_spikes = pd.DataFrame(index=adn_mon.t / second + new_ep.loc[0, 'start'], dat
 adn_spikes = {n:nap.Ts(t=adn_spikes[adn_spikes==n].dropna().index.values) for n in range(len(ADN_group))}
 adn_spikes = nap.TsGroup(adn_spikes, time_support = new_ep.merge_close_intervals(1))
 
-# adn_tc = nap.compute_1d_tuning_curves(adn_spikes, angle, 120, minmax=(0, 2*np.pi))
-# adn_tc = smoothAngularTuningCurves(adn_tc)
-# adn_tc.columns = lmn_neurons.index.values[adn_spikes.keys()]
+int_spikes = pd.DataFrame(index=int_mon.t / second + new_ep.loc[0, 'start'], data=np.array(int_mon.i), columns = ['idx'], dtype = np.int)
+int_spikes = {n:nap.Ts(t=int_spikes[int_spikes==n].dropna().index.values) for n in range(len(INT_group))}
+int_spikes = nap.TsGroup(int_spikes, time_support = new_ep.merge_close_intervals(1))
+
 
 #########################################
 # CROSS-CORR
@@ -143,15 +159,20 @@ for n in adn_spikes.keys():
 	simspikes[count] = adn_spikes[n]
 	location.loc[count] = 'adn'
 	count += 1
+for n in int_spikes.keys():
+	simspikes[count] = int_spikes[n]
+	location.loc[count] = 'int'
+	count += 1
 
 simspikes = nap.TsGroup(simspikes, time_support = sws_ep.intersect(new_ep), location = location)
 
-cc = nap.compute_crosscorrelogram(simspikes, 2, 500, time_units='ms')
+
+cc = nap.compute_crosscorrelogram(simspikes, 5, 500, time_units='ms')
 
 lmn_neurons = lmn_neurons.iloc[adn_spikes.keys()]
 adn_pfd = pd.Series(index = adn_spikes.keys(), data = lmn_neurons.values)
 
-peaks = np.hstack((lmn_neurons.values, lmn_neurons.values))
+peaks = np.hstack((lmn_neurons.values, lmn_neurons.values, lmn_neurons.values))
 peaks = pd.Series(index = simspikes.keys(), data = peaks)
 
 
@@ -162,9 +183,25 @@ for i,j in new_index:
 		pairs.loc[(i,j),'ang diff'] = np.abs(np.arctan2(np.sin(a), np.cos(a)))
 lmn_idx = np.where(simspikes._metadata["location"] == "lmn")[0]
 adn_idx = np.where(simspikes._metadata["location"] == "adn")[0]
+int_idx = np.where(simspikes._metadata["location"] == "int")[0]
 pairs.loc[list(combinations(lmn_idx, 2)),'struct'] = 'lmn-lmn'
 pairs.loc[list(combinations(adn_idx, 2)),'struct'] = 'adn-adn'
 pairs.loc[list(product(lmn_idx, adn_idx)),'struct'] = 'lmn-adn'
+pairs.loc[list(combinations(int_idx, 2)),'struct'] = 'int-int'
+
+
+#######################################
+# ISI 
+#######################################
+bins = geomspace(0.001, 100.0, 200)
+isi_adn = {}
+for n in adn_spikes.keys():
+	spk = adn_spikes[n].index.values
+	tmp = np.diff(spk)
+	weights = np.ones_like(tmp)/float(len(tmp))
+	isi_adn[n]= pd.Series(index=bins[0:-1], data=np.histogram(tmp, bins,weights=weights)[0])
+isi_adn = pd.concat(isi_adn, 1)
+isi_adn = isi_adn.rolling(window=50,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
 
 
 ##########################################
@@ -182,6 +219,8 @@ subplot(212, sharex = ax)
 [plot(simspikes[n].fillna(peaks.loc[n]), '.r') for n in lmn_idx]
 ylabel("LMN")
 plot(angle.restrict(new_ep))
+
+
 
 
 
@@ -218,14 +257,53 @@ for i, n in enumerate(names):
 	locator_params(axis='y', nbins=3)
 	ylabel('z',  y = 0.9, rotation = 0, labelpad = 15)
 	title(n)
+
+
+datatosave = {}
+
+
+figure()
+
+subplot(121)
+for st in ['adn-adn', 'int-int']:
+	subpairs = pairs[pairs['struct']==st]
+	group = subpairs.sort_values(by='ang diff').index.values
+
+	angdiff = pairs.loc[group,'ang diff'].values.astype(np.float32)
+	group2 = group[angdiff<np.deg2rad(40)]
+	group3 = group[angdiff>np.deg2rad(140)]
+	pos2 = np.where(angdiff<np.deg2rad(40))[0]
+	pos3 = np.where(angdiff>np.deg2rad(140))[0]
+	clrs = ['red', 'green']
+	datatosave[st] = []
+	for j,gr in enumerate([group2, group3]):
+		cc2 = cc[gr]
+		cc2 = cc2.dropna(1)
+		if st == 'adn-adn':
+			cc2 = cc2.rolling(window=40,win_type='gaussian',center=True,min_periods=1).mean(std=1.0)
+		else:
+			cc2 = cc2.rolling(window=40,win_type='gaussian',center=True,min_periods=1).mean(std=2.0)			
+		cc2 = cc2 - cc2.mean(0)
+		cc2 = cc2 / cc2.std(0)
+		cc2 = cc2.loc[-0.2:0.2]
+		m  = cc2.mean(1)
+		s = cc2.std(1)
+
+		datatosave[st].append( pd.DataFrame.from_dict({"m": m, "s": s}) )
+		plot(cc2.mean(1), color = clrs[j], linewidth = 3)
+		fill_between(cc2.index.values, m - s, m+s, color = clrs[j], alpha = 0.1)
+	gca().spines['left'].set_position('center')
+	xlabel('cross. corr. (s)')	
+	locator_params(axis='y', nbins=3)
+	ylabel('z',  y = 0.9, rotation = 0, labelpad = 15)
+	title(n)
+
+subplot(122)
+
+
 show()
 
+import _pickle as cPickle
+path2 = '/home/guillaume/Dropbox/CosyneData'
+cPickle.dump(datatosave, open(os.path.join(path2, 'MODEL_CC.pickle'), 'wb'))
 
-# figure()
-# for i, n in enumerate(lmn_idx.index.values):
-# 	subplot(int(np.sqrt(n_lmn))+1, int(np.sqrt(n_lmn))+1, i+1, projection = 'polar')
-# 	plot(tuning_curves[n])
-# 	if n in adn_tc.columns:
-# 		plot(adn_tc[n])
-
-# show()

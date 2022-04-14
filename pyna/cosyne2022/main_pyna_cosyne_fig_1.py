@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2022-03-11 12:04:20
+# @Last Modified by:   gviejo
+# @Last Modified time: 2022-03-16 11:22:26
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -18,6 +18,8 @@ import os
 import sys
 sys.path.append('../')
 from functions import *
+sys.path.append('../../python')
+import neuroseries as nts
 
 
 def figsize(scale):
@@ -25,7 +27,7 @@ def figsize(scale):
 	inches_per_pt = 1.0/72.27                       # Convert pt to inch
 	golden_mean = (np.sqrt(5.0)-1.0) / 2           # Aesthetic ratio (you could change this)
 	fig_width = fig_width_pt*inches_per_pt*scale    # width in inches
-	fig_height = fig_width*golden_mean*2.7         # height in inches
+	fig_height = fig_width*golden_mean*2.5         # height in inches
 	fig_size = [fig_width,fig_height]
 	return fig_size
 
@@ -53,15 +55,10 @@ def noaxis(ax):
 ############################################################################################### 
 # GENERAL infos
 ###############################################################################################
-data_directory = '/mnt/DataGuillaume/'
-datasets = np.loadtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#')
+name = 'A5011-201014A'
+path = '/home/guillaume/Dropbox/CosyneData/A5011-201014A'
 
-# s = 'LMN/A1411/A1411-200908A'
-s = 'LMN-ADN/A5011/A5011-201014A'
-
-name = s.split('/')[-1]
-path = os.path.join(data_directory, s)
-
+path2 = '/home/guillaume/Dropbox/CosyneData'
 
 
 ############################################################################################### 
@@ -100,9 +97,17 @@ tcurves = tuning_curves
 
 tokeep = np.hstack((adn, lmn))
 
-decoding = cPickle.load(open('../../figures/figures_poster_2022/fig_cosyne_decoding.pickle', 'rb'))
+tmp = cPickle.load(open(path2+'/figures_poster_2021/fig_cosyne_decoding.pickle', 'rb'))
 
-peaks = decoding['peaks']
+decoding = {
+	'wak':nap.Tsd(t=tmp['wak'].index.values, d=tmp['wak'].values, time_units = 'us'),
+	'sws':nap.Tsd(t=tmp['sws'].index.values, d=tmp['sws'].values, time_units = 'us'),
+	'rem':nap.Tsd(t=tmp['rem'].index.values, d=tmp['rem'].values, time_units = 'us'),	
+}
+
+
+tmp = cPickle.load(open(path2+'/figures_poster_2022/fig_cosyne_decoding.pickle', 'rb'))
+peaks = tmp['peaks']
 
 ###############################################################################################################
 # PLOT
@@ -135,21 +140,20 @@ markers = ['d', 'o', 'v']
 
 fig = figure(figsize = figsize(2))
 
-outergs = GridSpec(3,1, figure = fig, height_ratios = [0.5, 0.5, 0.4], hspace = 0.3)
+outergs = GridSpec(3,1, figure = fig, height_ratios = [0.4, 0.5, 0.4], hspace = 0.3)
 
 #################################################################################################################################
 #########################
 # TUNING CURVes
 #########################
-gs1 = gridspec.GridSpecFromSubplotSpec(2,2, subplot_spec = outergs[0,0], width_ratios = [0.1, 0.1], wspace = 0.3)
+gs1 = gridspec.GridSpecFromSubplotSpec(2,2, subplot_spec = outergs[0,0], height_ratios = [0.15, 0.1], wspace = 0.3)
 
 # ADN ###################
-gs_left = gridspec.GridSpecFromSubplotSpec(3,3, subplot_spec = gs1[0,0], hspace = 0.1, wspace = 0.05)
-#bad = [(0,3),(0,4),(1,2),(1,3),(1,4),(2,2),(2,3),(2,4)]
-bad = [(0,0),(0,1),(0,2),(1,0),(1,1),(1,2),(2,0),(2,1),(2,2)]
+gs_left = gridspec.GridSpecFromSubplotSpec(3,9, subplot_spec = gs1[0,:], hspace = 0.1, wspace = 0.05)
+bad = np.array([[0,0,0,1,1,1,2,2],[0,1,2,0,1,2,0,1]]).T
 for i, n in enumerate(peaks[adn].sort_values().index.values[::-1]):
 	#subplot(gs_left[len(adn)-i-1,0])
-	subplot(gs_left[bad[i]], projection = 'polar')
+	subplot(gs_left[bad[i,0],bad[i,1]], projection = 'polar')
 	clr = hsluv.hsluv_to_rgb([peaks[n]*180/np.pi,85,45])	
 	gca().grid(zorder=0)
 	xticks([0, np.pi/2, np.pi, 3*np.pi/2], [])
@@ -164,27 +168,29 @@ gca().text(0.8, 1.25, "ADN", transform = gca().transAxes, fontsize = 20)
 #noaxis(gca())
 
 # LMN ###################
-gs_left = gridspec.GridSpecFromSubplotSpec(5,3, subplot_spec = gs1[0,1], hspace = 0.2, wspace = 0.05)
-#bad = np.array([[0,0,0,1,1,1,1,1,2,2,2,2,2],[2,3,4,0,1,2,3,4,0,1,2,3,4]]).T
-bad = np.array([[0,0,0,1,1,1,2,2,2,3,3,3,4,4,4],[0,1,2,0,1,2,0,1,2,0,1,2,0,1,2]]).T
+#gs_left = gridspec.GridSpecFromSubplotSpec(5,3, subplot_spec = gs1[0,1], hspace = 0.2, wspace = 0.05)
+bad = np.array([[0,0,0,0,0,1,1,1,1,1,2,2,2,2,2],[4,5,6,7,8,4,5,6,7,8,4,5,6,7,8]]).T
 for i, n in enumerate(peaks[lmn[0:-1]].sort_values().index.values[::-1]):
 	subplot(gs_left[bad[i,0],bad[i,1]], projection = 'polar')
 	clr = hsluv.hsluv_to_rgb([peaks[n]*180/np.pi,85,45])	
 	gca().grid(zorder=0)
 	xticks([0, np.pi/2, np.pi, 3*np.pi/2], [])
-	xlim(0, 2*np.pi)		
+	xlim(0, 2*np.pi)
 	yticks([])
 	fill_between(tcurves[n].index.values, np.zeros_like(tcurves[n].index.values), tcurves[n].values, color = clr, alpha = 0.8, linewidth =0, zorder=2)	
 	if i == 0: 
 		tax2 = gca()
 
-subplot(gs_left[0,0])
+
+subplot(gs_left[0,4])
 gca().text(0.8, 1.25, "LMN", transform = gca().transAxes, fontsize=20)
 
-clrs = ['lightgray', 'darkgray', 'gray']
+
+clrs = ['sandybrown', 'darkgray', 'olive']
+clrs2 = ['sandybrown', 'olive']
 ###########################
 # FIRING RATE CORRELATION
-frs = cPickle.load(open(os.path.join('../../data/', 'All_FR_ADN_LMN.pickle'), 'rb'))
+frs = cPickle.load(open(os.path.join(path2, 'All_FR_ADN_LMN.pickle'), 'rb'))
 count = 0
 gs_fr = gridspec.GridSpecFromSubplotSpec(1,4, subplot_spec = gs1[1,:], hspace = 0.1, wspace = 0.5)	
 for i, st in enumerate(['adn', 'lmn']):	
@@ -193,12 +199,12 @@ for i, st in enumerate(['adn', 'lmn']):
 		#subplot(gs1[1,count])
 		count+=1
 		x, y = (frs[st][pairs[0]].values.astype(np.float), frs[st][pairs[1]].values.astype(np.float))
-		scatter(x, y, color = clrs[i])
+		scatter(x, y, color = clrs2[i])
 		m, b = np.polyfit(x, y, 1)
 		xx = np.linspace(x.min(), x.max(), 5)
 		r, p = scipy.stats.pearsonr(x, y)
 		plot(xx, xx*m + b, color = 'red', label = 'r = '+str(np.round(r, 2)))
-		legend(handlelength = 0.3, frameon=False, bbox_to_anchor=(0.5, 0.8, 0.5, 0.5))
+		legend(handlelength = 0.3, frameon=False, bbox_to_anchor=(0.3, 0.8, 0.5, 0.5))
 		if i == 1 and j == 0:
 			ylim(0, 50)
 		ax = gca()
@@ -217,27 +223,17 @@ for i, st in enumerate(['adn', 'lmn']):
 			# if j == 1:
 				#gca().text(-0.35, 1, 'non-REM fr. (Hz)', transform=gca().transAxes, rotation='vertical')
 		if j==1 or j==3:
-			ylabel('non-REM rate (Hz)')
+			ylabel('non-REM\nrate (Hz)')
 
 #################################################################################################################################
 #########################
 # RASTER PLOTS
 #########################
 
+
 #####################################################################################################
-gs2 = gridspec.GridSpecFromSubplotSpec(3,3, subplot_spec = outergs[1,0],  hspace = 0.1, height_ratios = [0.2, 0.65, 0.5])
+gs2 = gridspec.GridSpecFromSubplotSpec(2,3, subplot_spec = outergs[1,0],  hspace = 0.1)
 
-####################################################################
-# A SLEEP SCORING
-####################################################################
-alltitles = ['Wake', 'REM sleep', 'non-REM sleep']
-
-for i, e in enumerate(['wak', 'rem', 'sws']):
-	subplot(gs2[0,i])
-	title(alltitles[i])
-	simpleaxis(gca())
-	gca().spines['bottom'].set_visible(False)
-	xticks([])
 ####################################################################
 # A WAKE
 ####################################################################
@@ -247,7 +243,7 @@ ex_wake = nap.IntervalSet(start = 7587976595.668784, end = 7604189853.273991, ti
 mks = 7
 ep = ex_wake
 alp = 0.6
-subplot(gs2[1,0])
+subplot(gs2[0,0])
 simpleaxis(gca())
 
 for k, n in enumerate(adn):
@@ -275,7 +271,7 @@ gca().spines['bottom'].set_visible(False)
 
 
 
-subplot(gs2[2,0])
+subplot(gs2[1,0])
 simpleaxis(gca())
 
 for k, n in enumerate(lmn):
@@ -291,7 +287,7 @@ tmp2 = nap.Tsd(tmp2, time_support = wake_ep)
 tmp2 = smoothAngle(tmp2, 1)
 tmp2 = tmp2.restrict(ex_wake)
 plot(tmp2, '--', linewidth = 2, color = 'black', alpha = alp) 
-plot(np.array([ep.end[0]-1e6, ep.end[0]]), [0, 0], linewidth = 3, color = 'black')
+plot(np.array([ep.end[0]-1, ep.end[0]]), [0, 0], linewidth = 3, color = 'black')
 ylim(0, 2*np.pi)
 xlim(ep.loc[0,'start'], ep.loc[0,'end'])
 yticks([0, 2*np.pi], ["0", "360"])
@@ -302,7 +298,7 @@ ylabel("LMN", labelpad = -10)
 #title("Wake", fontsize = 1)
 xticks([])
 gca().spines['bottom'].set_visible(False)
-legend(frameon=False, handlelength = 1, bbox_to_anchor=(1,-0.1))
+legend(frameon=False, handlelength = 1, bbox_to_anchor=(1,2.2))
 
 # ###################################################################
 # # C REM
@@ -310,7 +306,7 @@ legend(frameon=False, handlelength = 1, bbox_to_anchor=(1,-0.1))
 ex_rem = nap.IntervalSet(start = 15710150000, end= 15724363258, time_units = 'us')
 ep = ex_rem
 
-subplot(gs2[1,1])
+subplot(gs2[0,1])
 noaxis(gca())
 
 for k, n in enumerate(adn):
@@ -330,7 +326,7 @@ xticks([])
 gca().spines['bottom'].set_visible(False)
 
 
-subplot(gs2[2,1])
+subplot(gs2[1,1])
 noaxis(gca())
 
 for k, n in enumerate(lmn):
@@ -343,13 +339,13 @@ for k, n in enumerate(lmn):
 # tmp2 = nts.Tsd(tmp2).restrict(ep)
 tmp2 = decoding['rem'].restrict(ep)
 plot(tmp2, '--', linewidth = 2, color = 'black', alpha = alp, label = 'Decoded head-direction')
-plot(np.array([ep.end[0]-1e6, ep.end[0]]), [0, 0], linewidth = 3, color = 'black')
+plot(np.array([ep.end[0]-1, ep.end[0]]), [0, 0], linewidth = 3, color = 'black')
 ylim(0, 2*np.pi)
 xlim(ep.loc[0,'start'], ep.loc[0,'end'])
 xticks([])
 xlabel('1s', horizontalalignment='right', x=1.0)
 gca().spines['bottom'].set_visible(False)
-legend(frameon=False, handlelength = 1, bbox_to_anchor=(1,-0.1))
+legend(frameon=False, handlelength = 1, bbox_to_anchor=(1,2.2))
 
 # ###################################################################
 # # C SWS
@@ -357,7 +353,7 @@ legend(frameon=False, handlelength = 1, bbox_to_anchor=(1,-0.1))
 #ex_sws = nts.IntervalSet(start = 4399905437.713542, end = 4403054216.186978)
 ex_sws = nap.IntervalSet(start = 4400600000, end = 4403054216.186978, time_units = 'us')
 ep = ex_sws
-subplot(gs2[1,2])
+subplot(gs2[0,2])
 simpleaxis(gca())
 
 for k, n in enumerate(adn):
@@ -370,7 +366,7 @@ tmp3 = pd.Series(index = tmp2.index, data = np.unwrap(tmp2.values)).rolling(wind
 tmp3 = tmp3%(2*np.pi)
 tmp2 = nap.Tsd(tmp3).restrict(ep)
 plot(tmp2.loc[:tmp2.idxmax()],'--', linewidth = 2, color = 'black', alpha = alp)
-plot(tmp2.loc[tmp2.idxmax()+30000:],'--', linewidth = 2, color = 'black', alpha = alp)
+plot(tmp2.loc[tmp2.idxmax()+0.03:],'--', linewidth = 2, color = 'black', alpha = alp)
 ylim(0, 2*np.pi)
 xlim(ep.loc[0,'start'], ep.loc[0,'end'])
 yticks([])
@@ -381,7 +377,7 @@ gca().spines['left'].set_visible(False)
 gca().spines['bottom'].set_visible(False)
 
 
-subplot(gs2[2,2])
+subplot(gs2[1,2])
 simpleaxis(gca())
 
 for k, n in enumerate(lmn):
@@ -394,7 +390,7 @@ tmp3 = pd.Series(index = tmp2.index, data = np.unwrap(tmp2)).rolling(window=40,w
 tmp3 = tmp3%(2*np.pi)
 tmp2 = nap.Tsd(tmp3).restrict(ep)
 plot(tmp2.loc[:tmp2.idxmax()],'--', linewidth = 2, color = 'black', alpha = alp)
-plot(tmp2.loc[tmp2.idxmax()+30000:],'--', linewidth = 2, color = 'black', alpha = alp)
+plot(tmp2.loc[tmp2.idxmax()+0.03:],'--', linewidth = 2, color = 'black', alpha = alp)
 ylim(0, 2*np.pi)
 xlim(ep.loc[0,'start'], ep.loc[0,'end'])
 yticks([])
@@ -402,10 +398,11 @@ yticks([])
 xticks([])
 gca().spines['left'].set_visible(False)
 gca().spines['bottom'].set_visible(False)
-plot(np.array([ep.end[0]-5e5, ep.end[0]]), [0, 0], linewidth = 3, color = 'black')
+plot(np.array([ep.end[0]-0.5, ep.end[0]]), [0, 0], linewidth = 3, color = 'black')
 xlabel('0.5s', horizontalalignment='right', x=1.0)
 # ylabel("HD neurons", labelpad = -10, fontsize = 10)
 # title("non-REM sleep", fontsize = 1)
+
 
 
 #################################################################################################################################
@@ -419,12 +416,13 @@ gscor = gs3
 wakeremaxis = []
 wakeswsaxis = []
 
-paths = ['/home/guillaume/LMNphysio/data/All_correlation_ADN.pickle',
-	'/home/guillaume/LMNphysio/data/All_correlation_ADN_LMN.pickle',
-	'/home/guillaume/LMNphysio/data/All_correlation.pickle'
+paths = [path2+'/All_correlation_ADN.pickle',
+	path2+'/All_correlation_ADN_LMN.pickle',
+	path2+'/All_correlation.pickle'
 ]
 names = ['ADN', 'ADN/LMN', 'LMN']
-clrs = ['lightgray', 'darkgray', 'gray']
+#clrs = ['lightgray', 'darkgray', 'gray']
+
 
 for i, (p, n) in enumerate(zip(paths, names)):
 	# 
@@ -444,7 +442,8 @@ for i, (p, n) in enumerate(zip(paths, names)):
 	if i == 0: ylabel('REM corr. (r)')
 	title(n)
 	#text(-0.6, 0.5, n, horizontalalignment='center', verticalalignment='center', transform=gca().transAxes, fontsize = 21)	
-	legend(handlelength = 0.3)
+	#legend(handlelength = 0.3)
+	legend(handlelength = 0.3, bbox_to_anchor=(0.7, -0.1, 0.5, 0.5))
 	ax = gca()
 	aspectratio=1.0
 	ratio_default=(ax.get_xlim()[1]-ax.get_xlim()[0])/(ax.get_ylim()[1]-ax.get_ylim()[0])
@@ -465,7 +464,7 @@ for i, (p, n) in enumerate(zip(paths, names)):
 	plot(x, x*m + b, color = 'red', label = 'r = '+str(np.round(r, 2)))
 	xlabel('Wake corr. (r)')
 	if i == 0: ylabel('non-REM corr. (r)')
-	legend(handlelength = 0.1)
+	legend(handlelength = 0.3, bbox_to_anchor=(0.7, -0.1, 0.5, 0.5))
 	ax = gca()
 	aspectratio=1.0
 	ratio_default=(ax.get_xlim()[1]-ax.get_xlim()[0])/(ax.get_ylim()[1]-ax.get_ylim()[0])
@@ -500,7 +499,7 @@ for l in [wakeremaxis, wakeswsaxis]:
 
 
 
-outergs.update(top= 0.98, bottom = 0.03, right = 0.96, left = 0.06)
+outergs.update(top= 0.97, bottom = 0.04, right = 0.96, left = 0.06)
 
-savefig("/home/guillaume/Dropbox (Peyrache Lab)/Applications/Overleaf/Cosyne 2022 poster/figures/fig1.png", dpi = 200, facecolor = 'white')
+savefig("/home/guillaume/Dropbox/Applications/Overleaf/Cosyne 2022 poster/figures/fig1.pdf", dpi = 200, facecolor = 'white')
 #show()

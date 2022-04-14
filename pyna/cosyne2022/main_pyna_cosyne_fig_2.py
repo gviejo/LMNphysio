@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 17:02:39
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2022-03-04 15:04:02
+# @Last Modified by:   gviejo
+# @Last Modified time: 2022-03-15 12:43:56
 import numpy as np
 import pandas as pd
 import sys
@@ -26,7 +26,7 @@ def figsize(scale):
 	inches_per_pt = 1.0/72.27                       # Convert pt to inch
 	golden_mean = (np.sqrt(5.0)-1.0) / 2           # Aesthetic ratio (you could change this)
 	fig_width = fig_width_pt*inches_per_pt*scale    # width in inches
-	fig_height = fig_width*golden_mean*1.1         # height in inches
+	fig_height = fig_width*golden_mean*1.0         # height in inches
 	fig_size = [fig_width,fig_height]
 	return fig_size
 
@@ -94,13 +94,15 @@ clrs = ['lightgray', 'gray', 'darkgray']
 
 #xlabels = ['ADN/ADN (ms)', 'LMN/ADN (ms)', 'LMN/LMN (ms)']
 
+path2 = '/home/guillaume/Dropbox/CosyneData'
 
-acc = cPickle.load(open(os.path.join('../../data', 'All_crosscor_ADN_LMN.pickle'), 'rb'))
+
+acc = cPickle.load(open(os.path.join(path2, 'All_crosscor_ADN_LMN.pickle'), 'rb'))
 allpairs = acc['pairs']
 cc_sws = acc['cc_sws']
 tcurves = acc['tcurves']
 
-accadn = cPickle.load(open(os.path.join('../../data', 'All_crosscor_ADN_adrien.pickle'), 'rb'))
+accadn = cPickle.load(open(os.path.join(path2, 'All_crosscor_ADN_adrien.pickle'), 'rb'))
 
 allpairs = pd.concat([allpairs, accadn['pairs']])
 cc_sws = pd.concat((cc_sws, accadn['cc_sws']), 1)
@@ -119,6 +121,7 @@ for i, n in enumerate(names):
 	pos2 = np.where(angdiff<np.deg2rad(40))[0]
 	pos3 = np.where(angdiff>np.deg2rad(140))[0]
 	clrs = ['red', 'green']
+	clrs = ['#E66100', '#5D3A9B']
 	idx = [group2[exn[i][0]], group3[exn[i][1]]]
 
 	# Tuning curves
@@ -207,5 +210,5 @@ for i, n in enumerate(names):
 # outergs.update(top= 0.93, bottom = 0.1, right = 0.98, left = 0.02)
 gs1.update(top= 0.95, bottom = 0.1, right = 0.98, left = 0.02)
 
-savefig("/home/guillaume/Dropbox (Peyrache Lab)/Applications/Overleaf/Cosyne 2022 poster/figures/fig2.png", dpi = 100, facecolor = 'white')
+savefig("/home/guillaume/Dropbox/Applications/Overleaf/Cosyne 2022 poster/figures/fig2.pdf", dpi = 100, facecolor = 'white')
 
