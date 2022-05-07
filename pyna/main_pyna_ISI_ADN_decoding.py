@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-07 18:43:39
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2022-03-11 15:53:37
+# @Last Modified time: 2022-03-12 14:56:19
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -164,4 +164,4 @@ show()
 
 datatosave = {'wak':allpisi_wak, 'sws':allpisi_sws, 'bins':bins, 'tc_wak':tcurves_wak, 'tc_sws':tcurves_sws}
 
-cPickle.dump(datatosave, open(os.path.join('../data/', 'PISI_ADN.pickle'), 'wb'))
+cPickle.dump(datatosave, open(os.path.join('../data/', 'PISI_ADN2.pickle'), 'wb'))

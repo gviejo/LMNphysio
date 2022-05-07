@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-02 18:27:24
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2022-03-03 11:06:23
+# @Last Modified time: 2022-04-01 14:25:01
 import numpy as np
 import matplotlib.pyplot as plt
 import pynapple as nap
@@ -45,15 +45,19 @@ for m in ['Mouse12', 'Mouse17', 'Mouse20', 'Mouse32']:
         rem_ep              = wtp.loadEpoch(data_directory+m+'/'+s, 'rem')
 
         hd_info             = scipy.io.loadmat(data_directory+m+'/'+s+'/Analysis/HDCells.mat')['hdCellStats'][:,-1]
-        hd_info_neuron      = np.array([hd_info[n] for n in spikes.keys()])     
+        hd_info_neuron      = np.array([hd_info[n] for n in spikes.keys()])             
 
         try:
-            data        = pd.read_csv(data_directory+m+"/"+s+"/"+s+ ".csv", delimiter = ',', header = None, index_col = [0])            
-            data.columns = ['ry']
+            ang        = pd.read_csv(data_directory+"PositionFiles"+"/"+m+"/"+s+"/"+s+ ".ang", delimiter = '\t', header = None, index_col = [0], names = ['ry'])
+            pos        = pd.read_csv(data_directory+"PositionFiles"+"/"+m+"/"+s+"/"+s+ ".pos", delimiter = '\t', header = None, index_col = [0], names=['x', 'z'])
+            data = pd.concat((ang, pos), 1)
         except:
             pass
 
-        if np.sum(hd_info_neuron)>5:
+        
+
+        
+        if np.sum(hd_info_neuron)>3:
 
             path1 = os.path.join(data_output, m, s)
             if not os.path.exists(path1):
@@ -72,6 +76,18 @@ for m in ['Mouse12', 'Mouse17', 'Mouse20', 'Mouse32']:
                     session_description=s,
                     identifier=s,
                 )
+
+                position = Position()        
+                for c in ['x', 'z']:
+                    tmp = SpatialSeries(
+                    name=c, 
+                    data=data[c].values, 
+                    timestamps=data.index.values, 
+                    unit='',
+                    reference_frame='')
+                    position.add_spatial_series(tmp)
+
+                nwbfile.add_acquisition(position)
 
                 direction = CompassDirection()
                 for c in ['ry']:
@@ -199,6 +215,8 @@ for m in ['Mouse12', 'Mouse17', 'Mouse20', 'Mouse32']:
 
                 # sys.exit()
                 allsessions.append('ADN/'+m+'/'+s+' # '+str(int(np.sum(hd_info_neuron))))
+
+                
 
 with open('/mnt/DataGuillaume/datasets_ADN.list', 'a') as f:
     for line in allsessions:

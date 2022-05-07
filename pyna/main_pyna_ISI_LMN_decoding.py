@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-07 18:43:39
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2022-03-11 16:10:29
+# @Last Modified time: 2022-03-12 15:00:57
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -110,7 +110,8 @@ for s in datasets:
 
         pisi_sws, xbins, ybins = compute_ISI_HD(spikes, sws_angle2, sws_ep, bins = bins)
         pisi_sws = np.array([pisi_sws[n].values for n in pisi_sws.keys()])        
-        
+                
+
         tuning_curves = nap.compute_1d_tuning_curves(spikes, sws_angle2, 120, minmax=(0, 2*np.pi), ep = sws_ep)
         tuning_curves = smoothAngularTuningCurves(tuning_curves, window = 20, deviation = 2.0)
 
@@ -155,7 +156,7 @@ show()
 
 datatosave = {'wak':allpisi_wak, 'sws':allpisi_sws, 'bins':bins, 'tc_wak':tcurves_wak, 'tc_sws':tcurves_sws}
 
-cPickle.dump(datatosave, open(os.path.join('../data/', 'PISI_LMN.pickle'), 'wb'))
+cPickle.dump(datatosave, open(os.path.join('../data/', 'PISI_LMN2.pickle'), 'wb'))
 
 
 # tcurves = tuning_curves
