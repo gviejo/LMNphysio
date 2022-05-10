@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2022-05-06 19:55:28
+# @Last Modified by:   gviejo
+# @Last Modified time: 2022-05-06 21:46:54
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -36,7 +36,7 @@ def figsize(scale):
 	golden_mean = (np.sqrt(5.0)-1.0) / 2           # Aesthetic ratio (you could change this)
 	#fig_width = fig_width_pt*inches_per_pt*scale    # width in inches
 	fig_width = 7
-	fig_height = fig_width*golden_mean*1.3         # height in inches
+	fig_height = fig_width*golden_mean*1.2         # height in inches
 	fig_size = [fig_width,fig_height]
 	return fig_size
 
@@ -60,9 +60,7 @@ def noaxis(ax):
 	# ax.xaxis.set_tick_params(size=6)
 	# ax.yaxis.set_tick_params(size=6)
 
-font_dir = ['/home/guillaume/Downloads/Merriweather',
-	'/home/guillaume/Downloads/Helvetica-Font'
-	]
+font_dir = ['/home/guillaume/Dropbox/CosyneData/figures_poster_2022']
 for font in font_manager.findSystemFonts(font_dir):
     font_manager.fontManager.addfont(font)
 
@@ -196,7 +194,7 @@ for i, st in enumerate([adn, lmn]):
 #########################
 # RASTER PLOTS
 #########################
-gs_raster = gridspec.GridSpecFromSubplotSpec(2,3, subplot_spec = gs1[0,2],  hspace = 0.1)
+gs_raster = gridspec.GridSpecFromSubplotSpec(2,3, subplot_spec = gs1[0,2],  hspace = 0.2)
 exs = { 'wak':nap.IntervalSet(start = 7590.0, end = 7600.0, time_units='s'),
 		'rem':nap.IntervalSet(start = 15710.150000, end= 15720.363258, time_units = 's'),
 		'sws':nap.IntervalSet(start = 4400600.000, end = 4402154.216186978, time_units = 'ms')}
@@ -258,13 +256,13 @@ for i, ep in enumerate(exs.keys()):
 
 
 		if i == 0 and j == 1:			
-			plot(np.array([exs[ep].end[0]-1, exs[ep].end[0]]), [0, 0], linewidth = 3, color = 'black')
+			plot(np.array([exs[ep].end[0]-1, exs[ep].end[0]]), [0, 0], linewidth = 1, color = 'black')
 			xlabel('1s', horizontalalignment='right', x=1.0)
 		if i == 1 and j == 1:			
-			plot(np.array([exs[ep].end[0]-1, exs[ep].end[0]]), [0, 0], linewidth = 3, color = 'black')
+			plot(np.array([exs[ep].end[0]-1, exs[ep].end[0]]), [0, 0], linewidth = 1, color = 'black')
 			xlabel('1s', horizontalalignment='right', x=1.0)
 		if i == 2 and j == 1:			
-			plot(np.array([exs[ep].end[0]-0.5, exs[ep].end[0]]), [0, 0], linewidth = 3, color = 'black')
+			plot(np.array([exs[ep].end[0]-0.5, exs[ep].end[0]]), [0, 0], linewidth = 1, color = 'black')
 			xlabel('0.5s', horizontalalignment='right', x=1.0)
 
 		if j == 0:
@@ -367,18 +365,24 @@ for ax in allaxis:
 #####################################################################################
 # Cross-correlogram
 #####################################################################################
-gscc = gridspec.GridSpecFromSubplotSpec(2,1, subplot_spec = gs2[0,1], hspace = 0.5, height_ratios = [0.5, 0.5])
+gscc = gridspec.GridSpecFromSubplotSpec(2,1, subplot_spec = gs2[0,1], hspace = 0.7, height_ratios = [0.5, 0.4])
 
 
 exs2 = { 'wak':nap.IntervalSet(start = 7590.0, end = 7600.0, time_units='s'),		
 		'sws':nap.IntervalSet(start = 4400600.000, end = 4402154.216186978, time_units = 'ms')}
 
-gscc1 = gridspec.GridSpecFromSubplotSpec(2,4, subplot_spec = gscc[0,0])
+gscc1 = gridspec.GridSpecFromSubplotSpec(2,6, 
+	subplot_spec = gscc[0,0], wspace = 0.4, 
+	width_ratios=[0.2, -0.05, 0.2, 0.05, 0.3, 0.3])
 
 #examples_neurons = dict(zip(names, [[0, 4], [0, 6]]))
 examples_neurons = dict(zip(names, [[0, 4], [2, 6]]))
 
 meanwaveforms = cPickle.load(open('/home/guillaume/Dropbox/CosyneData/A5011-201014A/MeanWaveForms.pickle', 'rb'))
+
+ep_names = ['Wake', 'nREM']
+
+
 
 for i, (n, st) in enumerate(zip(names, [adn, lmn])):
 	neurons = peaks[st].sort_values().index.values	
@@ -399,7 +403,7 @@ for i, (n, st) in enumerate(zip(names, [adn, lmn])):
 
 
 	# Tuning Curves
-	subplot(gscc1[i,1], projection='polar')
+	subplot(gscc1[i,2], projection='polar')
 	xticks([0, np.pi/2, np.pi, 3*np.pi/2], ['','','',''])
 	yticks([])
 	for j in range(2):
@@ -412,24 +416,34 @@ for i, (n, st) in enumerate(zip(names, [adn, lmn])):
 		
 	# Cross correlograms
 	for j, ep in enumerate([wake_ep, sws_ep]):
-		subplot(gscc1[i,j+2])
+		subplot(gscc1[i,j+4])
 		simpleaxis(gca())
 		if j == 0:
-			cc = nap.compute_crosscorrelogram(spikes[list(np.sort(ex_neurons))], 50, 4000, ep, time_units = 'ms')
-			cc = cc.loc[-2000:2000]		
-			fill_between(cc.index.values, np.zeros_like(cc.values.flatten()), cc.values.flatten(), color = 'grey')			
+			cc = nap.compute_crosscorrelogram(spikes[list(np.sort(ex_neurons))], 50, 4000, ep, time_units = 'ms', norm=False)
+			#cc = cc.loc[-2000:2000]		
+			fill_between(cc.index.values, np.zeros_like(cc.values.flatten()), cc.values.flatten(), color = clrs[i])			
+			
 		elif j == 1:		
-			cc = nap.compute_crosscorrelogram(spikes[list(np.sort(ex_neurons))], 2, 400, ep, time_units = 'ms')
-			cc = cc.loc[-200:200]		
-			fill_between(cc.index.values*1000, np.zeros_like(cc.values.flatten()), cc.values.flatten(), color = 'grey')			
+			cc = nap.compute_crosscorrelogram(spikes[list(np.sort(ex_neurons))], 2, 400, ep, time_units = 'ms', norm=False)
+			cc = cc.loc[-0.2:0.2]
+			fill_between(cc.index.values*1000, np.zeros_like(cc.values.flatten()), cc.values.flatten(), color = clrs[i])			
 
 		if i == 1 and j == 0:		
-			xticks([-3, 0, 3])			
+			xticks([-4, 0, 4])
+			xlabel("cross. corr (s)")
+			#xlim(-4,4)		
+			ylabel("Correlation (Hz)", y = 1)
 		elif i == 1 and j == 1:
 			xticks([-200,0,200])
+			#xlim(-200,200)
+			xlabel("cross. corr (ms)")
+			
 		else:
 			xticks([])
 
+
+		if i == 0:
+			title(ep_names[j])
 
 # AVERAGE CROSS_CORRELOGRAM
 gscc2 = gridspec.GridSpecFromSubplotSpec(1,3, subplot_spec = gscc[1,:])
@@ -496,7 +510,7 @@ for i, n in enumerate(names):
 	if i == 2:	
 		#######################################
 		cax1 = inset_axes(gca(), "20%", "30%",					
-		                   bbox_to_anchor=(0.86, 0.6, 1, 1),
+		                   bbox_to_anchor=(0.9, 0.6, 1, 1),
 		                   bbox_transform=gca().transAxes, 
 		                   loc = 'lower left',	                   
 		                   )
