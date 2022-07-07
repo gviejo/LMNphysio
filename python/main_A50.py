@@ -8,7 +8,7 @@ import sys
 from pycircstat.descriptive import mean as circmean
 
 
-data_directory = '/mnt/DataRAID/EPHYS/LMN-ADN/A5000/A5030/A5030-220218A'
+data_directory = '/mnt/DataGuillaume/LMN-ADN/A5002/A5002-200220A'
 
 
 episodes = ['sleep', 'wake', 'sleep']
@@ -17,9 +17,6 @@ episodes = ['sleep', 'wake', 'sleep']
 events = ['1']
 # events = ['1', '3', '4', '5']
 # events = ['1', '3', '5']
-
-
-
 
 
 

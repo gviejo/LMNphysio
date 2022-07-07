@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: gviejo
 # @Date:   2022-02-21 12:10:37
-# @Last Modified by:   gviejo
-# @Last Modified time: 2022-03-15 23:55:51
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2022-05-24 10:45:59
 
 import scipy.io
 import sys,os
@@ -207,6 +207,8 @@ isi_adn = isi_adn.rolling(window=50,win_type='gaussian',center=True,min_periods=
 ##########################################
 # FIGURES
 ##########################################
+from matplotlib.pyplot import *
+
 
 figure()
 ax = subplot(211)
