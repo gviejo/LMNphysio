@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-07-07 14:23:47
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2022-07-07 17:39:36
+# @Last Modified time: 2022-09-29 15:14:43
 import scipy.io
 import sys, os
 import numpy as np
@@ -16,7 +16,7 @@ from matplotlib.pyplot import *
 from sklearn.decomposition import KernelPCA
 from sklearn.manifold import Isomap
 
-path = '/mnt/Data2/LMN-PSB-2/A3019/A3019-220701A'
+path = '/mnt/Data2/LMN-PSB-2/A3019/A3019-220630A'
 data = nap.load_session(path, 'neurosuite')
 
 spikes = data.spikes.getby_threshold('freq', 1.0)
@@ -60,9 +60,15 @@ tmp = rates['lmn']['wak'].values
 imap = Isomap(n_components=2, n_neighbors=50).fit_transform(tmp[0:20000])
 
 figure()
-plot(imap[:,0], imap[:,1])
-show()
+plot(imap[:,0], imap[:,1], 'o')
 
+
+tmp = rates['psb']['wak'].values
+imap = Isomap(n_components=2, n_neighbors=50).fit_transform(tmp[0:20000])
+
+figure()
+plot(imap[:,0], imap[:,1], 'o')
+show()
 
 
 
