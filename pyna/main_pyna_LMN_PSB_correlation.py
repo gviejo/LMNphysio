@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-07-07 11:11:16
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2022-07-07 17:22:34
+# @Last Modified time: 2022-08-10 15:12:44
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -117,8 +117,14 @@ for s in datasets:
 allr = pd.concat(allr, 0)
 
 
-# datatosave = {'allr':allr}
-# cPickle.dump(datatosave, open(os.path.join('../data/', 'All_correlation_ADN_LMN.pickle'), 'wb'))
+datatosave = {'allr':allr}
+cPickle.dump(datatosave, open(os.path.join('../data/', 'All_correlation_ADN_LMN.pickle'), 'wb'))
+
+clrs = ['lightgray', 'gray']
+names = ['ADN', 'LMN']
+
+mkrs = 6
+
 
 
 figure()

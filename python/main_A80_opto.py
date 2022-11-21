@@ -9,13 +9,14 @@ from pycircstat.descriptive import mean as circmean
 from matplotlib.gridspec import GridSpecFromSubplotSpec
 
 
-data_directory = '/mnt/Data2/Opto/A8000/A8015/A8015-210827A'
+data_directory = '/media/sofia/Electrophysiology/A8034/A8034-221013'
 
-episodes = ['sleep', 'wake', 'sleep', 'wake']
+
+episodes = ['sleep', 'sleep', 'wake']
 # events = ['1', '3']
 
 # episodes = ['sleep', 'wake', 'sleep']
-events = ['1', '3']
+events = ['2']
 
 
 
@@ -50,14 +51,14 @@ tokeep, stat 						= findHDCells(tuning_curves, z=10, p = 0.001)
 
 #################
 # OPTO
-opto_ep = loadOptoEp(data_directory, epoch=0, n_channels = 2, channel = 0)
+opto_ep = loadOptoEp(data_directory, epoch=1, n_channels = 2, channel = 0)
 
 
 ################
 # SLEEP
 ################
 opto_ep = opto_ep.merge_close_intervals(40000)
-frates, rasters, bins, stim_duration = computeRasterOpto(spikes, opto_ep, 1000)
+frates, rasters, bins, stim_duration = computeRasterOpto(spikes, opto_ep, 50)
 
 
 
@@ -75,14 +76,17 @@ for j in np.unique(shank):
 		# plot(tuning_curves2[1][i], '--', color = colors[shank[i]-1])
 		if i in tokeep:
 			plot(tuning_curves[i], label = str(shank[i]) + ' ' + str(i), color = colors[shank[i]-1], linewidth = 3)
-		# legend()
+		legend()
 		count+=1
 		gca().set_xticklabels([])
 
 
 
-groups = np.array_split(list(spikes.keys()), 1)
+groups = np.array_split(list(spikes.keys()), 3)
+stim_duration = opto_ep.loc[0,'end'] - opto_ep.loc[0,'start']
 for i, neurons in enumerate(groups):		
+	# i = 0
+	# neurons = groups[0]
 	figure()
 	count = 1
 	for k,n in enumerate(neurons):
@@ -90,19 +94,27 @@ for i, neurons in enumerate(groups):
 		subgs = GridSpecFromSubplotSpec(2, 2, ax)
 		subplot(subgs[:,0], projection = 'polar')
 		plot(tuning_curves[n], label = str(shank[n]) + ' ' + str(n), color = colors[shank[n]-1])		
+		xticks([])
+		yticks([])	
 		subplot(subgs[0,1])		
 		bar(frates[n].index.values, frates[n].values, np.diff(frates[n].index.values)[0])
-		axvline(20000000)
-		axvline(40000000)
-		title(n)
+		axvline(stim_duration)
+		axvline(stim_duration*2)
+		title(n+2)
+		yticks([])
 		subplot(subgs[1,1])
 		plot(rasters[n], '.', markersize = 0.24)
+		title(n+2)
 		count+=1
 		gca().set_xticklabels([])
-		axvline(20000000)
-		axvline(40000000)
+		axvline(stim_duration)
+		axvline(stim_duration*2)
+		yticks([])
 
+#tight_layout()
+show()
 
+sys.exit()
 
 
 ############ WAKE##################################

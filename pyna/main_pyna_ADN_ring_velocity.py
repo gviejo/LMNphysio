@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-01 21:36:00
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2022-03-07 10:13:58
+# @Last Modified time: 2022-10-17 15:50:19
 import scipy.io
 import sys, os
 import numpy as np
@@ -34,7 +34,7 @@ spikes = spikes.getby_category('location')['adn']
 tuning_curves = nap.compute_1d_tuning_curves(spikes, angle, 120, minmax=(0, 2*np.pi), ep = angle.time_support.loc[[0]])
 tuning_curves = smoothAngularTuningCurves(tuning_curves)
 SI = nap.compute_1d_mutual_info(tuning_curves, angle, angle.time_support.loc[[0]], minmax=(0,2*np.pi))
-spikes.set_info(SI=SI)
+spikes.set_info(SI)
 spikes = spikes.getby_threshold('SI', 0.7, op = '>')
 
 
@@ -77,6 +77,29 @@ rates = np.vstack([ratesws.values, ratewak.values])
 group = np.hstack((np.ones(len(ratesws)), np.zeros(len(ratewak))))
 
 clrs = np.vstack([np.ones((len(ratesws),3))*0.2, rgb.values])
+
+
+##########################
+# STUFF FOR PYNAPPLE PAPER
+ump = Isomap(n_neighbors = 100, n_components = 2).fit_transform(ratewak)
+
+tc = tuning_curves[list(spikes.keys())]
+adn = tc.idxmax().sort_values().index
+pfd = tc.idxmax()[adn]
+ex = nap.IntervalSet(start = 9480, end = 9494)
+figure(figsize = (9,3))
+subplot(121)
+for i,n in enumerate(adn):
+	HSV = np.ones(3)
+	HSV[0] = pfd[n]/(2*np.pi)
+	RGB = hsv_to_rgb(HSV)
+
+    plot(spikes[n].restrict(ex).fillna(pfd[n]), '|', color = RGB, markersize = 10)
+plot(angle.restrict(ex), color = 'black')
+subplot(122)
+scatter(ump[1000:2000,0], ump[1000:2000,1], 100, color = rgb.values[1000:2000], alpha = 1)
+savefig("/home/guillaume/Dropbox/PynapplePaper/raster_ring.pdf", dpi = 200)
+show()
 
 
 

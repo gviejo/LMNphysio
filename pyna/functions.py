@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-02-28 16:16:36
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2022-03-11 18:50:24
+# @Last Modified time: 2022-08-11 17:17:28
 import numpy as np
 from numba import jit
 import pandas as pd
@@ -175,7 +175,11 @@ def smoothAngle(angle, std):
     tmp = pd.Series(index = t, data = d)
     tmp = tmp.rolling(window=100,win_type='gaussian',center=True,min_periods=1).mean(std=std)
     tmp = tmp%(2*np.pi)
-    return nap.Tsd(tmp, time_support = angle.time_support)
+    try:
+        tmp = nap.Tsd(tmp, time_support = angle.time_support)
+    except:
+        tmp = nap.Tsd(tmp)
+    return tmp
 
 def getAngularVelocity(angle, bin_size = None):
     dv = np.abs(np.diff(np.unwrap(angle.values)))
@@ -277,3 +281,14 @@ def decode_xgb(spikes, eptrain, bin_size_train, eptest, bin_size_test, angle, st
     angle_predi, proba, bst = xgb_decodage(Xr=rate_train, Yr=angle2, Xt=rate_test)
 
     return angle_predi, proba
+
+def correlate_TC_half_epochs(spikes, feature, nb_bins, minmax):
+    two_ep = splitWake(feature.time_support.loc[[0]])
+    tcurves2 = []
+    for j in range(2):
+        tcurves_half = nap.compute_1d_tuning_curves(spikes, feature, nb_bins, minmax=minmax, ep = two_ep.loc[[j]])
+        tcurves_half = smoothAngularTuningCurves(tcurves_half, 20, 3)
+        tcurves2.append(tcurves_half)
+    r = np.diag(np.corrcoef(tcurves2[0].values.T, tcurves2[1].values.T)[0:len(spikes), len(spikes):])
+    r = pd.Series(index=list(spikes.keys()), data = r)
+    return r

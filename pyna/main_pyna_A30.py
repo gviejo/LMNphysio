@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-06-14 11:23:07
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2022-07-07 10:55:44
+# @Last Modified time: 2022-11-18 17:47:30
 import scipy.io
 import sys, os
 import numpy as np
@@ -18,15 +18,17 @@ import seaborn as sns
 sns.set_theme()
 
 
-path = '/mnt/Data2/LMN-PSB-2/A3019/A3019-220701A'
+path = '/mnt/DataRAID2/LMN-PSB/A3020/A3020-220723A'
+#path = '/mnt/Data2/LMN-PSB-2/A3018/A3018-220614A'
+
 data = nap.load_session(path, 'neurosuite')
 
-spikes = data.spikes.getby_threshold('freq', 1.0)
+spikes = data.spikes.getby_threshold('rate', 1.0)
 angle = data.position['ry']
 wake_ep = data.epochs['wake']
 sleep_ep = data.epochs['sleep']
 
-sws_ep = data.read_neuroscope_intervals("sws")
+# sws_ep = data.read_neuroscope_intervals("sws")
 
 tuning_curves = nap.compute_1d_tuning_curves(spikes, angle, 120, minmax=(0, 2*np.pi), ep = angle.time_support.loc[[0]])
 tuning_curves = smoothAngularTuningCurves(tuning_curves, window = 20, deviation = 3.0)
