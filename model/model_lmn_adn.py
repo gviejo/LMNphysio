@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: gviejo
 # @Date:   2022-02-21 12:10:37
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2022-05-24 10:45:59
+# @Last Modified by:   gviejo
+# @Last Modified time: 2022-11-17 23:13:22
 
 import scipy.io
 import sys,os
@@ -19,7 +19,7 @@ data = nap.load_session('/home/guillaume/Dropbox/LMN/A5000/A5011/A5011-201011A',
 spikes = data.spikes.getby_category("location")["lmn"]
 # spikes = data.spikes.getby_category("group")[2]
 
-spikes = spikes.getby_threshold('freq', 1.0)
+spikes = spikes.getby_threshold('rate', 1.0)
 angle = data.position['ry']
 wake_ep = data.epochs['wake']
 sleep_ep = data.epochs['sleep']

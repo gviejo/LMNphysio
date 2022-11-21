@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   gviejo
-# @Last Modified time: 2022-03-16 11:22:26
+# @Last Modified time: 2022-11-19 21:56:00
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -84,7 +84,7 @@ lmn = spikes._metadata[spikes._metadata["location"] == "lmn"].index.values
 tuning_curves = nap.compute_1d_tuning_curves(spikes, angle, 120, minmax=(0, 2*np.pi))
 tuning_curves = smoothAngularTuningCurves(tuning_curves)
 SI = nap.compute_1d_mutual_info(tuning_curves, angle, angle.time_support.loc[[0]], minmax=(0,2*np.pi))
-spikes.set_info(SI=SI)
+spikes.set_info(SI)
 spikes = spikes.getby_threshold('SI', 0.1, op = '>')
 tuning_curves = tuning_curves[spikes.keys()]
 
