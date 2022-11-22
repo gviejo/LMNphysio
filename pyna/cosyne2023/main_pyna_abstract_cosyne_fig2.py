@@ -12,6 +12,7 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import matplotlib.font_manager as font_manager
 #matplotlib.style.use('seaborn-paper')
 from scipy.ndimage import gaussian_filter
+from matplotlib.colors import hsv_to_rgb
 
 from pycircstat.descriptive import mean as circmean
 import _pickle as cPickle

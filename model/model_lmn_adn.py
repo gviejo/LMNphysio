@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: gviejo
 # @Date:   2022-02-21 12:10:37
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2022-11-22 10:58:37
+# @Last Modified by:   gviejo
+# @Last Modified time: 2022-11-22 13:04:53
 
 import scipy.io
 import sys,os
@@ -15,11 +15,14 @@ import sys
 from itertools import combinations, product
 
 # data = nap.load_session('A5002-200303B', 'neurosuite')
-data = nap.load_session('/home/guillaume/Dropbox/LMN/A5000/A5011/A5011-201011A', 'neurosuite')
+name = 'A5011-201014A'
+path = '/home/guillaume/Dropbox/CosyneData/A5011-201014A'
+
+data = nap.load_session(path, 'neurosuite')
 spikes = data.spikes.getby_category("location")["lmn"]
 # spikes = data.spikes.getby_category("group")[2]
 
-spikes = spikes.getby_threshold('freq', 1.0)
+spikes = spikes.getby_threshold('rate', 1.0)
 angle = data.position['ry']
 wake_ep = data.epochs['wake']
 sleep_ep = data.epochs['sleep']
@@ -36,10 +39,8 @@ lmn_neurons = tuning_curves.idxmax().sort_values()
 # 	end = wake_ep.loc[0, 'end']# + 1000.0
 # 	# end = wake_ep.loc[0, 'end'] + wake_ep.tot_length()
 # 	)
-restrict_ep = nap.IntervalSet(
-	start = sws_ep.loc[0, 'start'],
-	end = sws_ep.loc[0, 'start'] + 1000.0,
-	)
+
+restrict_ep = nap.IntervalSet(start = 4400000.000, end = 4402154.216186978, time_units = 'ms')
 
 
 spk_times = []
@@ -74,7 +75,7 @@ tau_lmn = 100 * ms
 
 dt_lmn = 1 * ms
 
-n_lmn = len(np.unique(spk_times.values))
+n_lmn = len(lmn_neurons)
 
 indices = spk_times.values
 spk_times = spk_times.index.values * ms
@@ -208,20 +209,25 @@ isi_adn = isi_adn.rolling(window=50,win_type='gaussian',center=True,min_periods=
 # FIGURES
 ##########################################
 from matplotlib.pyplot import *
+from matplotlib.colors import hsv_to_rgb
 
 
 figure()
 ax = subplot(211)
-[plot(simspikes[n].fillna(peaks.loc[n]), '.g') for n in adn_idx]
+for i, n in enumerate(adn_idx):
+	clr = hsv_to_rgb([lmn_neurons.iloc[i]/(2*np.pi),0.6,0.6])
+	plot(simspikes[n].fillna(peaks.loc[i]), '|', color = clr)
 # plot(inh_mon.t/second, inh_mon.i+2*np.pi, '.y')
-plot(angle.restrict(new_ep))
+# plot(angle.restrict(new_ep))
 plot()
 ylabel("ADN")
 subplot(212, sharex = ax)
-[plot(simspikes[n].fillna(peaks.loc[n]), '.r') for n in lmn_idx]
+for n in lmn_idx:
+	clr = hsv_to_rgb([lmn_neurons.iloc[n]/(2*np.pi),0.6,0.6])
+	plot(simspikes[n].fillna(peaks.loc[n]), '|', color = clr)
 ylabel("LMN")
-plot(angle.restrict(new_ep))
-
+# plot(angle.restrict(new_ep))
+ylim(0, 2*np.pi)
 
 
 
