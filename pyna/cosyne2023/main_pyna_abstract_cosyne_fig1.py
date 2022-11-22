@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   gviejo
-# @Last Modified time: 2022-11-20 23:20:11
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2022-11-21 11:48:49
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -149,12 +149,12 @@ peaks = tmp['peaks']
 
 markers = ['d', 'o', 'v']
 
-fig = figure(figsize = figsize(0.65))
+fig = figure(figsize = figsize(0.6))
 
 outergs = GridSpec(1,1, figure = fig)#, height_ratios = [0.5, 0.4], hspace = 0.4)
 
 #####################################
-gs1 = gridspec.GridSpecFromSubplotSpec(1,4, subplot_spec = outergs[0,0], width_ratios = [0.08, 0.3, 0.2, 0.2], wspace=0.4, hspace=0.52)
+gs1 = gridspec.GridSpecFromSubplotSpec(1,4, subplot_spec = outergs[0,0], width_ratios = [0.08, 0.3, 0.2, 0.2], wspace=0.3, hspace=0.52)
 
 names = ['ADN', 'LMN']
 
@@ -275,7 +275,7 @@ for i, ep in enumerate(exs.keys()):
 
 # gscor = gridspec.GridSpecFromSubplotSpec(2,2, subplot_spec = gs2[0,0], wspace = 0.5, hspace = 0.5)
 
-gscor = gridspec.GridSpecFromSubplotSpec(2,1, subplot_spec = gs1[0,2],  hspace = 0.3)
+gscor = gridspec.GridSpecFromSubplotSpec(2,1, subplot_spec = gs1[0,2],  hspace = 0.44)
 
 allaxis = []
 
@@ -428,7 +428,7 @@ for ax in allaxis:
 ######################################################################
 # AVERAGE CROSS_CORRELOGRAM
 ######################################################################
-gscc2 = gridspec.GridSpecFromSubplotSpec(3,1, subplot_spec = gs1[0,3], height_ratios=[0.3,0.3,0.1], hspace=0.3, wspace=0.35)
+gscc2 = gridspec.GridSpecFromSubplotSpec(3,1, subplot_spec = gs1[0,3], height_ratios=[0.3,0.3,0.1], hspace=0.4, wspace=0.35)
 
 names = ['ADN/ADN', 'LMN/LMN']
 ks = ['adn-adn', 'lmn-lmn']
@@ -495,7 +495,7 @@ for i, n in enumerate(names):
 	if i == 1:	
 		#######################################
 		cax1 = inset_axes(gca(), "30%", "40%",					
-		                   bbox_to_anchor=(0.4, -0.9, 1, 1),
+		                   bbox_to_anchor=(0.4, -1, 1, 1),
 		                   bbox_transform=gca().transAxes, 
 		                   loc = 'lower left',	                   
 		                   )
@@ -504,7 +504,7 @@ for i, n in enumerate(names):
 		for j,gr,ps in zip(range(2),[group2, group3],[pos2,pos3]):
 			plot(ps, allpairs.loc[gr, 'ang diff'].values, '-', color = clrs[j], linewidth = 3)
 		xlabel("Pairs")
-		ylabel("Angular \n diff.", rotation = 0, y = 0.25, labelpad=10)
+		ylabel("Angular \n diff.", rotation = 0, y = 0.2, labelpad=10)
 		xticks([])
 		yticks([])
 		simpleaxis(gca())
@@ -529,7 +529,7 @@ for i, n in enumerate(names):
 
 
 
-outergs.update(top= 0.95, bottom = 0.14, right = 0.99, left = 0.06)
+outergs.update(top= 0.95, bottom = 0.15, right = 0.99, left = 0.06)
 
 savefig("/home/guillaume/Dropbox/Applications/Overleaf/Cosyne 2023 abstract submission/fig_1.pdf", dpi = 200, facecolor = 'white')
 #show()

@@ -127,7 +127,7 @@ mks = 2
 alp = 1
 medw = 0.8
 	
-gs1 = gridspec.GridSpecFromSubplotSpec(2,3, outergs[0,0], hspace = 0.25, wspace = 0.4, height_ratios=[0.4, 0.6], width_ratios=[0.06, 0.6, 0.6])
+gs1 = gridspec.GridSpecFromSubplotSpec(2,3, outergs[0,0], hspace = 0.3, wspace = 0.4, height_ratios=[0.4, 0.6], width_ratios=[0.06, 0.6, 0.6])
 
 
 
@@ -164,11 +164,13 @@ for j, e in enumerate(['wak', 'sws']):
 		isi_angle = isi_angle.restrict(exs[e])
 
 		# isi_angle = isi_angle.value_from(isi, exs[e])
-		plot(isi_angle, '.-', color = clrs[i], linewidth = 1, markersize = 1)
+		plot(isi_angle, '.-', color = clrs[i], linewidth = 1, markersize = 1, label=names[i])
 		xlim(exs[e].loc[0,'start'], exs[e].loc[0,'end'])
 	xticks([])
 	title(Epochs[j])
-	if j == 0: ylabel('ISI (s)', labelpad=15, rotation=0, y=0.4)
+	if j == 0: 
+		ylabel('ISI (s)', labelpad=15, rotation=0, y=0.4)
+		legend(frameon=False, handlelength = 0.5, bbox_to_anchor=(0.64,0.3))
 
 	subplot(gs1[1,j+1])	
 	simpleaxis(gca())
@@ -197,7 +199,9 @@ for j, e in enumerate(['wak', 'sws']):
 		
 	xlim(exs[e].loc[0,'start'], exs[e].loc[0,'end'])
 
-	xlabel(str(int(exs[e].tot_length('s')))+' s', horizontalalignment='right', x=1.0)	
+	xlabel(str(int(exs[e].tot_length('s')))+' s')
+	gca().xaxis.set_label_coords(0.9, -0.05)
+
 	if j == 0:
 		yticks([0, 2*np.pi], [0, 360])
 		ylabel("Head\ndirection")
@@ -213,8 +217,8 @@ for j, e in enumerate(['wak', 'sws']):
 ########################################################################################
 # ISI HD MAPS
 ########################################################################################
-gs1 = gridspec.GridSpecFromSubplotSpec(1,6, outergs[1,0], wspace = 0.1, hspace = 0.05,
-	width_ratios=[0.06, 0.1, 0.1, 0.1, 0.1, 0.1])
+gs1 = gridspec.GridSpecFromSubplotSpec(1,8, outergs[1,0], wspace = 0.1, hspace = 0.05,
+	width_ratios=[0.06, 0.1, 0.1, 0.06, 0.1, 0.1, 0.01,0.01])
 
 pisi = {'adn':cPickle.load(open(os.path.join(path2, 'PISI_ADN.pickle'), 'rb')),
 		'lmn':cPickle.load(open(os.path.join(path2, 'PISI_LMN.pickle'), 'rb'))}
@@ -238,108 +242,73 @@ for j, e in enumerate(['wak', 'sws']):
 		tmp2 = np.hstack((tmp, tmp, tmp))
 		tmp2 = gaussian_filter(tmp2, sigma=(1,1))
 		tmp3 = tmp2[:,tmp.shape[1]:tmp.shape[1]*2]		
-		imshow(tmp3, cmap = 'jet', aspect= 'auto')		
+		im = imshow(tmp3, cmap = 'jet', aspect= 'auto')		
 		xticks([tmp3.shape[1]//4, tmp3.shape[1]//2, 3*tmp3.shape[1]//4], ['-90', '0', '90'])
 		yticks(xt, ['',''])
 		if i == 1:
 			xlabel('Centered HD')
-			gca().xaxis.set_label_coords(.1, -0.4)
+			gca().xaxis.set_label_coords(.1, -0.3)
 		if st == 'adn':
 			yticks(xt, ['$10^{-2}$', '$10^0$'])
 		if j == 0 and i == 0:
 			ylabel('ISI (s)')
-		
+
 		title(names[i], pad=0)
 		tmp4 = tmp3.mean(1)
 		tmp4 = tmp4/tmp4.sum()
 		pisihd.append(tmp4)
 
-
+		
+		if j == 1 and i == 1:
+			cax = subplot(gs1[0,-2])
+			colorbar(im, cax=cax)
+			title("P", pad=1)
 
 		cnt += 1
 
 ############################################################################
 # MODEL
 ############################################################################
-gsmodel = gridspec.GridSpecFromSubplotSpec(1,4, outergs[3,0])#, hspace = 0.2, wspace = 0.2)
-subplot(gsmodel[0,0])
-simpleaxis(gca())
+gsmodel = gridspec.GridSpecFromSubplotSpec(2,4, outergs[3,0], width_ratios=[0.02, 0.14, 0.2, 0.2], hspace = 0.4, wspace = 0.4)
 
+
+# Model
 IO_fr = pd.read_hdf(path2+'/IO_fr.hdf')
 
-plot(IO_fr['lmn'], 'o-', color = clrs[1], label = 'Integrator', markersize = 1, linewidth =1)
+subplot(gsmodel[:,1])
+# plot(IO_fr['lmn'], 'o-', color = clrs[1], label = 'Integrator', markersize = 1, linewidth =1)
 plot(IO_fr['adn'], 'o-', color = clrs[0], label = 'Activator', markersize = 1 , linewidth =1)
 
-
-legend(handlelength = 0.8, frameon=False, bbox_to_anchor=(0.5, -0.1, 0.5, 0.5))
+# legend(handlelength = 0.8, frameon=False, bbox_to_anchor=(0.5, -0.1, 0.5, 0.5))
 
 xlabel("Input (Hz)")
 ylabel("Ouput (Hz)")
+title("Activation model")
 
 
-########################################################################################
+# Raster plot
+subplot(gsmodel[0,2])
+simpleaxis(gca())
+
+# raster plot simulation
+subplot(gsmodel[1,2])
+simpleaxis(gca())
+
 # CC
-########################################################################################
-
-
-
-path2 = '/home/guillaume/Dropbox/CosyneData'
-
-exn = [[50,-2],[0,-1],[1,-2]]
-
-acc = cPickle.load(open(os.path.join(path2, 'All_crosscor_ADN_LMN.pickle'), 'rb'))
-allpairs = acc['pairs']
-cc_sws = acc['cc_sws']
-tcurves = acc['tcurves']
-
-accadn = cPickle.load(open(os.path.join(path2, 'All_crosscor_ADN_adrien.pickle'), 'rb'))
-
-allpairs = pd.concat([allpairs, accadn['pairs']])
-cc_sws = pd.concat((cc_sws, accadn['cc_sws']), 1)
-tcurves = pd.concat((tcurves, accadn['tcurves']), 1)
-
-
-subpairs = allpairs[allpairs['struct']=='adn-adn']
-group = subpairs.sort_values(by='ang diff').index.values
-
-angdiff = allpairs.loc[group,'ang diff'].values.astype(np.float32)
-group2 = group[angdiff<np.deg2rad(40)]
-group3 = group[angdiff>np.deg2rad(140)]
-pos2 = np.where(angdiff<np.deg2rad(40))[0]
-pos3 = np.where(angdiff>np.deg2rad(140))[0]
-clrs = ['red', 'green']
-clrs = ['#E66100', '#5D3A9B']
-idx = [group2[exn[0][0]], group3[exn[0][1]]]
-i = 0
-
-# Tuning curves
-gstuningc = gridspec.GridSpecFromSubplotSpec(2,1, gsmodel[0,1])#, hspace = 0.2, wspace = 0.2)
-for j in range(2):
-	subplot(gstuningc[j], projection = 'polar')
-	tmp = tcurves[list(idx[j])]
-	tmp = tmp.dropna()
-	if i == 0: 
-		tmp = tmp.rolling(window=10,win_type='gaussian',center=True,min_periods=1).mean(std=1.0)			
-	tmp = tmp/tmp.max()
-	plot(tmp.iloc[:,0], linewidth = 1, color = clrs[j])
-	plot(tmp.iloc[:,1], linewidth = 1, color = clrs[j])		
-	gca().set_xticks([0, np.pi/2, np.pi, 3*np.pi/2])
-	gca().set_xticklabels([])
-	gca().set_yticks([])	
-
 
 titles = ['Integrator', 'Activator']
 clrs = ['#E66100', '#5D3A9B']
 
 data = cPickle.load(open(os.path.join(path2, 'MODEL_CC.pickle'), 'rb'))
 
-for i, st in enumerate(['int-int', 'adn-adn']):
-	subplot(gsmodel[0,i+2])
+# for i, st in enumerate(['int-int', 'adn-adn']):
+for i, st in enumerate(['adn-adn']):
+	subplot(gsmodel[:,3])
 	simpleaxis(gca())
 	for j in range(2):
 		m = data[st][j]['m']
 		s = data[st][j]['s']
-		plot(m.index.values*1000, m.values, color = clrs[j], linewidth = 3)
+		plot(m.index.values*1000, m.values, color = clrs[j], linewidth = 1)
 		fill_between(m.index.values*1000, m-s, m+s, alpha = 0.2, color = clrs[j])
 	gca().spines['left'].set_position('center')
 	gca().text(0.6, 0.96, 'z', horizontalalignment='center', verticalalignment='center', transform=gca().transAxes)
@@ -349,7 +318,7 @@ for i, st in enumerate(['int-int', 'adn-adn']):
 	locator_params(axis='y', nbins=3)
 
 
-	title(titles[i], pad = 13)
+	# title("Model", pad = 13)
 
 
 
