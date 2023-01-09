@@ -9,14 +9,14 @@ from pycircstat.descriptive import mean as circmean
 from matplotlib.gridspec import GridSpecFromSubplotSpec
 
 
-data_directory = '/media/sofia/Electrophysiology/A8034/A8034-221013'
+data_directory = '/mnt/Data2/Opto/A8000/A8036/A8036-221216'
 
 
-episodes = ['sleep', 'sleep', 'wake']
+episodes = ['sleep', 'sleep', 'wake', 'wake']
 # events = ['1', '3']
 
 # episodes = ['sleep', 'wake', 'sleep']
-events = ['2']
+events = ['2', '3']
 
 
 
@@ -72,8 +72,7 @@ for j in np.unique(shank):
 	neurons = np.where(shank == j)[0]
 	for k,i in enumerate(neurons):
 		subplot(int(np.sqrt(len(spikes)))+1,int(np.sqrt(len(spikes)))+1,count, projection = 'polar')
-		plot(tuning_curves[i], label = str(shank[i]) + ' ' + str(i), color = colors[shank[i]-1])
-		# plot(tuning_curves2[1][i], '--', color = colors[shank[i]-1])
+		plot(tuning_curves[i], label = str(shank[i]) + ' ' + str(i), color = colors[shank[i]-1])		
 		if i in tokeep:
 			plot(tuning_curves[i], label = str(shank[i]) + ' ' + str(i), color = colors[shank[i]-1], linewidth = 3)
 		legend()
@@ -93,7 +92,7 @@ for i, neurons in enumerate(groups):
 		ax = subplot(int(np.sqrt(len(neurons)))+1,int(np.sqrt(len(neurons)))+1,count)
 		subgs = GridSpecFromSubplotSpec(2, 2, ax)
 		subplot(subgs[:,0], projection = 'polar')
-		plot(tuning_curves[n], label = str(shank[n]) + ' ' + str(n), color = colors[shank[n]-1])		
+		# plot(tuning_curves[n], label = str(shank[n]) + ' ' + str(n), color = colors[shank[n]-1])		
 		xticks([])
 		yticks([])	
 		subplot(subgs[0,1])		
@@ -111,7 +110,12 @@ for i, neurons in enumerate(groups):
 		axvline(stim_duration*2)
 		yticks([])
 
+figure()
+
 #tight_layout()
+muahd = {0:nts.Ts(np.sort(np.hstack([spikes[n].index.values for n in tokeep])))}
+frates, rasters, bins, stim_duration = computeRasterOpto(muahd, opto_ep, 50)
+
 show()
 
 sys.exit()
@@ -120,9 +124,9 @@ sys.exit()
 ############ WAKE##################################
 # WAAKE
 ################
-opto_ep = loadOptoEp(data_directory, epoch=3, n_channels = 2, channel = 0)
+opto_ep = loadOptoEp(data_directory, epoch=2, n_channels = 2, channel = 0)
 opto_ep = opto_ep.merge_close_intervals(40000)
-frates, rasters, bins, stim_duration = computeRasterOpto(spikes, opto_ep, 1000)
+frates, rasters, bins, stim_duration = computeRasterOpto(spikes, opto_ep, 100)
 stim_duration = opto_ep.loc[0,'end'] - opto_ep.loc[0,'start']
 start = []
 end = []
@@ -141,7 +145,7 @@ tc_opto = smoothAngularTuningCurves(tc_opto, 10, 2)
 
 
 
-groups = np.array_split(list(spikes.keys()), 1)
+groups = np.array_split(list(spikes.keys()), 3)
 for i, neurons in enumerate(groups):		
 	figure()
 	count = 1
@@ -164,5 +168,5 @@ for i, neurons in enumerate(groups):
 		xlim(frates.index[0], frates.index[-1])
 		axvline(stim_duration)
 		axvline(stim_duration*2)
-
+show()
 

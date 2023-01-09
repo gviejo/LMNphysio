@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   gviejo
-# @Last Modified time: 2022-05-06 21:46:54
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2022-12-29 18:25:47
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -382,7 +382,7 @@ meanwaveforms = cPickle.load(open('/home/guillaume/Dropbox/CosyneData/A5011-2010
 
 ep_names = ['Wake', 'nREM']
 
-
+sys.exit()
 
 for i, (n, st) in enumerate(zip(names, [adn, lmn])):
 	neurons = peaks[st].sort_values().index.values	

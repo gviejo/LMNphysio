@@ -85,7 +85,7 @@ rcParams['axes.axisbelow'] = True
 
 markers = ['d', 'o', 'v']
 
-fig = figure(figsize = figsize(1.7))
+fig = figure(figsize = figsize(2))
 
 outergs = gridspec.GridSpec(4, 1, figure=fig, height_ratios = [0.5, 0.35, 0.01, 0.5], wspace = 0.5, hspace = 0.5)
 
@@ -270,30 +270,84 @@ for j, e in enumerate(['wak', 'sws']):
 ############################################################################
 # MODEL
 ############################################################################
-gsmodel = gridspec.GridSpecFromSubplotSpec(2,4, outergs[3,0], width_ratios=[0.02, 0.14, 0.2, 0.2], hspace = 0.4, wspace = 0.4)
+gsmodel = gridspec.GridSpecFromSubplotSpec(2,5, outergs[3,0], width_ratios=[0.02, 0.1, 0.02, 0.2, 0.2], hspace = 0.4, wspace = 0.5)
 
 
 # Model
 IO_fr = pd.read_hdf(path2+'/IO_fr.hdf')
 
-subplot(gsmodel[:,1])
+subplot(gsmodel[0,1])
 # plot(IO_fr['lmn'], 'o-', color = clrs[1], label = 'Integrator', markersize = 1, linewidth =1)
-plot(IO_fr['adn'], 'o-', color = clrs[0], label = 'Activator', markersize = 1 , linewidth =1)
+plot(IO_fr['adn'], '-', color = clrs[0], label = 'Activator', markersize = 1 , linewidth =1)
 
-# legend(handlelength = 0.8, frameon=False, bbox_to_anchor=(0.5, -0.1, 0.5, 0.5))
+ax = gca()
+aspectratio=1.0
+ratio_default=(ax.get_xlim()[1]-ax.get_xlim()[0])/(ax.get_ylim()[1]-ax.get_ylim()[0])
+#ax.set_aspect(ratio_default*aspectratio)
+ax.set_aspect(1)
+
+
 
 xlabel("Input (Hz)")
 ylabel("Ouput (Hz)")
-title("Activation model")
 
 
-# Raster plot
-subplot(gsmodel[0,2])
+data = cPickle.load(open(os.path.join(path2, 'MODEL_RASTER.pickle'), 'rb'))
+adn_spikes = data['adn_spikes']
+lmn_spikes = data['lmn_spikes']
+tmp3  = data['angle']
+peaks = data['peak']
+ep = data['ep']
+ex_ep = nap.IntervalSet(start=0, end=ep.tot_length("s"))
+
+mks = 1
+alp = 1
+medw = 0.5
+
+# Raster plot simulation
+subplot(gsmodel[0,3])
 simpleaxis(gca())
+gca().spines['bottom'].set_visible(False)
 
-# raster plot simulation
-subplot(gsmodel[1,2])
+tmp3 = tmp3.as_series().rolling(window=40,win_type='gaussian',center=True,min_periods=1).mean(std=2.0)
+
+plot(tmp3, linewidth = 1, color = 'gray', alpha = alp, label = "Head-direction")
+
+for k, n in enumerate(adn_spikes.index):
+	spk = adn_spikes[n].index.values
+	if len(spk):		
+		peak = peaks.loc[n]
+		clr = hsv_to_rgb([peak/(2*np.pi),0.6,0.6])
+		plot(spk, np.ones_like(spk)*peak, '|', color = clr, markersize = mks, markeredgewidth = medw, alpha = alp)
+
+ylim(0, 2*np.pi)
+title("ADN activation model")
+xticks([])
+yticks([0, 2*np.pi], ["0", "360"])
+ylabel("Head-direction", y=0)
+
+
+# raster plot
+subplot(gsmodel[1,3])
 simpleaxis(gca())
+gca().spines['bottom'].set_visible(False)
+
+plot(tmp3, linewidth = 1, color = 'gray', alpha = alp, label="HD")
+for k, n in enumerate(lmn_spikes.index):
+	spk = lmn_spikes[n].index.values
+	if len(spk):		
+		peak = peaks.loc[n]
+		clr = hsv_to_rgb([peak/(2*np.pi),0.6,0.6])
+		plot(spk, np.ones_like(spk)*peak, '|', color = clr, markersize = mks, markeredgewidth = medw, alpha = alp)
+ylim(0, 2*np.pi)
+xticks([])
+yticks([0, 2*np.pi], ["0", "360"])
+title("LMN", y=0.7)
+
+plot(np.array([ex_ep.end[0]-1, ex_ep.end[0]]), [0, 0], linewidth = 1, color = 'black')
+xlabel('1s', horizontalalignment='right', x=1.0)
+
+legend(frameon=False, handlelength = 0.5, bbox_to_anchor=(0.5,-0.0))
 
 # CC
 
@@ -304,7 +358,7 @@ data = cPickle.load(open(os.path.join(path2, 'MODEL_CC.pickle'), 'rb'))
 
 # for i, st in enumerate(['int-int', 'adn-adn']):
 for i, st in enumerate(['adn-adn']):
-	subplot(gsmodel[:,3])
+	subplot(gsmodel[:,4])
 	simpleaxis(gca())
 	for j in range(2):
 		m = data[st][j]['m']
@@ -319,12 +373,12 @@ for i, st in enumerate(['adn-adn']):
 	locator_params(axis='y', nbins=3)
 
 
-	# title("Model", pad = 13)
+	title("ADNm/ADNm", pad = 1.1)
 
 
 
 
-outergs.update(top= 0.95, bottom = 0.1, right = 0.95, left = 0.05)
+outergs.update(top= 0.95, bottom = 0.08, right = 0.95, left = 0.05)
 
 
 savefig("/home/guillaume/Dropbox/Applications/Overleaf/Cosyne 2023 abstract submission/fig_2.pdf", dpi = 200, facecolor = 'white')

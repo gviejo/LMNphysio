@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-02-28 16:16:36
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2022-08-11 17:17:28
+# @Last Modified time: 2023-01-03 14:05:20
 import numpy as np
 from numba import jit
 import pandas as pd
@@ -15,6 +15,7 @@ from pylab import *
 import pynapple as nap
 from matplotlib.colors import hsv_to_rgb
 import xgboost as xgb
+from LinearDecoder import linearDecoder
 
 def getAllInfos(data_directory, datasets):
     allm = np.unique(["/".join(s.split("/")[0:2]) for s in datasets])
@@ -77,13 +78,10 @@ def findHDCells(tuning_curves, z = 50, p = 0.0001 , m = 1):
 
 def computeLinearVelocity(pos, ep, bin_size):
     pos = pos.restrict(ep)
-    bins = np.arange(ep.as_units('s').start.iloc[0], ep.as_units('s').end.iloc[-1]+bin_size, bin_size)
-    idx = np.digitize(pos.index.values, bins)-1
-    pos2 = pos.groupby(idx).mean()
-    pos2.index = bins[0:-1] + np.diff(bins)/2
+    pos2 = pos.bin_average(bin_size)    
     pos2 = pos2.rolling(window=100,win_type='gaussian',center=True,min_periods=1).mean(std=1.0) 
-    speed = np.sqrt(np.power(pos2.diff().dropna(), 2).sum(1))
-    speed = nap.Tsd(t = bins[1:-1], d = speed.values, time_support = ep)
+    speed = np.sqrt(np.sum(np.power(pos2.values[1:, :] - pos2.values[0:-1, :], 2), 1))    
+    speed = nap.Tsd(t = pos2.index.values, d=speed, time_support = ep)
     return speed
 
 def computeAngularVelocity(angle, ep, bin_size):
@@ -101,17 +99,13 @@ def computeAngularVelocity(angle, ep, bin_size):
     return velocity
 
 def getRGB(angle, ep, bin_size):
-    angle = angle.restrict(ep)
-    bins = np.arange(ep.as_units('s').start.iloc[0], ep.as_units('s').end.iloc[-1]+bin_size, bin_size)  
-    tmp = angle.as_series().groupby(np.digitize(angle.as_units('s').index.values, bins)-1).mean()
-    tmp2 = pd.Series(index = np.arange(0, len(bins)-1), dtype = float64)
-    tmp2.loc[tmp.index.values] = tmp.values
-    tmp2 = tmp2.fillna(method='ffill')    
-    tmp = nap.Tsd(t = bins[0:-1] + np.diff(bins)/2., d = tmp2.values, time_support = ep)
-    H = tmp.values/(2*np.pi)
+    tmp = np.unwrap(angle.values)
+    uangle = nap.Tsd(t=angle.index.values, d=tmp, time_support=angle.time_support)
+    uangle = uangle.bin_average(bin_size, ep)
+    angle2 = nap.Tsd(t=uangle.index.values, d=uangle.values%(2*np.pi), time_support=uangle.time_support)
+    H = angle2.values/(2*np.pi)
     HSV = np.vstack((H, np.ones_like(H), np.ones_like(H))).T
-    RGB = hsv_to_rgb(HSV)
-    RGB = nap.TsdFrame(t = tmp.index.values, d = RGB, time_support = ep, columns = ['R', 'G', 'B'])
+    RGB = hsv_to_rgb(HSV)    
     return RGB
 
 def getBinnedAngle(angle, ep, bin_size):
@@ -292,3 +286,116 @@ def correlate_TC_half_epochs(spikes, feature, nb_bins, minmax):
     r = np.diag(np.corrcoef(tcurves2[0].values.T, tcurves2[1].values.T)[0:len(spikes), len(spikes):])
     r = pd.Series(index=list(spikes.keys()), data = r)
     return r
+
+def read_neuroscope_intervals(path, basename, name):
+    """
+    """
+    path2file = os.path.join(path, basename + "." + name + ".evt")
+    # df = pd.read_csv(path2file, delimiter=' ', usecols = [0], header = None)
+    tmp = np.genfromtxt(path2file)[:, 0]
+    df = tmp.reshape(len(tmp) // 2, 2)
+    isets = nap.IntervalSet(df[:, 0], df[:, 1], time_units="ms")
+    return isets
+
+def decode_pytorch(spikes, eptrain, bin_size_train, eptest, bin_size_test, angle, std = 1):
+    count = spikes.count(bin_size_train, eptrain)
+    count = count.as_dataframe()
+    rate_train = count/bin_size_train
+    rate_train = rate_train.rolling(window=50,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=std)
+    rate_train = nap.TsdFrame(rate_train, time_support = eptrain)
+    rate_train = zscore_rate(rate_train)
+    rate_train = rate_train.restrict(eptrain)
+
+    angle2 = getBinnedAngle(angle, angle.time_support.loc[[0]], bin_size_train).restrict(eptrain)
+
+    numHDbins = 30
+    HDbinedges = np.linspace(0,2*np.pi,numHDbins+1)
+    HD_binned = np.digitize(angle2.values,HDbinedges)-1 #(-1 for 0-indexed category)    
+
+    count = spikes.count(bin_size_test, eptest)
+    count = count.as_dataframe()
+    rate_test = count/bin_size_test
+    rate_test = rate_test.rolling(window=50,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=std)
+    rate_test = nap.TsdFrame(rate_test, time_support = eptest)
+    rate_test = zscore_rate(rate_test)
+
+    N_units = len(spikes)
+    decoder = linearDecoder(N_units,numHDbins)
+
+    #Train the decoder 
+    batchSize = 0.75
+    numBatches = 100000
+    decoder.train(rate_train.values, HD_binned,
+                batchSize=batchSize, numBatches=numBatches, Znorm=False)
+    #%%
+    #Decode HD from test set
+    decoded, p = decoder.decode(rate_test.values)
+
+    clas = HDbinedges[0:-1] + np.diff(HDbinedges)/2
+    Yp = clas[decoded]
+    Yp = nap.Tsd(t = rate_test.index.values, d = Yp, time_support = rate_test.time_support)
+
+    return Yp, p
+
+
+def loadOptoEp(path, epoch, n_channels = 2, channel = 0, fs = 20000):
+    """
+        load ttl from analogin.dat
+    """
+    files = os.listdir(path)
+    afile = os.path.join(path, [f for f in files if '_'+str(epoch)+'_' in f][0])
+    f = open(afile, 'rb')
+    startoffile = f.seek(0, 0)
+    endoffile = f.seek(0, 2)
+    bytes_size = 2        
+    n_samples = int((endoffile-startoffile)/n_channels/bytes_size)
+    f.close()
+    with open(afile, 'rb') as f:
+        data = np.fromfile(f, np.uint16).reshape((n_samples, n_channels))
+    data = data[:,channel].flatten().astype(np.int32)
+
+    start,_ = scipy.signal.find_peaks(np.diff(data), height=3000)
+    end,_ = scipy.signal.find_peaks(np.diff(data)*-1, height=3000)
+    start -= 1
+    timestep = np.arange(0, len(data))/fs
+    # aliging based on epoch_TS.csv
+    epochs = pd.read_csv(os.path.join(path, 'Epoch_TS.csv'), header = None)
+    timestep = timestep + epochs.loc[epoch,0]
+    opto_ep = nap.IntervalSet(start = timestep[start], end = timestep[end], time_units = 's')
+    #pd.DataFrame(opto_ep).to_hdf(os.path.join(path, 'Analysis/OptoEpochs.h5'), 'opto')
+    return opto_ep  
+
+######################################################################################
+# OPTO STUFFS
+######################################################################################
+def computeRasterOpto(spikes, opto_ep, bin_size = 100):
+    """
+    Bin size in ms
+    edge in ms
+    """
+    rasters = {}
+    frates = {}
+
+    # assuming all opto stim are the same for a session
+    stim_duration = opto_ep.loc[0,'end'] - opto_ep.loc[0,'start']
+    
+    bins = np.arange(0, stim_duration + 2*stim_duration + bin_size*1000, bin_size*1000)
+
+    for n in spikes.keys():
+        rasters[n] = []
+        r = []
+        for e in opto_ep.index:
+            ep = nts.IntervalSet(start = opto_ep.loc[e,'start'] - stim_duration,
+                                end = opto_ep.loc[e,'end'] + stim_duration)
+            spk = spikes[n].restrict(ep)
+            tmp = pd.Series(index = spk.index.values - ep.loc[0,'start'], data = e)
+            rasters[n].append(tmp)
+            count, _ = np.histogram(tmp.index.values, bins)
+            r.append(count)
+        r = np.array(r)
+        frates[n] = pd.Series(index = bins[0:-1]/1000, data = r.mean(0))
+        rasters[n] = pd.concat(rasters[n])      
+
+    frates = pd.concat(frates, 1)
+    frates = nts.TsdFrame(t = frates.index.values, d = frates.values, time_units = 'ms')
+    return frates, rasters, bins, stim_duration

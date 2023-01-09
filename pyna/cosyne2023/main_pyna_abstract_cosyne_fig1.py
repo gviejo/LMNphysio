@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2022-11-21 11:48:49
+# @Last Modified time: 2022-11-22 16:34:12
 import numpy as np
 import pandas as pd
 import pynapple as nap
