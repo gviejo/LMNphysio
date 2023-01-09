@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-04-13 09:53:18
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2022-05-04 23:31:22
+# @Last Modified time: 2023-01-06 17:11:04
 import scipy.io
 import sys, os
 import numpy as np
@@ -15,10 +15,10 @@ from umap import UMAP
 from matplotlib.pyplot import *
 from sklearn.manifold import Isomap
 
-path = '/mnt/DataGuillaume/LMN-PSB/A3016/A3016-220504B'
+path = '/mnt/DataRAID2/LMN-ADN/A6002/A6002-210407B'
 data = nap.load_session(path, 'neurosuite')
 
-spikes = data.spikes.getby_threshold('freq', 1.0)
+spikes = data.spikes.getby_threshold('rate', 1.0)
 angle = data.position['ry']
 wake_ep = data.epochs['wake']
 
@@ -45,7 +45,7 @@ for l,j in enumerate(np.unique(shank)):
 	neurons = np.array(spikes.keys())[np.where(shank == j)[0]]
 	for k,i in enumerate(neurons):		
 		subplot(int(np.sqrt(len(spikes)))+1,int(np.sqrt(len(spikes)))+1,count, projection = 'polar')	
-		plot(tuning_curves[i], label = str(shank[l]) + ' ' + str(i), color = colors[l])
+		plot(tuning_curves[i], label = str(j+1) + ' ' + str(i), color = colors[l])
 		legend()
 		count+=1
 		gca().set_xticklabels([])

@@ -18,7 +18,7 @@ from matplotlib.gridspec import GridSpec
 ############################################################################################### 
 # GENERAL infos
 ###############################################################################################
-data_directory = '/mnt/DataGuillaume/'
+data_directory = '/mnt/DataRAID2/'
 datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#')
 
 infos = getAllInfos(data_directory, datasets)

@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-08-10 17:16:25
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2022-09-02 17:05:47
+# @Last Modified time: 2023-01-02 18:02:13
 import scipy.io
 import sys, os
 import numpy as np
@@ -18,18 +18,18 @@ from matplotlib.pyplot import *
 #path = '/mnt/Data2/LMN-PSB-2/A3019/A3019-220701A'
 #path = '/mnt/Data2/LMN-PSB-2/A3019/A3019-220630A'
 
-#path = '/mnt/Data2/LMN-PSB-2/A3018/A3018-220613A'
+#path = '/mnt/DataRAID2/LMN-PSB/A3018/A3018-220613A'
 #path = '/mnt/Data2/LMN-PSB-2/A3018/A3018-220614A'
 #path = '/mnt/Data2/LMN-PSB-2/A3018/A3018-220614B'
 # path = '/mnt/Data2/LMN-PSB-2/A3018/A3018-220615A'
 #path = '/mnt/Data2/LMN-PSB-2/A3019/A3019-220629A'
 #path = '/mnt/Data2/LMN-PSB-2/A3019/A3019-220630A'
-path = '/mnt/Data2/LMN-PSB-2/A3019/A3019-220701A'
+path = '/mnt/DataRAID2/LMN-PSB/A3019/A3019-220701A'
 
 
 data = nap.load_session(path, 'neurosuite')
 
-spikes = data.spikes.getby_threshold('freq', 1.0)
+spikes = data.spikes.getby_threshold('rate', 0.5)
 angle = data.position['ry']
 position = data.position
 
@@ -43,8 +43,10 @@ wake_ep = data.epochs['wake']
 sleep_ep = data.epochs['sleep']
 sws_ep = data.read_neuroscope_intervals('sws')
 rem_ep = data.read_neuroscope_intervals('rem')
-up_ep = data.read_neuroscope_intervals('up')
-down_ep = data.read_neuroscope_intervals('down')    
+up_ep = read_neuroscope_intervals(data.path, data.basename, 'up')
+down_ep = read_neuroscope_intervals(data.path, data.basename, 'down')
+sta1_ep = read_neuroscope_intervals(data.path, data.basename, 'sta1')
+sta2_ep = read_neuroscope_intervals(data.path, data.basename, 'sta2')
 
 
 tuning_curves = nap.compute_1d_tuning_curves(spikes, angle, 120, minmax=(0, 2*np.pi), ep = angle.time_support.loc[[0]])
@@ -54,10 +56,13 @@ spikes.set_info(SI)
 r = correlate_TC_half_epochs(spikes, angle, 120, (0, 2*np.pi))
 spikes.set_info(halfr = r)
 
-spikes2 = spikes.getby_threshold('SI', 0.15).getby_threshold('halfr', 0.25)
 
-tokeep = spikes2.keys()
+psb = spikes.getby_category("location")['psb'].getby_threshold('SI', 0.4).getby_threshold('halfr', 0.5).index
+lmn = spikes.getby_category("location")['lmn'].getby_threshold('SI', 0.2).getby_threshold('halfr', 0.5).index
 
+tokeep = list(psb) + list(lmn)
+
+spikes2 = spikes[tokeep]
 
 colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'wheat', 'indianred', 'royalblue', 'plum', 'forestgreen']
 
@@ -69,7 +74,7 @@ for l,j in enumerate(np.unique(shank)):
     neurons = np.array(spikes.keys())[np.where(shank == j)[0]]
     for k,i in enumerate(neurons):      
         subplot(int(np.sqrt(len(spikes)))+1,int(np.sqrt(len(spikes)))+1,count, projection = 'polar')    
-        plot(tuning_curves[i], label = str(shank[l]) + ' ' + str(i), color = colors[l])
+        plot(tuning_curves[i], label = str(np.round(SI.loc[i].values[0], 4)), color = colors[l])
         legend()
         count+=1
         gca().set_xticklabels([])
@@ -81,6 +86,7 @@ for l,j in enumerate(np.unique(shank)):
 
 show()
 
+# sys.exit()
 
 #############################
 # DECODING
@@ -105,12 +111,6 @@ angle_rem, _ = nap.decode_1d(tuning_curves[tokeep], spikes2, rem_ep, 0.3)
 
 peaks = pd.Series(index=tcurves.columns,data = np.array([circmean(tcurves.index.values, tcurves[i].values) for i in tcurves.columns]))
 
-groups = spikes._metadata.groupby("location").groups
-psb = groups['psb']
-lmn = groups['lmn']
-
-lmn = peaks[lmn].sort_values().index.values
-psb = peaks[psb].sort_values().index.values
 
 
 ###########################################################################
@@ -129,8 +129,8 @@ datatosave = { 'wak':angle_wak,
           }
 
 import _pickle as cPickle
-cPickle.dump(datatosave, open('../figures/figures_adrien_2022/fig_1_decoding.pickle', 'wb'))
-
+# cPickle.dump(datatosave, open('../figures/figures_adrien_2022/fig_1_decoding.pickle', 'wb'))
+cPickle.dump(datatosave, open('/home/guillaume/Dropbox/CosyneData/DATA_FIG_2_LMN_PSB.pickle', 'wb'))
 
 
 # wake
@@ -173,8 +173,22 @@ plot(tmp2, '--', linewidth = 2, color = 'black')
 
 sws2_ep = sws_ep.loc[[(sws_ep["end"] - sws_ep["start"]).sort_values().index[-1]]]
 
+total = spikes[psb].count(0.5, sws2_ep).sum(1)/0.5
+total2 = total.rolling(window=40,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=2)
+total2 = nap.Tsd(total2, time_support = sws2_ep)
+
+
 figure()
-ax = subplot(211)
+ax = subplot(311)
+
+for s, e in sta1_ep.intersect(sws2_ep).values:
+    axvspan(s, e, color = 'green', alpha=0.1)
+for s, e in sta2_ep.intersect(sws2_ep).values:
+    axvspan(s, e, color = 'orange', alpha=0.1)  
+
+plot(total2)  
+
+subplot(312, sharex = ax)
 for i,n in enumerate(psb):
     if n not in tokeep:      
       plot(spikes[n].restrict(sws2_ep).fillna(peaks[n]), '|', color = 'grey', markersize = 10) 
@@ -187,7 +201,7 @@ for s, e in down_ep.intersect(sws2_ep).values:
     axvspan(s, e, color = 'blue', alpha=0.1)
 ylim(0, 2*np.pi)
 
-subplot(212, sharex = ax)
+subplot(313, sharex = ax)
 for i,n in enumerate(lmn):
     plot(spikes[n].restrict(sws2_ep).fillna(peaks[n]), '|', markersize = 10, markeredgewidth=3)
 #plot(tmp2, '--', linewidth = 2, color = 'darkgrey')
