@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-04-13 09:53:18
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-01-06 17:11:04
+# @Last Modified time: 2023-02-06 12:12:40
 import scipy.io
 import sys, os
 import numpy as np
@@ -15,7 +15,7 @@ from umap import UMAP
 from matplotlib.pyplot import *
 from sklearn.manifold import Isomap
 
-path = '/mnt/DataRAID2/LMN-ADN/A6002/A6002-210407B'
+path = '/mnt/DataRAID2/ADN/A5042/A5042-230201A'
 data = nap.load_session(path, 'neurosuite')
 
 spikes = data.spikes.getby_threshold('rate', 1.0)

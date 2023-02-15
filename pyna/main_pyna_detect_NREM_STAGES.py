@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-06-14 16:45:11
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2022-12-30 18:46:13
+# @Last Modified time: 2023-02-15 11:17:35
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -12,6 +12,8 @@ import _pickle as cPickle
 from matplotlib.gridspec import GridSpec
 from itertools import combinations
 from functions import *
+import pynacollada as pyna
+from scipy.signal import filtfilt
 
 ############################################################################################### 
 # GENERAL infos
@@ -25,7 +27,7 @@ datasets = np.genfromtxt('/mnt/DataRAID2/datasets_LMN_PSB.list', delimiter = '\n
 # datasets = ['LMN-PSB-2/A3019/A3019-220701A']
 infos = getAllInfos(data_directory, datasets)
 
-# sys.exit()
+durations = {2:[], 3:[]}
 
 for s in datasets:
 #for s in ['LMN-PSB/A3019/A3019-220701A']:
@@ -47,36 +49,118 @@ for s in datasets:
     r = correlate_TC_half_epochs(spikes, angle, 120, (0, 2*np.pi))
     spikes.set_info(halfr = r)
 
-    psb = spikes.getby_category("location")['psb'].getby_threshold('SI', 0.4).getby_threshold('halfr', 0.5).index
-    lmn = spikes.getby_category("location")['lmn'].getby_threshold('SI', 0.2).getby_threshold('halfr', 0.5).index
+    # psb = spikes.getby_category("location")['psb'].getby_threshold('SI', 0.4).getby_threshold('halfr', 0.5).index
+    # lmn = spikes.getby_category("location")['lmn'].getby_threshold('SI', 0.2).getby_threshold('halfr', 0.5).index
 
-    tokeep = psb
+    spikes = spikes.getby_category("location")['psb']
 
-    spikes = spikes[tokeep]
+    # spikes = spikes[tokeep]
 
     
     #################################################################################################
     #DETECTION STAGE 1/ STAGE 2 States
     #################################################################################################
-    total = spikes.count(0.5, sws_ep).sum(1)/0.5
-    total2 = total.rolling(window=40,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=2)
+
+    # MUA    
+    binsize = 0.1
+    total = spikes.count(binsize, sws_ep).sum(1)/binsize
+    total2 = total.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=3)
     total2 = nap.Tsd(total2, time_support = sws_ep)
-    sta2_ep = total2.threshold(np.percentile(total2, 25), method='below').time_support
-    sta2_ep = sta2_ep.drop_short_intervals(1)
+    total2 = total2 - total2.mean()
+    total2 = total2 / total2.std()
+    nrem3_ep = total2.threshold(np.percentile(total2, 70), method='below').time_support
     # sta2_ep = sta2_ep.drop_long_intervals(2)
-    sta1_ep = sws_ep.set_diff(sta2_ep)
+    nrem2_ep = sws_ep.set_diff(nrem3_ep)
+
+    # nrem2_ep = nrem2_ep.drop_short_intervals(0.3)
+    # nrem3_ep = nrem3_ep.drop_short_intervals(0.3)
+
+    # nrem2_ep = nrem2_ep.drop_long_intervals(10)
+    # nrem3_ep = nrem3_ep.drop_long_intervals(5)
+
+
+    [durations[2].append(v) for v in nrem2_ep['end'] - nrem2_ep['start']]
+    [durations[3].append(v) for v in nrem3_ep['end'] - nrem3_ep['start']]
+
+    # # LFP
+    # frequency = 1250.0
+
+    # lfp = data.load_lfp(channel=12,extension='.eeg',frequency=1250)
+    # lfp = lfp.restrict(sws_ep)
+    # signal = pyna.eeg_processing.bandpass_filter(lfp, 0.2, 4, 1250, order=1)
+
+    # power = signal.pow(2).bin_average(binsize)
+    # power = power.as_series().rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=2)
+    # power = power - power.mean()
+    # power = power / power.std()
+    # power = nap.Tsd(t=power.index.values, 
+    #     d = power.values,
+    #     time_support = sws_ep)
+
+    # nrem3_ep = power.threshold(np.percentile(power, 30)).time_support
+    # # stage3_ep = stage2_ep.drop_short_intervals(1)
+    # # sta2_ep = sta2_ep.drop_long_intervals(2)
+    # nrem2_ep = sws_ep.set_diff(nrem3_ep)
     
-    data.write_neuroscope_intervals('.sta1.evt', sta1_ep, 'PySta1')
-    data.write_neuroscope_intervals('.sta2.evt', sta2_ep, 'PySta2')    
+
+    # c3 = spikes.count(binsize).restrict(nrem3_ep).sum()/nrem3_ep.tot_length()
+    # c2 = spikes.count(binsize).restrict(nrem2_ep).sum()/nrem2_ep.tot_length()
+
+    # c3 = c3.sort_values()
+    # c2 = c2[c3.index]
+
+    # bar(np.arange(len(c3)), c3-c2)
+    # ylabel("Stage3 - Stage 2")
 
 
+
+
+    # mua = total2 - total2.min()
+    # mua = mua / mua.max()
+
+    # power = power - power.min()
+    # power = power / power.max()
+
+    # figure()
+    # ax = subplot(211)                                          
+    # plot(lfp)                                                  
+    # plot(signal)
+    # subplot(212, sharex=ax)
+    # plot(power, label = 'power')
+    # plot(mua, label = 'mua')
+    # legend()
+
+    # figure()
+    # loglog(mua.values, power.values, '.', alpha=0.2)
+    # xlabel("MUA")
+    # ylabel("POWER DELTA")
+    # title(pearsonr(np.log(mua.values+0.001), np.log(power.values+0.001)))
+
+    data.write_neuroscope_intervals('.nrem2.evt', nrem2_ep, 'PyNREM2')
+    data.write_neuroscope_intervals('.nrem3.evt', nrem3_ep, 'PyNREM3')    
+    
+    # data.write_neuroscope_intervals('.nrem2.evt', nrem2_ep, 'PyNREM2')
+    # data.write_neuroscope_intervals('.nrem3.evt', nrem3_ep, 'PyNREM3')    
+
+
+for k in durations:
+    durations[k] = np.array(durations[k])
 
 figure()
-ax = subplot(211)
-for n in spikes.index:
-    plot(spikes[n].restrict(sws_ep).fillna(n), '|')
-subplot(212, sharex =ax)
-plot(total2.restrict(sws_ep))
-plot(total2.restrict(sta2_ep), '.', color = 'blue')
+subplot(211)
+hist(durations[2], 50)
+subplot(212)
+hist(durations[3], 50)
 show()
+
+
+
+# figure()
+# ax = subplot(211)
+# for n in spikes.index:
+#     plot(spikes[n].restrict(sws_ep).fillna(n), '|')
+# subplot(212, sharex =ax)
+# plot(total2.restrict(sws_ep))
+# plot(total2.restrict(sta2_ep), '.', color = 'blue')
+# show()
 

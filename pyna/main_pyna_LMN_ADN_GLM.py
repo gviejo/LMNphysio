@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-07-07 11:11:16
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-01-10 17:10:37
+# @Last Modified time: 2023-01-10 17:17:46
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -88,11 +88,11 @@ for s in datasets:
     newwake_ep = velocity.threshold(0.001).time_support 
 
     ############################################################################################### 
-    # LOGIT
+    # GLM
     ###############################################################################################
     groups = spikes.getby_category("location")
 
-    if len(groups['adn'])>5 and len(groups['lmn'])>5:
+    if len(groups['adn'])>3 and len(groups['lmn'])>3:
 
         ## MUA ########
         mua = {

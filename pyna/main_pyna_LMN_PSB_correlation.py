@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-07-07 11:11:16
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2022-12-21 09:12:20
+# @Last Modified time: 2023-02-10 23:18:38
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -26,7 +26,7 @@ infos = getAllInfos(data_directory, datasets)
 
 
 
-allr = []
+allr = {'psb':[], 'lmn':[]}
 allf = []
 
 for s in datasets:
@@ -40,54 +40,37 @@ for s in datasets:
     position = data.position
     wake_ep = data.epochs['wake']
     sws_ep = data.read_neuroscope_intervals('sws')
+    rem_ep = read_neuroscope_intervals(data.path, data.basename, 'rem')    
+    sws3_ep = read_neuroscope_intervals(data.path, data.basename, 'nrem3')    
+    sws2_ep = read_neuroscope_intervals(data.path, data.basename, 'nrem2')
 
-    rem_ep = read_neuroscope_intervals(data.path, data.basename, 'rem')
-    up_ep = read_neuroscope_intervals(data.path, data.basename, 'up')
-    down_ep = read_neuroscope_intervals(data.path, data.basename, 'down')
-    top_ep = read_neuroscope_intervals(data.path, data.basename, 'top')
-    
-    # idx = spikes._metadata[spikes._metadata["location"].str.contains("lmn|psb")].index.values
-    # spikes = spikes[idx]
+    idx = spikes._metadata[spikes._metadata["location"].str.contains("lmn|psb")].index.values
+    spikes = spikes[idx]
         
-    spikes = spikes.getby_category("location")['lmn']
-
-
-      
+    
     ############################################################################################### 
     # COMPUTING TUNING CURVES
     ###############################################################################################
-    tuning_curves = nap.compute_1d_tuning_curves(spikes, position['ry'], 120, minmax=(0, 2*np.pi), ep = position.time_support.loc[[0]])
-    tuning_curves = smoothAngularTuningCurves(tuning_curves, 20, 4)
-    
-    # CHECKING HALF EPOCHS
-    wake2_ep = splitWake(position.time_support.loc[[0]])    
-    tokeep2 = []
-    stats2 = []
-    tcurves2 = []   
-    for i in range(2):
-        tcurves_half = nap.compute_1d_tuning_curves(spikes, position['ry'], 120, minmax=(0, 2*np.pi), ep = position.time_support.loc[[0]])
-        tcurves_half = smoothAngularTuningCurves(tcurves_half, 20, 4)
+    angle = position['ry']
+    tuning_curves = nap.compute_1d_tuning_curves(spikes, angle, 120, minmax=(0, 2*np.pi), ep = angle.time_support.loc[[0]])
+    tuning_curves = smoothAngularTuningCurves(tuning_curves, window = 20, deviation = 3.0)
+    SI = nap.compute_1d_mutual_info(tuning_curves, angle, angle.time_support.loc[[0]], minmax=(0,2*np.pi))
+    spikes.set_info(SI)
+    r = correlate_TC_half_epochs(spikes, angle, 120, (0, 2*np.pi))
+    spikes.set_info(halfr = r)
 
-        tokeep, stat = findHDCells(tcurves_half)
-        tokeep2.append(tokeep)
-        stats2.append(stat)
-        tcurves2.append(tcurves_half)       
-    tokeep = np.intersect1d(tokeep2[0], tokeep2[1])
-    
-    spikes = spikes[tokeep]
-    groups = spikes._metadata.loc[tokeep].groupby("location").groups
-    
-    tcurves         = tuning_curves[tokeep]
-    peaks           = pd.Series(index=tcurves.columns,data = np.array([circmean(tcurves.index.values, tcurves[i].values) for i in tcurves.columns]))
-
-    velocity = computeLinearVelocity(position[['x', 'z']], position.time_support.loc[[0]], 0.2)
-    newwake_ep = velocity.threshold(0.002).time_support     
-
+    psb = list(spikes.getby_category("location")['psb'].getby_threshold('SI', 1).getby_threshold('halfr', 0.5).index)
+    lmn = list(spikes.getby_category("location")['lmn'].getby_threshold('SI', 0.1).getby_threshold('halfr', 0.5).index)
+        
     ############################################################################################### 
     # PEARSON CORRELATION
     ###############################################################################################
     rates = {}
-    for e, ep, bin_size, std in zip(['wak', 'rem', 'sws'], [newwake_ep, rem_ep, sws_ep], [0.1, 0.1, 0.03], [1,1,1]):
+    for e, ep, bin_size, std in zip(
+            ['wak', 'rem', 'sws', 'sws2', 'sws3'], 
+            [wake_ep, rem_ep, sws_ep, sws2_ep, sws3_ep], 
+            [0.1, 0.1, 0.05, 0.05, 0.05],
+            [1,1,1,1,1]):
         count = spikes.count(bin_size, ep)
         rate = count/bin_size        
         #rate = zscore_rate(rate)
@@ -95,129 +78,59 @@ for s in datasets:
         rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=std)
         rates[e] = nap.TsdFrame(rate, time_support = ep)
 
-    rates['up'] = rates['sws'].restrict(up_ep)
-    rates['down'] = rates['sws'].restrict(down_ep)
-    rates['top'] = rates['sws'].restrict(top_ep)
 
-    idx=np.sort(np.random.choice(len(rates["sws"]), len(rates["down"]), replace=False))    
-    rates['rnd'] = rates['sws'].iloc[idx,:]
-    
-    # pairs = list(product(groups['adn'].astype(str), groups['lmn'].astype(str)))
-    pairs = list(combinations(np.array(spikes.keys()).astype(str), 2))
-    pairs = pd.MultiIndex.from_tuples(pairs)
-    r = pd.DataFrame(index = pairs, columns = rates.keys(), dtype = np.float32)
+    for k, neurons in zip(['psb', 'lmn'], [psb, lmn]):
+        # pairs = list(product(psb, lmn))
+        pairs = list(combinations(neurons, 2))
+        pairs = pd.MultiIndex.from_tuples(pairs)
+        r = pd.DataFrame(index = pairs, columns = rates.keys(), dtype = np.float32)
 
-    for ep in rates.keys():
-        tmp = np.corrcoef(rates[ep].values.T)
-        r[ep] = tmp[np.triu_indices(tmp.shape[0], 1)]
+        for ep in rates.keys():            
+            tmp = np.corrcoef(rates[ep][neurons].values.T)
+            r[ep] = tmp[np.triu_indices(tmp.shape[0], 1)]
 
-    name = data.basename
-    pairs = list(combinations([name+'_'+str(n) for n in spikes.keys()], 2)) 
-    pairs = pd.MultiIndex.from_tuples(pairs)
-    r.index = pairs
+        name = data.basename
+        pairs = list(combinations([name+'_'+str(n) for n in neurons], 2)) 
+        pairs = pd.MultiIndex.from_tuples(pairs)
+        r.index = pairs
+        
+        allr[k].append(r)
 
-    ############################################################################################### 
-    # RATES
-    ###############################################################################################
-    tmp = {}    
-    for e, ep in zip(['wak', 'rem', 'sws', 'down', 'up', 'top'], [wake_ep, rem_ep, sws_ep, down_ep, up_ep, top_ep]):
-        tmp[e] = spikes.restrict(ep).rates
-    allf.append(pd.DataFrame.from_dict(tmp))
-    #######################
-    # SAVING
-    #######################
-    allr.append(r)
+for k in allr.keys():
+    allr[k] = pd.concat(allr[k], 0)
 
-allr = pd.concat(allr, 0)
-allf = pd.concat(allf, 0)
 
-datatosave = {'allr':allr}
-cPickle.dump(datatosave, open(os.path.join('../data/', 'All_correlation_ADN_LMN.pickle'), 'wb'))
+
+# datatosave = {'allr':allr}
+# cPickle.dump(datatosave, open(os.path.join('../data/', 'All_correlation_ADN_LMN.pickle'), 'wb'))
 
 clrs = ['lightgray', 'gray']
-names = ['ADN', 'LMN']
+names = ['PSB', 'LMN']
 
 mkrs = 6
 
-allr = allr.dropna()
+# allr = allr.dropna()
 
-rval = {}
+rval = {'psb':{}, 'lmn':{}}
 axes = []
 
 figure()
-subplot(231)
-plot(allr['wak'], allr['rem'], 'o',  alpha = 0.5)
-m, b = np.polyfit(allr['wak'].values, allr['rem'].values, 1)
-x = np.linspace(allr['wak'].min(), allr['wak'].max(), 4)
-plot(x, x*m + b)
-xlabel('wake')
-ylabel('rem')
-r, p = scipy.stats.pearsonr(allr['wak'], allr['rem'])
-title('r = '+str(np.round(r, 3)))
-rval['wake vs rem'] = r
-axes.append(gca())
+gs = GridSpec(2, 4)
+for i, k in enumerate(['psb', 'lmn']):
+    allr[k] = allr[k].dropna()
+    for j,e in enumerate(['rem', 'sws', 'sws2', 'sws3']):
+        subplot(gs[i,j])
+        plot(allr[k]['wak'], allr[k][e], 'o',  alpha = 0.5)
+        m, b = np.polyfit(allr[k]['wak'].values, allr[k][e].values, 1)
+        x = np.linspace(allr[k]['wak'].min(), allr[k]['wak'].max(), 4)
+        plot(x, x*m + b)
+        xlabel('wake')
+        ylabel(e)
+        r, p = scipy.stats.pearsonr(allr[k]['wak'], allr[k][e])
+        title('r = '+str(np.round(r, 3)))
+        rval[k]['wake vs '+e] = r
+        axes.append(gca())
 
-subplot(232)
-plot(allr['wak'], allr['sws'], 'o', color = 'red', alpha = 0.5)
-m, b = np.polyfit(allr['wak'].values, allr['sws'].values, 1)
-x = np.linspace(allr['wak'].min(), allr['wak'].max(),5)
-plot(x, x*m + b)
-xlabel('wake')
-ylabel('sws')
-r, p = scipy.stats.pearsonr(allr['wak'], allr['sws'])
-title('r = '+str(np.round(r, 3)))
-rval['wake vs sws'] = r
-axes.append(gca())
-
-subplot(233)
-plot(allr['wak'], allr['up'], 'o', color='orange', alpha = 0.5)
-m, b = np.polyfit(allr['wak'].values, allr['up'].values, 1)
-x = np.linspace(allr['wak'].min(), allr['wak'].max(), 4)
-plot(x, x*m + b)
-xlabel('wake')
-ylabel('up')
-r, p = scipy.stats.pearsonr(allr['wak'], allr['up'])
-title('r = '+str(np.round(r, 3)))
-rval['wake vs UP'] = r
-axes.append(gca())
-
-subplot(234)
-plot(allr['wak'], allr['down'], 'o', color='green', alpha = 0.5)
-m, b = np.polyfit(allr['wak'].values, allr['down'].values, 1)
-x = np.linspace(allr['wak'].min(), allr['wak'].max(), 4)
-plot(x, x*m + b)
-xlabel('wake')
-ylabel('down')
-r, p = scipy.stats.pearsonr(allr['wak'], allr['down'])
-title('r = '+str(np.round(r, 3)))
-rval['wake vs DOWN'] = r
-axes.append(gca())
-
-subplot(235)
-plot(allr['wak'], allr['top'], 'o', color='green', alpha = 0.5)
-m, b = np.polyfit(allr['wak'].values, allr['top'].values, 1)
-x = np.linspace(allr['wak'].min(), allr['wak'].max(), 4)
-plot(x, x*m + b)
-xlabel('wake')
-ylabel('top')
-r, p = scipy.stats.pearsonr(allr['wak'], allr['top'])
-title('r = '+str(np.round(r, 3)))
-rval['wake vs TOP'] = r
-axes.append(gca())
-
-subplot(236)
-plot(allr['wak'], allr['rnd'], 'o', color='green', alpha = 0.5)
-m, b = np.polyfit(allr['wak'].values, allr['rnd'].values, 1)
-x = np.linspace(allr['wak'].min(), allr['wak'].max(), 4)
-plot(x, x*m + b)
-xlabel('wake')
-ylabel('rnd sws')
-r, p = scipy.stats.pearsonr(allr['wak'], allr['rnd'])
-title('r = '+str(np.round(r, 3)))
-xlim(-1,1)
-ylim(-1,1)
-rval['wake vs RANDOM'] = r
-axes.append(gca())
 
 
 xlims = []
@@ -235,16 +148,20 @@ for ax in axes:
 
 
 
-rval = pd.Series(rval).sort_values()
-figure()
-bar(np.arange(len(rval)), rval.values)
-xticks(np.arange(len(rval)), rval.index.values, rotation=20)
 
-
+rval = pd.DataFrame(rval)
 figure()
-hist(allf["down"] - allf["sws"], alpha=0.4, label = "Down - sws")
-hist(allf["top"] - allf["sws"], alpha=0.4, label = "Top - sws")
-hist(allf["up"] - allf["sws"], alpha=0.4, label = "Up - sws")
+bar(np.arange(len(rval)), rval['psb'].values, 0.2, label = 'psb')
+bar(np.arange(len(rval))+0.25, rval['lmn'].values, 0.2, label = 'lmn')
+xticks(np.arange(len(rval))+0.125, rval.index.values, rotation=20)
 legend()
 
 show()
+
+# figure()
+# hist(allf["down"] - allf["sws"], alpha=0.4, label = "Down - sws")
+# hist(allf["top"] - allf["sws"], alpha=0.4, label = "Top - sws")
+# hist(allf["up"] - allf["sws"], alpha=0.4, label = "Up - sws")
+# legend()
+
+# show()

@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-07-07 11:11:16
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-01-10 17:10:37
+# @Last Modified time: 2023-02-08 17:54:44
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -20,20 +20,20 @@ from xgboost import XGBClassifier
 from sklearn.decomposition import PCA, FastICA, KernelPCA
 from sklearn.manifold import Isomap
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.ensemble import GradientBoostingClassifier
-from sklearn.metrics import f1_score
-
 
 ############################################################################################### 
 # GENERAL infos
 ###############################################################################################
 data_directory = '/mnt/DataRAID2/'
-datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#')
+datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN_PSB.list'), delimiter = '\n', dtype = str, comments = '#')
 
-sta_r = {'adn':[], 'lmn':[]} # trigger average of proba from the other structure spikes
-cc_down = {'adn':[], 'lmn':[]} # cross corr of adn and lmn / adn down states
-sta_r_down = {'adn':[], 'lmn':[]} # proba trigger on down states
 
+
+Pwak = {'psb':{}, 'lmn':{}} # trigger average of proba from the other structure spikes
+Pshu = {'psb':{}, 'lmn':{}} # cross corr of psb and lmn / psb down states
+RGB = {'psb':{}, 'lmn':{}} # proba trigger on down states
+
+Pxgb = {'psb':{}, 'lmn':{}}
 
 
 for s in datasets:
@@ -49,7 +49,7 @@ for s in datasets:
     sws_ep = data.read_neuroscope_intervals('sws')
     rem_ep = data.read_neuroscope_intervals('rem')
     down_ep = data.read_neuroscope_intervals('down')
-    idx = spikes._metadata[spikes._metadata["location"].str.contains("adn|lmn")].index.values
+    idx = spikes._metadata[spikes._metadata["location"].str.contains("psb|lmn")].index.values
     spikes = spikes[idx]
       
     ############################################################################################### 
@@ -63,24 +63,10 @@ for s in datasets:
 
     spikes.set_info(SI, peaks=peaks)
 
-    adn = list(spikes.getby_category("location")["adn"].getby_threshold("SI", 0.1).index)
+    psb = list(spikes.getby_category("location")["psb"].getby_threshold("SI", 0.5).index)
     lmn = list(spikes.getby_category("location")["lmn"].getby_threshold("SI", 0.1).index)
 
-    # figure()
-    # for i, n in enumerate(spikes.index):
-    #     subplot(10,10,i+1, projection='polar')        
-    #     if n in adn:
-    #         plot(tcurves[n], color = 'red')
-    #     elif n in lmn:
-    #         plot(tcurves[n], color = 'green')
-    #     else:
-    #         plot(tcurves[n], color = 'grey')
-    #     xticks([])
-    #     yticks([])
-
-    # sys.exit()
-
-    tokeep = adn+lmn
+    tokeep = psb+lmn
     tokeep = np.array(tokeep)
     spikes = spikes[tokeep]    
 
@@ -92,11 +78,12 @@ for s in datasets:
     ###############################################################################################
     groups = spikes.getby_category("location")
 
-    if len(groups['adn'])>5 and len(groups['lmn'])>5:
+    # if len(groups['psb'])>5 and len(groups['lmn'])>5:
+    if len(groups['lmn'])>5:
 
         ## MUA ########
         mua = {
-            0:nap.Ts(t=np.sort(np.hstack([groups['adn'][j].index.values for j in groups['adn'].index]))),
+            0:nap.Ts(t=np.sort(np.hstack([groups['psb'][j].index.values for j in groups['psb'].index]))),
             1:nap.Ts(t=np.sort(np.hstack([groups['lmn'][j].index.values for j in groups['lmn'].index])))}
 
         mua = nap.TsGroup(mua, time_support = spikes.time_support)
@@ -108,27 +95,24 @@ for s in datasets:
             })
 
         ## SHUFFLING #####
-        bin_size_wake = 0.1
+        bin_size_wake = 0.06
         bin_size_sws = 0.02
 
-        gmap = {'adn':'lmn', 'lmn':'adn'}
+        gmap = {'psb':'lmn', 'lmn':'psb'}
 
         for i, g in enumerate(gmap.keys()):
 
             #  WAKE 
             count = groups[g].count(bin_size_wake, newwake_ep)
             rate = count/bin_size_wake
-            rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
+            rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=2)
             rate_wak = StandardScaler().fit_transform(rate)
 
             #  WAKE SHUFFLE
             count = nap.randomize.shuffle_ts_intervals(groups[g]).count(bin_size_wake, newwake_ep)
             rate = count/bin_size_wake
-            rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
+            rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=2)
             rate_shu = StandardScaler().fit_transform(rate)
-
-            # # adding a zero vector
-            # rate_shu = np.vstack((rate_shu, np.zeros((1,rate_shu.shape[1]))))
             
             # SWS
             count = groups[g].count(bin_size_sws, sws_ep)
@@ -141,95 +125,91 @@ for s in datasets:
             y = np.hstack((np.zeros(len(rate_wak)), np.ones(len(rate_shu)))).astype(np.int32)
             Xt = rate_sws
 
-            #####################
+            # Classifier
             bst = XGBClassifier(
-                n_estimators=100, max_depth=20, 
+                n_estimators=10, max_depth=20, 
                 learning_rate=0.0001, objective='binary:logistic', 
                 random_state = 0,# booster='dart',
                 #eval_metric=f1_score)
                 )
             bst.fit(X, y)            
-            # tmp = bst.predict_proba(Xt)[:,0]
-            tmp = 1.0-bst.predict(Xt)
-            ######################
+            # tmp = bst.predict_proba(Xt)[:,0]            
+            Pxgb[g][s] = bst.predict(X)
 
-            p = nap.Tsd(t = time_index, d = tmp, time_support = sws_ep)
-
-            # figure()
-            # subplot(121)
-            # scatter(a[:, 0], a[:, 1], marker=".", c=y, alpha=0.4)
-            # title("Truth")
-            # subplot(122)
-            # scatter(a[:, 0], a[:, 1], marker=".", c=tmp, alpha=0.4)
-            # title("Predicted")
-
-            # STA / neurons        
-            sta_neurons = nap.compute_event_trigger_average(groups[gmap[g]], p, bin_size_sws, (-0.4, 0.4), sws_ep)
-            #sta_neurons = nap.compute_event_trigger_average(mua[[i]], p, bin_size_sws, (-0.4, 0.4), sws_ep)        
-            #sta_neurons = sta_neurons.as_dataframe().apply(zscore)        
-            
-            # STA / down
-            sta_down = nap.compute_event_trigger_average(down_center, p, bin_size_sws, (-0.4, 0.4), sws_ep)
-            #sta_down = sta_down.as_dataframe().apply(zscore)        
-
-            # CC / down
-            cc_d = nap.compute_eventcorrelogram(groups[g], down_center[0], bin_size_sws, 0.4, ep=sws_ep)
+            # PROJECTION            
+            rgb = getRGB(position['ry'], newwake_ep, bin_size_wake)
+            p_wak = KernelPCA(2, kernel='cosine').fit_transform(rate_wak)
+            p_shu = KernelPCA(2, kernel='cosine').fit_transform(rate_shu)
+            # tmp = Isomap(n_neighbors=10).fit_transform(rate_wak)
 
             ### SAVING ####
-            sta_r[g].append(sta_neurons) # trigger average of reactivtion from the other structure spikes
-            cc_down[g].append(cc_d) # cross corr of adn and lmn / adn down states
-            sta_r_down[g].append(sta_down) # reactivation trigger on down states
+            Pwak[g][s] = p_wak
+            Pshu[g][s] = p_shu
+            RGB[g][s] = rgb
 
-for i, g in enumerate(['adn', 'lmn']):
-    sta_r[g] = pd.concat(sta_r[g], 1)
-    sta_r_down[g] = pd.concat(sta_r_down[g], 1)
-    cc_down[g] = pd.concat(cc_down[g], 1)
+
+
+
+figure()
+gs = GridSpec(len(Pwak["psb"]), 8)
+
+for i, g in enumerate(['psb', 'lmn']):
+    
+    for j, s in enumerate(Pwak[g].keys()):
+
+        subplot(gs[j,i*4])
+        tmp = np.histogram2d(Pwak[g][s][:,0], Pwak[g][s][:,1], 20)
+        imshow(tmp[0])
+        # scatter(Pwak[g][s][:,0], Pwak[g][s][:,1], color = RGB[g][s])
+
+    for j, s in enumerate(Pshu[g].keys()):
+
+        subplot(gs[j,i*4+1])
+
+        tmp = np.histogram2d(Pshu[g][s][:,0], Pshu[g][s][:,1], 20)
+        imshow(tmp[0])
+
+    for j, s in enumerate(Pwak[g].keys()):
+
+        # tmp = np.vstack((Pwak[g][s], Pshu[g][s]))
+        tmp = Pwak[g][s][Pxgb[g][s][0:len(Pwak[g][s])]==0]
+        tmp2 = np.histogram2d(tmp[:,0], tmp[:,1], 20)
+
+        subplot(gs[j,i*4+2])
+        
+        # scatter(tmp[:,0], tmp[:,1], c = Pxgb[g][s][0:len(tmp)], marker = '.', alpha = 0.2, edgecolor = None)
+        imshow(tmp2[0])
+
+    for j, s in enumerate(Pshu[g].keys()):
+
+        # tmp = np.vstack((Pwak[g][s], Pshu[g][s]))
+        tmp = Pshu[g][s][Pxgb[g][s][len(Pshu[g][s]):]==1]
+        tmp2 = np.histogram2d(tmp[:,0], tmp[:,1], 20)
+
+
+        subplot(gs[j,i*4+3])
+        
+        # scatter(tmp[:,0], tmp[:,1], c = Pxgb[g][s][len(tmp):], marker = '.', alpha = 0.2, edgecolor = None)
+        imshow(tmp2[0])
+
+
+figure()
+
+gs = GridSpec(len(Pxgb["psb"]), 2)
+
+for i, g in enumerate(['psb', 'lmn']):
+    
+    for j, s in enumerate(Pxgb[g].keys()):
+
+        subplot(gs[j,i])
+        plot(Pxgb[g][s])
+
+
+
+
+show()
+
 
 # sys.exit()
 
 
-figure()
-subplot(1,3,1)
-plot(sta_r['adn'].mean(1), label = 'adn r')
-plot(sta_r['lmn'].mean(1), label = 'lmn r')
-legend()
-xlabel("Time from the other")
-title("STA proba attractorness")
-
-subplot(1,3,2)
-plot(sta_r_down['adn'].mean(1), label = 'adn r')
-plot(sta_r_down['lmn'].mean(1), label = 'lmn r')
-xlabel("Time from ADN down center")
-title("STA proba attractorness")
-legend()
-
-subplot(1,3,3)
-plot(cc_down['adn'].mean(1), label = 'adn')
-plot(cc_down['lmn'].mean(1), label = 'lmn')
-legend()
-xlabel("Time from ADN down center")
-title("CC")
-
-
-figure()
-subplot(2,2,1)
-plot(sta_r['adn'].mean(1), label = 'adn r')
-title("STA proba attractorness")
-xlabel("Time from LMN spikes")
-legend()
-
-subplot(2,2,3)
-plot(sta_r['lmn'].mean(1), label = 'lmn r')
-legend()
-xlabel("Time from ADN spikes")
-
-
-subplot(2,2,2)
-plot(sta_r_down['adn'].mean(1), label = 'adn r')
-title("STA proba attractorness")
-
-subplot(2,2,4)
-plot(sta_r_down['lmn'].mean(1), label = 'lmn r')
-xlabel("Time from ADN down center")
-
-show()

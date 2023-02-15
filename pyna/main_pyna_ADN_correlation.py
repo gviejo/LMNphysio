@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-01 19:20:07
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2022-12-21 11:54:46
+# @Last Modified time: 2023-02-06 13:32:09
 
 import numpy as np
 import pandas as pd
@@ -65,7 +65,7 @@ for s in datasets:
         tcurves2.append(tcurves_half)       
     tokeep = np.intersect1d(tokeep2[0], tokeep2[1])
     
-    if len(tokeep) > 3:
+    if len(tokeep) > 4:
 
         spikes = spikes[tokeep]
         # groups = spikes._metadata.loc[tokeep].groupby("location").groups
@@ -130,8 +130,8 @@ datatosave = {
 cPickle.dump(datatosave, open(os.path.join('/home/guillaume/Dropbox/CosyneData', 'All_correlation_ADN.pickle'), 'wb'))
 
 
-# datatosave = {'allr':allr}
-# cPickle.dump(datatosave, open(os.path.join('../data/', 'All_correlation_ADN_LMN.pickle'), 'wb'))
+datatosave = {'allr':allr}
+cPickle.dump(datatosave, open(os.path.join('../data/', 'All_correlation_ADN_LMN.pickle'), 'wb'))
 
 
 figure()

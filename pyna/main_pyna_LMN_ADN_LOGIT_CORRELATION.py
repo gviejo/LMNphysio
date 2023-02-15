@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-07-07 11:11:16
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-01-09 17:31:26
+# @Last Modified time: 2023-01-24 16:34:40
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -78,7 +78,7 @@ for s in datasets:
     ###############################################################################################
     groups = spikes.getby_category("location")
 
-    if len(groups['adn'])>5 and len(groups['lmn'])>5:
+    if len(groups['adn'])>3 and len(groups['lmn'])>5:
 
         ## MUA ########
         mua = {
@@ -87,64 +87,64 @@ for s in datasets:
 
         mua = nap.TsGroup(mua, time_support = spikes.time_support)
 
-        ## DOWN CENTER ######
-        down_center = (down_ep["start"] + (down_ep['end'] - down_ep['start'])/2).values
-        down_center = nap.TsGroup({
-            0:nap.Ts(t=down_center, time_support = sws_ep)
-            })
 
         ## SHUFFLING #####
-        bin_size_wake = 0.06
-        bin_size_sws = 0.02
+        bin_size_wake = 0.1
+        bin_size_sws = 0.03
 
-        gmap = {'adn':'lmn', 'lmn':'adn'}
+        g = 'lmn'
 
-        for i, g in enumerate(gmap.keys()):
+        #  WAKE 
+        count = groups[g].count(bin_size_wake, newwake_ep)
+        rate = count/bin_size_wake
+        rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
+        rate_wak = StandardScaler().fit_transform(rate)
 
-            #  WAKE 
-            count = groups[g].count(bin_size_wake, newwake_ep)
-            rate = count/bin_size_wake
-            rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
-            rate_wak = StandardScaler().fit_transform(rate)
+        #  WAKE SHUFFLE
+        count = nap.randomize.shuffle_ts_intervals(groups[g]).count(bin_size_wake, newwake_ep)
+        rate = count/bin_size_wake
+        rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
+        rate_shu = StandardScaler().fit_transform(rate)
+        
+        # SWS
+        count = groups[g].count(bin_size_sws, sws_ep)
+        time_index = count.index.values
+        rate = count/bin_size_sws
+        rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
+        rate_sws = StandardScaler().fit_transform(rate)
 
-            #  WAKE SHUFFLE
-            count = nap.randomize.shuffle_ts_intervals(groups[g]).count(bin_size_wake, newwake_ep)
-            rate = count/bin_size_wake
-            rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
-            rate_shu = StandardScaler().fit_transform(rate)
-            
-            # SWS
-            count = groups[g].count(bin_size_sws, sws_ep)
-            time_index = count.index.values
-            rate = count/bin_size_sws
-            rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
-            rate_sws = StandardScaler().fit_transform(rate)
+        X = np.vstack((rate_wak, rate_shu))
+        y = np.hstack((np.zeros(len(rate_wak)), np.ones(len(rate_shu)))).astype(np.int32)
+        Xt = rate_sws
 
-            X = np.vstack((rate_wak, rate_shu))
-            y = np.hstack((np.zeros(len(rate_wak)), np.ones(len(rate_shu)))).astype(np.int32)
-            Xt = rate_sws
+        # Classifier
+        bst = XGBClassifier(
+            n_estimators=100, max_depth=20, 
+            learning_rate=0.0001, objective='binary:logistic', 
+            random_state = 0,# booster='dart',
+            #eval_metric=f1_score)
+            )
+        bst.fit(X, y)            
 
-            # Classifier
-            bst = XGBClassifier(
-                n_estimators=10, max_depth=20, 
-                learning_rate=0.0001, objective='binary:logistic', 
-                random_state = 0,# booster='dart',
-                #eval_metric=f1_score)
-                )
-            bst.fit(X, y)            
-            # tmp = bst.predict_proba(Xt)[:,0]            
-            Pxgb[g][s] = bst.predict(X)
+        tmp = 1.0 - bst.predict_proba(Xt)[:,0]            
+        
+        adn_count = groups['adn'].count(bin_size_sws, sws_ep)
+        adn_count = adn_count.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
+        adn_count = adn_count.sum(1)
 
-            # PROJECTION            
-            rgb = getRGB(position['ry'], newwake_ep, bin_size_wake)
-            p_wak = KernelPCA(2, kernel='cosine').fit_transform(rate_wak)
-            p_shu = KernelPCA(2, kernel='cosine').fit_transform(rate_shu)
-            # tmp = Isomap(n_neighbors=10).fit_transform(rate_wak)
 
-            ### SAVING ####
-            Pwak[g][s] = p_wak
-            Pshu[g][s] = p_shu
-            RGB[g][s] = rgb
+        sys.exit()
+
+        # PROJECTION            
+        rgb = getRGB(position['ry'], newwake_ep, bin_size_wake)
+        p_wak = KernelPCA(2, kernel='cosine').fit_transform(rate_wak)
+        p_shu = KernelPCA(2, kernel='cosine').fit_transform(rate_shu)
+        # tmp = Isomap(n_neighbors=10).fit_transform(rate_wak)
+
+        ### SAVING ####
+        Pwak[g][s] = p_wak
+        Pshu[g][s] = p_shu
+        RGB[g][s] = rgb
 
 
 

@@ -19,15 +19,15 @@ from scipy.stats import zscore
 # GENERAL infos
 ###############################################################################################
 data_directory = '/mnt/DataRAID2/'
-datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#')
+datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN_PSB.list'), delimiter = '\n', dtype = str, comments = '#')
 
 
 
 allcc = {'wak':[], 'rem':[], 'sws':[]}
-allccdown = {'adn':[], 'lmn':[]}
+allccdown = {'psb':[], 'lmn':[]}
 
 for s in datasets:
-#for s in ['LMN-ADN/A5011/A5011-201015A']:
+#for s in ['LMN-psb/A5011/A5011-201015A']:
     print(s)
     ############################################################################################### 
     # LOADING DATA
@@ -40,7 +40,7 @@ for s in datasets:
     sws_ep = data.read_neuroscope_intervals('sws')
     rem_ep = data.read_neuroscope_intervals('rem')
     down_ep = data.read_neuroscope_intervals('down')
-    idx = spikes._metadata[spikes._metadata["location"].str.contains("adn|lmn")].index.values
+    idx = spikes._metadata[spikes._metadata["location"].str.contains("psb|lmn")].index.values
     spikes = spikes[idx]
     
     ############################################################################################### 
@@ -54,12 +54,12 @@ for s in datasets:
 
     spikes.set_info(SI, peaks=peaks)
 
-    adn = list(spikes.getby_category("location")["adn"].getby_threshold("SI", 0.5).index)
+    psb = list(spikes.getby_category("location")["psb"].getby_threshold("SI", 0.5).index)
     lmn = list(spikes.getby_category("location")["lmn"].getby_threshold("SI", 0.1).index)
     # nhd = list(spikes.getby_category("location")["psb"].getby_threshold("SI", 0.04, op='<').index)
 
     
-    tokeep = adn+lmn
+    tokeep = psb+lmn
     tokeep = np.array(tokeep)
     spikes = spikes[tokeep]
     groups = spikes._metadata.loc[tokeep].groupby("location").groups
@@ -75,9 +75,9 @@ for s in datasets:
     ############################################################################################### 
     groups = spikes.getby_category("location")
 
-    if len(groups['adn'])>4 and len(groups['lmn'])>4:
+    if len(groups['psb'])>4 and len(groups['lmn'])>4:
         mua = {}
-        for i, n in enumerate(['lmn', 'adn']):
+        for i, n in enumerate(['lmn', 'psb']):
             mua[i] = nap.Ts(t=np.sort(np.hstack([groups[n][j].index.values for j in groups[n].index])))
         mua = nap.TsGroup(mua, time_support = spikes.time_support)
         
@@ -94,7 +94,7 @@ for s in datasets:
             t=down_ep['start'].values + (down_ep['end'].values - down_ep['start'].values)/2
             )
 
-        for k in ['adn', 'lmn']:
+        for k in ['psb', 'lmn']:
             cc_down = nap.compute_eventcorrelogram(groups[k], tref, 0.01, 0.2, sws_ep)
 
             cc_down.columns = [data.basename+'_'+str(n) for n in groups[k].keys()]
@@ -102,7 +102,7 @@ for s in datasets:
             allccdown[k].append(cc_down)
 
 
-for k in ['adn', 'lmn']:
+for k in ['psb', 'lmn']:
     allccdown[k] = pd.concat(allccdown[k], axis=1)
 
 for e in allcc.keys():
@@ -110,7 +110,7 @@ for e in allcc.keys():
     allcc[e] = allcc[e].apply(zscore)
 
 datatosave = {'allcc':allcc, 'allcup': allccdown}
-cPickle.dump(datatosave, open(os.path.join('/home/guillaume/Dropbox/CosyneData', 'MUA_LMN_ADN.pickle'), 'wb'))
+cPickle.dump(datatosave, open(os.path.join('/home/guillaume/Dropbox/CosyneData', 'MUA_LMN_psb.pickle'), 'wb'))
 
 
 figure()
@@ -121,7 +121,7 @@ for i, e in enumerate(allcc.keys()):
 show()
 
 figure()
-for i,k in enumerate(['adn', 'lmn']):
+for i,k in enumerate(['psb', 'lmn']):
     subplot(2,1,i+1)
     plot(allccdown[k].mean(1))
 show()
