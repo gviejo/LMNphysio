@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-08-09 15:41:55
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2022-08-09 16:51:06
+# @Last Modified time: 2023-02-14 16:01:16
 
 import numpy as np
 import pandas as pd
@@ -28,7 +28,7 @@ for i in range(len(dataset_list)):
     ############################################################################################### 
     # GENERAL infos
     ###############################################################################################
-    data_directory = '/mnt/DataGuillaume/'
+    data_directory = '/mnt/DataRAID2/'
     datasets = np.genfromtxt(os.path.join(data_directory,'datasets_UFO.list'), delimiter = '\n', dtype = str, comments = '#')
     
 
