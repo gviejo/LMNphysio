@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-02-28 16:16:36
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-01-03 14:05:20
+# @Last Modified time: 2023-03-01 15:14:05
 import numpy as np
 from numba import jit
 import pandas as pd
@@ -385,7 +385,7 @@ def computeRasterOpto(spikes, opto_ep, bin_size = 100):
         rasters[n] = []
         r = []
         for e in opto_ep.index:
-            ep = nts.IntervalSet(start = opto_ep.loc[e,'start'] - stim_duration,
+            ep = nap.IntervalSet(start = opto_ep.loc[e,'start'] - stim_duration,
                                 end = opto_ep.loc[e,'end'] + stim_duration)
             spk = spikes[n].restrict(ep)
             tmp = pd.Series(index = spk.index.values - ep.loc[0,'start'], data = e)
@@ -397,5 +397,43 @@ def computeRasterOpto(spikes, opto_ep, bin_size = 100):
         rasters[n] = pd.concat(rasters[n])      
 
     frates = pd.concat(frates, 1)
-    frates = nts.TsdFrame(t = frates.index.values, d = frates.values, time_units = 'ms')
+    frates = nap.TsdFrame(t = frates.index.values, d = frates.values, time_units = 'ms')
     return frates, rasters, bins, stim_duration
+
+def computeLMNAngularTuningCurves(spikes, angle, ep, nb_bins = 180, frequency = 120.0, bin_size = 100):
+    tmp             = pd.Series(index = angle.index.values, data = np.unwrap(angle.values)) 
+    tmp2            = tmp.rolling(window=50,win_type='gaussian',center=True,min_periods=1).mean(std=10.0)   
+    bin_size        = bin_size * 1000
+    time_bins       = np.arange(tmp.index[0], tmp.index[-1]+bin_size, bin_size) # assuming microseconds
+    index           = np.digitize(tmp2.index.values, time_bins)
+    tmp3            = tmp2.groupby(index).mean()
+    tmp3.index      = time_bins[np.unique(index)-1]+bin_size/2
+    tmp3            = nap.Tsd(tmp3)
+    tmp4            = np.diff(tmp3.values)/np.diff(tmp3.as_units('s').index.values)
+    newangle        = nap.Tsd(t = tmp3.index.values, d = tmp3.values%(2*np.pi))
+    velocity        = nap.Tsd(t=tmp3.index.values[1:], d = tmp4)
+    velocity        = velocity.restrict(ep) 
+    velo_spikes     = {}    
+    for k in spikes: velo_spikes[k] = velocity.realign(spikes[k].restrict(ep))
+    # bins_velocity = np.array([velocity.min(), -2*np.pi/3, -np.pi/6, np.pi/6, 2*np.pi/3, velocity.max()+0.001])
+    bins_velocity   = np.array([velocity.min(), -np.pi/6, np.pi/6, velocity.max()+0.001])
+
+    idx_velocity    = {k:np.digitize(velo_spikes[k].values, bins_velocity)-1 for k in spikes}
+
+    bins            = np.linspace(0, 2*np.pi, nb_bins)
+    idx             = bins[0:-1]+np.diff(bins)/2
+    tuning_curves   = {i:pd.DataFrame(index = idx, columns = list(spikes.keys())) for i in range(3)}    
+
+    # for i,j in zip(range(3),range(0,6,2)):
+    for i,j in zip(range(3),range(3)):
+        for k in spikes:
+            spks            = spikes[k].restrict(ep)            
+            spks            = spks[idx_velocity[k] == j]
+            angle_spike     = newangle.restrict(ep).realign(spks)
+            spike_count, bin_edges = np.histogram(angle_spike, bins)
+            tmp             = newangle.loc[velocity.index[np.logical_and(velocity.values>bins_velocity[j], velocity.values<bins_velocity[j+1])]]
+            occupancy, _    = np.histogram(tmp, bins)
+            spike_count     = spike_count/occupancy 
+            tuning_curves[i][k] = spike_count*(1/(bin_size*1e-6))
+
+    return tuning_curves, velocity, bins_velocity

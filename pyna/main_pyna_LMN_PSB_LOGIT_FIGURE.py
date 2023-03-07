@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-07-07 11:11:16
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-02-08 17:54:44
+# @Last Modified time: 2023-03-05 16:14:29
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -95,7 +95,7 @@ for s in datasets:
             })
 
         ## SHUFFLING #####
-        bin_size_wake = 0.06
+        bin_size_wake = 0.2
         bin_size_sws = 0.02
 
         gmap = {'psb':'lmn', 'lmn':'psb'}
@@ -133,8 +133,8 @@ for s in datasets:
                 #eval_metric=f1_score)
                 )
             bst.fit(X, y)            
-            # tmp = bst.predict_proba(Xt)[:,0]            
-            Pxgb[g][s] = bst.predict(X)
+            Pxgb[g][s] = bst.predict(Xt)
+            # Pxgb[g][s] = bst.predict(X)
 
             # PROJECTION            
             rgb = getRGB(position['ry'], newwake_ep, bin_size_wake)
@@ -146,6 +146,33 @@ for s in datasets:
             Pwak[g][s] = p_wak
             Pshu[g][s] = p_shu
             RGB[g][s] = rgb
+            if s == 'LMN-PSB/A3019/A3019-220701A':
+
+                sys.exit()
+
+                ex_sws = nap.IntervalSet(start = 5896.30, end = 5898.45, time_units = 's')
+
+                p = nap.Tsd(t=time_index, d= Pxgb[g][s])
+
+                figure()
+                gs = GridSpec(3,1)
+                subplot(gs[0,0])
+                psb = peaks[psb].sort_values().index.values
+                for i, n in enumerate(psb):
+                    spk = spikes[n].restrict(ex_sws).index.values
+                    if len(spk):
+                        plot(spk, np.ones_like(spk)*i, '|', color = 'grey')
+
+                subplot(gs[1,0])
+                psb = peaks[psb].sort_values().index.values
+                for i, n in enumerate(lmn):
+                    spk = spikes[n].restrict(ex_sws).index.values
+                    if len(spk):
+                        plot(spk, np.ones_like(spk)*i, '|', color = 'grey')
+
+
+                subplot(gs[2,0])
+                plot(p.restrict(ex_sws))
 
 
 

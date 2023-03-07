@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-07-07 11:11:16
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-02-07 10:25:50
+# @Last Modified time: 2023-03-05 18:27:15
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -80,10 +80,10 @@ for s in datasets:
 
     spikes.set_info(SI, peaks=peaks)
 
-    adn = list(spikes.getby_category("location")["adn"].getby_threshold("SI", 0.5).index)
-    lmn = list(spikes.getby_category("location")["lmn"].getby_threshold("SI", 0.1).index)
+    adn = list(spikes.getby_category("location")["adn"].getby_threshold("SI", 0.6).index)
+    lmn = list(spikes.getby_category("location")["lmn"].getby_threshold("SI", 0.2).index)
 
-    if len(lmn) > 5 and len(adn) > 5:
+    if len(lmn) > 6 and len(adn) > 6:
 
         tokeep = adn+lmn
         tokeep = np.array(tokeep)
@@ -120,15 +120,15 @@ for s in datasets:
             mua_spikes = nap.TsGroup(mua_spikes, time_support = spikes.time_support, location = np.array(['adn', 'lmn']))
 
             for e, ep, binsize, windowsize in zip(['wak', 'rem', 'sws'], [wake_ep, rem_ep, sws_ep], 
-                                                    [0.01, 0.01, 0.01],
-                                                    [0.2, 0.2, 0.2]):
+                                                    [0.1, 0.1, 0.01],
+                                                    [2.0, 2.0, 0.3]):
 
-                # mua_count = mua_spikes.count(binsize, ep)                                
-                # # rate = count.values
-                # mua_rate = mua_count/binsize
+                mua_count = mua_spikes.count(binsize, ep)
+                # rate = count.values
+                mua_rate = mua_count/binsize
                 # if st:
-                #     mua_rate = mua_rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=st)
-                # mua_rate = StandardScaler().fit_transform(mua_rate.values)                
+                mua_rate = mua_rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
+                mua_rate = StandardScaler().fit_transform(mua_rate.values)                
 
                 count = spikes[list(p)].count(binsize, ep)
                 # rate = count.values
@@ -137,7 +137,7 @@ for s in datasets:
                 frate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=stds[1])
 
                 rates = {
-                    # 0:StandardScaler().fit_transform((rate - frate).values),
+                    #0:StandardScaler().fit_transform((rate - frate).values),
                     0:StandardScaler().fit_transform(rate.values),
                     stds[1]:StandardScaler().fit_transform(frate.values)
                 }
@@ -154,7 +154,7 @@ for s in datasets:
                     
                     # for j, k in enumerate(['adn', 'lmn']):                    
                     #     if j == 0: # adn target, lmn regressor, mua LMN
-                    # mua_offset, time_idx = offset_matrix(mua_rate[:,1], binsize, windowsize)
+                    mua_offset, time_idx = offset_matrix(mua_rate[:,1], binsize, windowsize)
                     reg_offset, time_idx = offset_matrix(rate[:,1], binsize, windowsize)
                     target = count.values[:,0]
                         # elif j == 1: # lmn target, adn regressor, mua ADN
@@ -172,8 +172,6 @@ for s in datasets:
                     # coefs_pai[e][st].append(pd.DataFrame(
                     #     index=time_idx, data=glm.coef_[len(time_idx):], columns=[pair_name]))
 
-                    # coefs_mua[e][st].append(pd.DataFrame(
-                    #     index=time_idx, data=glm.coef_, columns=[pair_name]))
                     coefs_pai[e][st].append(pd.DataFrame(
                         index=time_idx, data=glm.coef_, columns=[pair_name]))
 
@@ -210,9 +208,10 @@ for i,st in enumerate(stds):
 
         subplot(gs[1+2*i,j])
         for l in range(3):
-            tmp = coefs_pai[k][st].iloc[:,idx==l]#.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
-            # plot(tmp.mean(1), '-')
-            plot(tmp, '-')
+            tmp = coefs_pai[k][st].iloc[:,idx==l].rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
+            plot(tmp.mean(1), '-')
+            # plot(tmp, '-')
+
 
 
 
@@ -221,15 +220,21 @@ for i,e in enumerate(coefs_pai.keys()): # epoch
     betaratio[e] = {}
     for k, s in enumerate(coefs_pai[e].keys()): # Std
         betaratio[e][s] = {}
-        betaneg = coefs_pai[e][s].loc[-0.2:0].abs().sum(0)
-        betapos = coefs_pai[e][s].loc[0:0.2].abs().sum(0)
+        tmp = coefs_pai[e][s].rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=3)
+        if e in ['wak', 'rem']:
+            betaneg = tmp.loc[-1:0.0].abs().sum(0)
+            betapos = tmp.loc[0.0:1].abs().sum(0)
+        else:
+            betaneg = tmp.loc[-0.2:0.0].abs().sum(0)
+            betapos = tmp.loc[0.02:0.2].abs().sum(0)
+
         betar = betapos/betaneg
         for j, g in enumerate(np.unique(idx)):
             betaratio[e][s][g] = betar[idx==g]
             
 
 figure()
-colors = ['blue', 'orange', 'green']
+colors = ['blue', 'orange', 'green', 'magenta']
 gs = GridSpec(2,1)
 for k, s in enumerate(coefs_pai[e].keys()): # Std
     subplot(gs[k,0])
@@ -246,4 +251,16 @@ for k, s in enumerate(coefs_pai[e].keys()): # Std
     xticks([1, 5, 11], ['wak', 'rem', 'sws'])
 
 
+show()
+
+figure()
+subplot(1,1,1)
+count = 0
+for k, s in enumerate(coefs_pai[e].keys()): # Std        
+    for i,e in enumerate(['wak', 'sws']): # epoch
+        y = betaratio[e][s][0].values
+        x = np.ones(len(y))*count + np.random.randn(len(y))*0.1
+        plot(x, y, 'o', color = colors[j], alpha=0.2)
+
+        count += 1        
 show()

@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-07-07 11:11:16
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-01-09 17:31:26
+# @Last Modified time: 2023-03-03 15:27:17
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -94,7 +94,7 @@ for s in datasets:
             })
 
         ## SHUFFLING #####
-        bin_size_wake = 0.06
+        bin_size_wake = 0.1
         bin_size_sws = 0.02
 
         gmap = {'adn':'lmn', 'lmn':'adn'}
@@ -102,22 +102,22 @@ for s in datasets:
         for i, g in enumerate(gmap.keys()):
 
             #  WAKE 
-            count = groups[g].count(bin_size_wake, newwake_ep)
+            count = groups[g].count(bin_size_wake, wake_ep)
             rate = count/bin_size_wake
-            rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
+            rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=2)
             rate_wak = StandardScaler().fit_transform(rate)
 
             #  WAKE SHUFFLE
-            count = nap.randomize.shuffle_ts_intervals(groups[g]).count(bin_size_wake, newwake_ep)
+            count = nap.randomize.shuffle_ts_intervals(groups[g]).count(bin_size_wake, wake_ep)
             rate = count/bin_size_wake
-            rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
+            rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=2)
             rate_shu = StandardScaler().fit_transform(rate)
             
             # SWS
             count = groups[g].count(bin_size_sws, sws_ep)
             time_index = count.index.values
             rate = count/bin_size_sws
-            rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
+            rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=2)
             rate_sws = StandardScaler().fit_transform(rate)
 
             X = np.vstack((rate_wak, rate_shu))
@@ -147,49 +147,31 @@ for s in datasets:
             RGB[g][s] = rgb
 
 
+from scipy.ndimage import gaussian_filter
 
 
 figure()
-gs = GridSpec(len(Pwak["adn"]), 8)
+gs = GridSpec(len(Pwak["adn"]), 4)
 
 for i, g in enumerate(['adn', 'lmn']):
     
     for j, s in enumerate(Pwak[g].keys()):
 
-        subplot(gs[j,i*4])
-        tmp = np.histogram2d(Pwak[g][s][:,0], Pwak[g][s][:,1], 20)
-        imshow(tmp[0])
-        # scatter(Pwak[g][s][:,0], Pwak[g][s][:,1], color = RGB[g][s])
+        subplot(gs[j,i*2])
+        tmp = np.histogram2d(Pwak[g][s][:,0], Pwak[g][s][:,1], 30)[0]
+        tmp = gaussian_filter(tmp, (3, 3))
+        imshow(tmp, cmap = 'Reds')
+        
 
     for j, s in enumerate(Pshu[g].keys()):
 
-        subplot(gs[j,i*4+1])
-
-        tmp = np.histogram2d(Pshu[g][s][:,0], Pshu[g][s][:,1], 20)
-        imshow(tmp[0])
-
-    for j, s in enumerate(Pwak[g].keys()):
-
-        # tmp = np.vstack((Pwak[g][s], Pshu[g][s]))
-        tmp = Pwak[g][s][Pxgb[g][s][0:len(Pwak[g][s])]==0]
-        tmp2 = np.histogram2d(tmp[:,0], tmp[:,1], 20)
-
-        subplot(gs[j,i*4+2])
-        
-        # scatter(tmp[:,0], tmp[:,1], c = Pxgb[g][s][0:len(tmp)], marker = '.', alpha = 0.2, edgecolor = None)
-        imshow(tmp2[0])
-
-    for j, s in enumerate(Pshu[g].keys()):
-
-        # tmp = np.vstack((Pwak[g][s], Pshu[g][s]))
-        tmp = Pshu[g][s][Pxgb[g][s][len(Pshu[g][s]):]==1]
-        tmp2 = np.histogram2d(tmp[:,0], tmp[:,1], 20)
+        subplot(gs[j,i*2+1])
+        tmp = np.histogram2d(Pshu[g][s][:,0], Pshu[g][s][:,1], 30)[0]
+        tmp = gaussian_filter(tmp, (3, 3))
+        imshow(tmp, cmap = 'Blues')
 
 
-        subplot(gs[j,i*4+3])
-        
-        # scatter(tmp[:,0], tmp[:,1], c = Pxgb[g][s][len(tmp):], marker = '.', alpha = 0.2, edgecolor = None)
-        imshow(tmp2[0])
+show()
 
 
 figure()

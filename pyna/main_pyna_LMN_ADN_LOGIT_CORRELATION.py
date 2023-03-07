@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-07-07 11:11:16
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-01-24 16:34:40
+# @Last Modified time: 2023-03-03 16:14:34
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -29,11 +29,7 @@ datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), d
 
 
 
-Pwak = {'adn':{}, 'lmn':{}} # trigger average of proba from the other structure spikes
-Pshu = {'adn':{}, 'lmn':{}} # cross corr of adn and lmn / adn down states
-RGB = {'adn':{}, 'lmn':{}} # proba trigger on down states
-
-Pxgb = {'adn':{}, 'lmn':{}}
+Pxgb = {}
 
 
 for s in datasets:
@@ -90,125 +86,76 @@ for s in datasets:
 
         ## SHUFFLING #####
         bin_size_wake = 0.1
-        bin_size_sws = 0.03
-
-        g = 'lmn'
-
-        #  WAKE 
-        count = groups[g].count(bin_size_wake, newwake_ep)
-        rate = count/bin_size_wake
-        rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
-        rate_wak = StandardScaler().fit_transform(rate)
-
-        #  WAKE SHUFFLE
-        count = nap.randomize.shuffle_ts_intervals(groups[g]).count(bin_size_wake, newwake_ep)
-        rate = count/bin_size_wake
-        rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
-        rate_shu = StandardScaler().fit_transform(rate)
-        
-        # SWS
-        count = groups[g].count(bin_size_sws, sws_ep)
-        time_index = count.index.values
-        rate = count/bin_size_sws
-        rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
-        rate_sws = StandardScaler().fit_transform(rate)
-
-        X = np.vstack((rate_wak, rate_shu))
-        y = np.hstack((np.zeros(len(rate_wak)), np.ones(len(rate_shu)))).astype(np.int32)
-        Xt = rate_sws
-
-        # Classifier
-        bst = XGBClassifier(
-            n_estimators=100, max_depth=20, 
-            learning_rate=0.0001, objective='binary:logistic', 
-            random_state = 0,# booster='dart',
-            #eval_metric=f1_score)
-            )
-        bst.fit(X, y)            
-
-        tmp = 1.0 - bst.predict_proba(Xt)[:,0]            
-        
-        adn_count = groups['adn'].count(bin_size_sws, sws_ep)
-        adn_count = adn_count.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
-        adn_count = adn_count.sum(1)
+        bin_size_sws = 0.02
 
 
-        sys.exit()
+        gmap = {'adn':'lmn', 'lmn':'adn'}
 
-        # PROJECTION            
-        rgb = getRGB(position['ry'], newwake_ep, bin_size_wake)
-        p_wak = KernelPCA(2, kernel='cosine').fit_transform(rate_wak)
-        p_shu = KernelPCA(2, kernel='cosine').fit_transform(rate_shu)
-        # tmp = Isomap(n_neighbors=10).fit_transform(rate_wak)
+        predi = {}
 
-        ### SAVING ####
-        Pwak[g][s] = p_wak
-        Pshu[g][s] = p_shu
-        RGB[g][s] = rgb
+        for i, g in enumerate(gmap.keys()):
+
+            #  WAKE 
+            count = groups[g].count(bin_size_wake, wake_ep)
+            rate = count/bin_size_wake
+            rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=2)
+            rate_wak = StandardScaler().fit_transform(rate)
+
+            #  WAKE SHUFFLE
+            count = nap.randomize.shuffle_ts_intervals(groups[g]).count(bin_size_wake, wake_ep)
+            rate = count/bin_size_wake
+            rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=2)
+            rate_shu = StandardScaler().fit_transform(rate)
+            
+            # SWS
+            count = groups[g].count(bin_size_sws, sws_ep)
+            time_index = count.index.values
+            rate = count/bin_size_sws
+            rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
+            rate_sws = StandardScaler().fit_transform(rate)
+
+            X = np.vstack((rate_wak, rate_shu))
+            y = np.hstack((np.zeros(len(rate_wak)), np.ones(len(rate_shu)))).astype(np.int32)
+            Xt = rate_sws
+
+            # Classifier
+            bst = XGBClassifier(
+                n_estimators=10, max_depth=20, 
+                learning_rate=0.0001, objective='binary:logistic', 
+                random_state = 0,# booster='dart',
+                #eval_metric=f1_score)
+                )
+            bst.fit(X, y)            
+            predi[g] = bst.predict(Xt)
+            
+        Pxgb[s] = pd.DataFrame.from_dict(predi)
+
+        # # PROJECTION
+        # rgb = getRGB(position['ry'], newwake_ep, bin_size_wake)
+        # p_wak = KernelPCA(2, kernel='cosine').fit_transform(rate_wak)
+        # p_shu = KernelPCA(2, kernel='cosine').fit_transform(rate_shu)
+        # # tmp = Isomap(n_neighbors=10).fit_transform(rate_wak)
+
+        # ### SAVING ####
+        # Pwak[g][s] = p_wak
+        # Pshu[g][s] = p_shu
+        # RGB[g][s] = rgb
 
 
+corrs = {}
 
+for s in Pxgb.keys():
+    lag = []
+    tmp = Pxgb[s].values
+    for j in range(0, 20):
+        lag.append(np.correlate(tmp[20-j:,0], tmp[0:len(tmp)-20+j,1])[0])
+    lag = np.array(lag)
+    corrs[s] = lag
+corrs = pd.DataFrame.from_dict(corrs)
 
-figure()
-gs = GridSpec(len(Pwak["adn"]), 8)
-
-for i, g in enumerate(['adn', 'lmn']):
-    
-    for j, s in enumerate(Pwak[g].keys()):
-
-        subplot(gs[j,i*4])
-        tmp = np.histogram2d(Pwak[g][s][:,0], Pwak[g][s][:,1], 20)
-        imshow(tmp[0])
-        # scatter(Pwak[g][s][:,0], Pwak[g][s][:,1], color = RGB[g][s])
-
-    for j, s in enumerate(Pshu[g].keys()):
-
-        subplot(gs[j,i*4+1])
-
-        tmp = np.histogram2d(Pshu[g][s][:,0], Pshu[g][s][:,1], 20)
-        imshow(tmp[0])
-
-    for j, s in enumerate(Pwak[g].keys()):
-
-        # tmp = np.vstack((Pwak[g][s], Pshu[g][s]))
-        tmp = Pwak[g][s][Pxgb[g][s][0:len(Pwak[g][s])]==0]
-        tmp2 = np.histogram2d(tmp[:,0], tmp[:,1], 20)
-
-        subplot(gs[j,i*4+2])
-        
-        # scatter(tmp[:,0], tmp[:,1], c = Pxgb[g][s][0:len(tmp)], marker = '.', alpha = 0.2, edgecolor = None)
-        imshow(tmp2[0])
-
-    for j, s in enumerate(Pshu[g].keys()):
-
-        # tmp = np.vstack((Pwak[g][s], Pshu[g][s]))
-        tmp = Pshu[g][s][Pxgb[g][s][len(Pshu[g][s]):]==1]
-        tmp2 = np.histogram2d(tmp[:,0], tmp[:,1], 20)
-
-
-        subplot(gs[j,i*4+3])
-        
-        # scatter(tmp[:,0], tmp[:,1], c = Pxgb[g][s][len(tmp):], marker = '.', alpha = 0.2, edgecolor = None)
-        imshow(tmp2[0])
-
+corrs = corrs.apply(zscore)
 
 figure()
-
-gs = GridSpec(len(Pxgb["adn"]), 2)
-
-for i, g in enumerate(['adn', 'lmn']):
-    
-    for j, s in enumerate(Pxgb[g].keys()):
-
-        subplot(gs[j,i])
-        plot(Pxgb[g][s])
-
-
-
-
-show()
-
-
-# sys.exit()
-
-
+for i, s in enumerate(Pxgb.keys()):
+    subplot(4,4,i+1)
+    hist(Pxgb[s]["adn"])

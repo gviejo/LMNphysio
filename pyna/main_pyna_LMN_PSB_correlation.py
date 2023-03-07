@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-07-07 11:11:16
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-02-10 23:18:38
+# @Last Modified time: 2023-03-06 20:51:56
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -28,6 +28,8 @@ infos = getAllInfos(data_directory, datasets)
 
 allr = {'psb':[], 'lmn':[]}
 allf = []
+
+
 
 for s in datasets:
     print(s)
@@ -59,7 +61,7 @@ for s in datasets:
     r = correlate_TC_half_epochs(spikes, angle, 120, (0, 2*np.pi))
     spikes.set_info(halfr = r)
 
-    psb = list(spikes.getby_category("location")['psb'].getby_threshold('SI', 1).getby_threshold('halfr', 0.5).index)
+    psb = list(spikes.getby_category("location")['psb'].getby_threshold('SI', 0.75).getby_threshold('halfr', 0.5).index)
     lmn = list(spikes.getby_category("location")['lmn'].getby_threshold('SI', 0.1).getby_threshold('halfr', 0.5).index)
         
     ############################################################################################### 
@@ -69,13 +71,13 @@ for s in datasets:
     for e, ep, bin_size, std in zip(
             ['wak', 'rem', 'sws', 'sws2', 'sws3'], 
             [wake_ep, rem_ep, sws_ep, sws2_ep, sws3_ep], 
-            [0.1, 0.1, 0.05, 0.05, 0.05],
+            [0.1, 0.1, 0.02, 0.02, 0.02],
             [1,1,1,1,1]):
         count = spikes.count(bin_size, ep)
         rate = count/bin_size        
         #rate = zscore_rate(rate)
         rate = rate.as_dataframe().apply(zscore)
-        rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=std)
+        # rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=std)
         rates[e] = nap.TsdFrame(rate, time_support = ep)
 
 
@@ -93,7 +95,10 @@ for s in datasets:
         pairs = list(combinations([name+'_'+str(n) for n in neurons], 2)) 
         pairs = pd.MultiIndex.from_tuples(pairs)
         r.index = pairs
-        
+
+        #######################
+        # SAVING
+        #######################        
         allr[k].append(r)
 
 for k in allr.keys():

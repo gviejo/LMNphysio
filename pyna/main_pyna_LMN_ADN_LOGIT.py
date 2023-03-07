@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-07-07 11:11:16
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-01-10 17:10:37
+# @Last Modified time: 2023-03-03 16:57:10
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -63,7 +63,7 @@ for s in datasets:
 
     spikes.set_info(SI, peaks=peaks)
 
-    adn = list(spikes.getby_category("location")["adn"].getby_threshold("SI", 0.1).index)
+    adn = list(spikes.getby_category("location")["adn"].getby_threshold("SI", 0.3).index)
     lmn = list(spikes.getby_category("location")["lmn"].getby_threshold("SI", 0.1).index)
 
     # figure()
@@ -92,7 +92,7 @@ for s in datasets:
     ###############################################################################################
     groups = spikes.getby_category("location")
 
-    if len(groups['adn'])>5 and len(groups['lmn'])>5:
+    if len(groups['adn'])>6 and len(groups['lmn'])>8:
 
         ## MUA ########
         mua = {
@@ -109,7 +109,7 @@ for s in datasets:
 
         ## SHUFFLING #####
         bin_size_wake = 0.1
-        bin_size_sws = 0.02
+        bin_size_sws = 0.01
 
         gmap = {'adn':'lmn', 'lmn':'adn'}
 
@@ -118,13 +118,13 @@ for s in datasets:
             #  WAKE 
             count = groups[g].count(bin_size_wake, newwake_ep)
             rate = count/bin_size_wake
-            rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
+            rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=2)
             rate_wak = StandardScaler().fit_transform(rate)
 
             #  WAKE SHUFFLE
             count = nap.randomize.shuffle_ts_intervals(groups[g]).count(bin_size_wake, newwake_ep)
             rate = count/bin_size_wake
-            rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
+            rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=2)
             rate_shu = StandardScaler().fit_transform(rate)
 
             # # adding a zero vector
@@ -213,13 +213,13 @@ title("CC")
 
 figure()
 subplot(2,2,1)
-plot(sta_r['adn'].mean(1), label = 'adn r')
+plot(sta_r['adn'], label = 'adn r')
 title("STA proba attractorness")
 xlabel("Time from LMN spikes")
 legend()
 
 subplot(2,2,3)
-plot(sta_r['lmn'].mean(1), label = 'lmn r')
+plot(sta_r['lmn'], label = 'lmn r')
 legend()
 xlabel("Time from ADN spikes")
 
