@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-06-14 16:45:11
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-03-06 21:10:31
+# @Last Modified by:   gviejo
+# @Last Modified time: 2023-03-08 15:26:53
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -19,11 +19,13 @@ from scipy.signal import filtfilt
 # GENERAL infos
 ###############################################################################################
 # data_directory = '/mnt/DataGuillaume/'
+# data_directory = '/mnt/DataRAID2/'
+data_directory = '/media/guillaume/LaCie'
 
-# infos = getAllInfos(data_directory, datasets)
 
-data_directory = '/mnt/DataRAID2/'
-datasets = np.genfromtxt('/mnt/DataRAID2/datasets_LMN_PSB.list', delimiter = '\n', dtype = str, comments = '#')
+# datasets = np.genfromtxt('/mnt/DataRAID2/datasets_LMN_PSB.list', delimiter = '\n', dtype = str, comments = '#')
+# On Razer
+datasets = np.genfromtxt('/media/guillaume/LaCie/datasets_LMN_PSB.list', delimiter = '\n', dtype = str, comments = '#')
 
 durations = {2:[], 3:[]}
 
@@ -151,9 +153,9 @@ for s in datasets:
     # data.write_neuroscope_intervals('.nrem3.evt', nrem3_ep, 'PyNREM3')    
 
 
-cPickle.dump(datatosave, open(
-    os.path.join('/home/guillaume/Dropbox/CosyneData', 'DELTA_POWER_PSB.pickle'), 'wb'
-    ))
+# cPickle.dump(datatosave, open(
+#     os.path.join('/home/guillaume/Dropbox/CosyneData', 'DELTA_POWER_PSB.pickle'), 'wb'
+#     ))
 
 
 

@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-01 12:03:19
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2022-12-21 11:19:21
+# @Last Modified by:   gviejo
+# @Last Modified time: 2023-03-08 15:26:07
 
 import numpy as np
 import pandas as pd
@@ -25,6 +25,8 @@ datasets = []
 for lst in ['datasets_LMN.list', 'datasets_LMN_PSB.list', 'datasets_LMN_ADN.list']:
     datasets.append(np.genfromtxt(os.path.join(data_directory,lst), delimiter = '\n', dtype = str, comments = '#'))    
 datasets = np.unique(np.hstack(datasets))
+
+datasets = np.genfromtxt('/media/guillaume/LaCie/datasets_LMN_PSB.list', delimiter = '\n', dtype = str, comments = '#')
 
 allr = []
 pearson = {}
@@ -124,7 +126,7 @@ datatosave = {
     'allr':allr,
     'pearsonr':pearson
     }
-cPickle.dump(datatosave, open(os.path.join('/home/guillaume/Dropbox/CosyneData', 'All_correlation_LMN.pickle'), 'wb'))
+# cPickle.dump(datatosave, open(os.path.join('/home/guillaume/Dropbox/CosyneData', 'All_correlation_LMN.pickle'), 'wb'))
 
 
 figure()

@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-02-28 16:16:36
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-03-01 15:14:05
+# @Last Modified by:   gviejo
+# @Last Modified time: 2023-03-08 16:54:58
 import numpy as np
 from numba import jit
 import pandas as pd
@@ -15,7 +15,7 @@ from pylab import *
 import pynapple as nap
 from matplotlib.colors import hsv_to_rgb
 import xgboost as xgb
-from LinearDecoder import linearDecoder
+# from LinearDecoder import linearDecoder
 
 def getAllInfos(data_directory, datasets):
     allm = np.unique(["/".join(s.split("/")[0:2]) for s in datasets])
@@ -437,3 +437,9 @@ def computeLMNAngularTuningCurves(spikes, angle, ep, nb_bins = 180, frequency = 
             tuning_curves[i][k] = spike_count*(1/(bin_size*1e-6))
 
     return tuning_curves, velocity, bins_velocity
+
+def downsample(tsd, up, down):
+    import scipy.signal
+    dtsd = scipy.signal.resample_poly(tsd.values.astype(np.float32), up, down)
+    dt = tsd.index.values[np.arange(0, tsd.shape[0], down)]
+    return nap.Tsd(t=dt, d=dtsd, time_support = tsd.time_support)
