@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 17:49:50
-# @Last Modified by:   gviejo
-# @Last Modified time: 2023-03-08 14:35:34
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2023-03-10 18:43:32
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -43,7 +43,7 @@ def figsize(scale):
     golden_mean = (np.sqrt(5.0)-1.0) / 2           # Aesthetic ratio (you could change this)
     #fig_width = fig_width_pt*inches_per_pt*scale    # width in inches
     fig_width = 4.0
-    fig_height = fig_width*golden_mean*1.4         # height in inches
+    fig_height = fig_width*golden_mean*1.3         # height in inches
     fig_size = [fig_width,fig_height]
     return fig_size
 
@@ -71,7 +71,7 @@ font_dir = ['/home/guillaume/Dropbox/CosyneData/figures_poster_2022']
 for font in font_manager.findSystemFonts(font_dir):
     font_manager.fontManager.addfont(font)
 
-fontsize = 9
+fontsize = 7
 
 COLOR = (0.25, 0.25, 0.25)
 
@@ -202,8 +202,9 @@ for i, (xpos, ypos) in enumerate(zip([0.3, 0.4, 0.5], [0.2, 0.5, 0.8])):
                 (0.3, 0.2), 
                 (0.4, 0.5), 
                 mutation_scale = 3,
+                alpha=0.5,
                 facecolor=COLOR,
-                edgecolor=COLOR,
+                edgecolor=None,
                 transform=gca().transAxes,
                 arrowstyle=style        
                 ))
@@ -215,6 +216,7 @@ for i, (xpos, ypos) in enumerate(zip([0.3, 0.4, 0.5], [0.2, 0.5, 0.8])):
                 mutation_scale = 3,
                 facecolor=COLOR,
                 edgecolor=COLOR,
+                alpha=0.5,
                 transform=gca().transAxes,
                 arrowstyle=style        
                 ))
@@ -226,6 +228,7 @@ gca().add_patch(
         mutation_scale = 3,
         facecolor=COLOR,
         edgecolor=COLOR,
+        alpha=0.5,
         transform=gca().transAxes,
         arrowstyle=style,
         connectionstyle="angle3,angleA=90,angleB=20"
@@ -313,7 +316,8 @@ gs1 = gridspec.GridSpecFromSubplotSpec(2,1, outergs[1,0], hspace = 0.35)
 # WAKE/SLEEP
 subplot(gs1[0,0])
 simpleaxis(gca())
-plot(epochs[:,0], linewidth = 1, color = COLOR)
+# plot(epochs[:,0], linewidth = 1, color = COLOR)
+fill_between(np.arange(0, len(epochs)), np.zeros(len(epochs)), epochs[:,0], linewidth=0, color=COLOR, alpha=0.25)
 xlim(0, N_t)
 xticks([])
 ylabel("Input", rotation=0, labelpad=15, y=0.0)
@@ -323,7 +327,8 @@ yticks([1], ["1"])
 # OPTO
 subplot(gs1[1,0])
 simpleaxis(gca())
-plot(epochs[:,1], linewidth =1, color = COLOR)
+# plot(epochs[:,1], linewidth =1, color = COLOR)
+fill_between(np.arange(0, len(epochs)), np.zeros(len(epochs)), epochs[:,1], linewidth=0, color=COLOR, alpha=0.25)
 xlim(0, N_t)
 xticks([])
 ylabel(r"$W_{PSB-LMN}$", rotation=0, labelpad=22, y=0.0)

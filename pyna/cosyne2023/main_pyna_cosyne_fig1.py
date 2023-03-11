@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-03-07 21:55:47
+# @Last Modified time: 2023-03-10 13:34:21
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -37,7 +37,7 @@ def figsize(scale):
     golden_mean = (np.sqrt(5.0)-1.0) / 2           # Aesthetic ratio (you could change this)
     #fig_width = fig_width_pt*inches_per_pt*scale    # width in inches
     fig_width = 5
-    fig_height = fig_width*golden_mean*1.3         # height in inches
+    fig_height = fig_width*golden_mean*1.1         # height in inches
     fig_size = [fig_width,fig_height]
     return fig_size
 
@@ -157,6 +157,8 @@ exs = { 'wak':data['ex_wak'],
         'rem':data['ex_rem'],
         'sws':data['ex_sws']}
 
+exs['wak'] = nap.IntervalSet(start=7968.0, end=7990.14)
+exs['sws'] = nap.IntervalSet(start=12695.73, end=12701.38)
 
 
 
@@ -178,7 +180,7 @@ outergs = GridSpec(2,1, figure = fig, height_ratios = [0.4, 0.6], hspace = 0.45)
 
 #####################################
 gs1 = gridspec.GridSpecFromSubplotSpec(1,2, 
-    subplot_spec = outergs[0,0], width_ratios = [0.3, 0.6],
+    subplot_spec = outergs[0,0], width_ratios = [0.2, 0.8],
     wspace = 0.15)
 
 names = ['ADN', 'LMN']
@@ -339,14 +341,14 @@ for i, ep in enumerate(exs.keys()):
             plot(np.array([exs[ep].end[0]-1, exs[ep].end[0]]), [0, 0], linewidth = 1, color = 'black')
             xlabel('1s', horizontalalignment='right', x=1.0)
         if i == 2 and j == 1:           
-            plot(np.array([exs[ep].end[0]-0.2, exs[ep].end[0]]), [0, 0], linewidth = 1, color = 'black')
-            xlabel('0.2s', horizontalalignment='right', x=1.0)
+            plot(np.array([exs[ep].end[0]-0.5, exs[ep].end[0]]), [0, 0], linewidth = 1, color = 'black')
+            xlabel('0.5s', horizontalalignment='right', x=1.0)
 
 
 
 
 
-outergs.update(top= 0.97, bottom = 0.09, right = 0.96, left = 0.1)
+outergs.update(top= 0.97, bottom = 0.05, right = 0.96, left = 0.1)
 
 
 savefig("/home/guillaume/Dropbox/Applications/Overleaf/Cosyne 2023 poster/figures/fig1.pdf", dpi = 200, facecolor = 'white')

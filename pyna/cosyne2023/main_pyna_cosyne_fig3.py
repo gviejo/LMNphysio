@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-03-02 15:21:29
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-03-05 19:19:44
+# @Last Modified time: 2023-03-10 15:38:36
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
@@ -42,7 +42,7 @@ def figsize(scale):
     golden_mean = (np.sqrt(5.0)-1.0) / 2           # Aesthetic ratio (you could change this)
     #fig_width = fig_width_pt*inches_per_pt*scale    # width in inches
     fig_width = 5
-    fig_height = fig_width*golden_mean*1.5         # height in inches
+    fig_height = fig_width*golden_mean*0.9         # height in inches
     fig_size = [fig_width,fig_height]
     return fig_size
 
@@ -140,7 +140,7 @@ markers = ['d', 'o', 'v']
 
 fig = figure(figsize = figsize(2))
 
-outergs = GridSpec(3,1, figure = fig, height_ratios = [0.2, 0.6, 0.1], hspace = 0.4)
+outergs = GridSpec(2,1, figure = fig, height_ratios = [0.3, 0.5], hspace = 0.3)
 
 #####################################
 gs1 = gridspec.GridSpecFromSubplotSpec(1,2, 
@@ -212,7 +212,7 @@ for i, st in enumerate([psb, lmn]):
 #########################
 # RASTER PLOTS
 #########################
-gs_raster = gridspec.GridSpecFromSubplotSpec(4,3, 
+gs_raster = gridspec.GridSpecFromSubplotSpec(3,3, 
     subplot_spec = outergs[1,0],  hspace = 0.2)
     # height_ratios=[0.3, 0.7, 0.65, 0.5])
 exs = { 'wak':nap.IntervalSet(start = 9968.5, end = 9987, time_units='s'),
@@ -230,7 +230,7 @@ alp = 1
 medw = 0.9
 
 # epochs = ['Wake', 'REM sleep', 'nREM sleep']
-epochs = ['Wake', 'nREM sleep\nLow delta', 'nREM sleep\nHigh delta']
+epochs = ['Wake', 'nREM sleep', 'nREM sleep']
 
 power = cPickle.load(open('/home/guillaume/Dropbox/CosyneData/DELTA_POWER_PSB.pickle', 'rb'))
 
@@ -257,7 +257,7 @@ for i, ep in enumerate(['wak', 'nrem2', 'nrem3']):
         yticks([0, 2*np.pi], ["0", "360"])
         ylim(0, 2*np.pi)
         # if j == 1:
-        legend(frameon=False, handlelength = 1.5, bbox_to_anchor=(1.3,2.2), ncol = 2)
+        legend(frameon=False, handlelength = 1.5, bbox_to_anchor=(1.3,2.0), ncol = 2)
 
 
     if ep == 'rem':
@@ -291,7 +291,7 @@ for i, ep in enumerate(['wak', 'nrem2', 'nrem3']):
         gca().spines['left'].set_visible(False)                        
         tmp2 = angle_sws.restrict(exs[ep])
         plot(tmp2, '--', linewidth = 1, color = 'gray', alpha = alp)
-        title(epochs[1], pad = 1)
+        title(epochs[1], pad = 1, x=1.1)
         yticks([])
         xticks([])
         ylim(0, 2*np.pi)
@@ -303,7 +303,7 @@ for i, ep in enumerate(['wak', 'nrem2', 'nrem3']):
         gca().spines['left'].set_visible(False)                        
         tmp2 = angle_sws.restrict(exs[ep])
         plot(tmp2, '--', linewidth = 1, color = 'gray', alpha = alp)
-        title(epochs[2], pad = 1)
+        # title(epochs[2], pad = 1)
         yticks([])
         xticks([])
         ylim(0, 2*np.pi)
@@ -346,23 +346,10 @@ for i, ep in enumerate(['wak', 'nrem2', 'nrem3']):
             plot(np.array([exs[ep].end[0]-0.5, exs[ep].end[0]]), [0, 0], linewidth = 1, color = 'black')
             xlabel('0.5s', horizontalalignment='right', x=1.0)
 
-axes = []
-ymin = []
-ymax = []
-for i, ep in enumerate(['nrem2', 'nrem3']):    
-    subplot(gs_raster[3,i+1])
-    simpleaxis(gca())
-    plot(delta.restrict(exs[ep]))    
-    xlim(exs[ep].loc[0,'start'], exs[ep].loc[0,'end'])
-    axhline(0.0, linewidth = 1)
-    axes.append(gca())
-    ymin.append(delta.restrict(exs[ep]).min())
-    ymax.append(delta.restrict(exs[ep]).max())
-for ax in axes: ax.set_ylim(np.min(ymin), np.max(ymax))
 
 outergs.update(top= 0.97, bottom = 0.05, right = 0.96, left = 0.1)
 
 
-savefig("/home/guillaume/Dropbox/Applications/Overleaf/Cosyne 2023 poster/figures/fig3.png", dpi = 200, facecolor = 'white')
+savefig("/home/guillaume/Dropbox/Applications/Overleaf/Cosyne 2023 poster/figures/fig3.pdf", dpi = 200, facecolor = 'white')
 
 #show() 

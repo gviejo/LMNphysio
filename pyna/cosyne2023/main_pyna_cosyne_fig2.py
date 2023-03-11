@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-03-02 17:40:25
+# @Last Modified time: 2023-03-10 18:48:11
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -37,7 +37,7 @@ def figsize(scale):
     golden_mean = (np.sqrt(5.0)-1.0) / 2           # Aesthetic ratio (you could change this)
     #fig_width = fig_width_pt*inches_per_pt*scale    # width in inches
     fig_width = 6
-    fig_height = fig_width*golden_mean*1         # height in inches
+    fig_height = fig_width*golden_mean*0.7         # height in inches
     fig_size = [fig_width,fig_height]
     return fig_size
 
@@ -157,7 +157,8 @@ markers = ['d', 'o', 'v']
 
 fig = figure(figsize = figsize(2))
 
-outergs = GridSpec(2,1, figure = fig, height_ratios = [0.6, 0.25], hspace = 0.8)
+# outergs = GridSpec(1,1, figure = fig, height_ratios = [0.6, 0.25], hspace = 0.8)
+outergs = GridSpec(1,1, figure = fig)
 
 names = ['ADN', 'LMN']
 # clrs = ['sandybrown', 'olive']
@@ -268,7 +269,7 @@ for i, (p, n) in enumerate(zip(paths, names)):
         xticks([0,1], ['', ''])
     else:
         xticks([0, 1], ['REM', 'nREM'])
-        text(0.5, -0.45, 'vs Wake', horizontalalignment='center', verticalalignment='center',
+        text(0.5, -0.3, 'vs Wake', horizontalalignment='center', verticalalignment='center',
             transform=gca().transAxes
             )
 
@@ -347,6 +348,9 @@ for i, g in enumerate(['adn', 'lmn']):
         for l in [0,c]:
             tmp = coefs_pai[g][e].iloc[:,idx==l].rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
             m = tmp.mean(1)
+            
+            # m = m-m.mean()
+
             s = tmp.sem(1)
             plot(m, '-', color=colors[l], linewidth = 1)   
             fill_between(m.index.values, m.values - s.values, m.values + s.values, color = colors[l], alpha=0.25)
@@ -358,9 +362,9 @@ for i, g in enumerate(['adn', 'lmn']):
             title(['Wake', 'REM', 'nREM'][j])
     
         if i == 0 and j == 1:
-            axip = gca().inset_axes([-0.1, 1.2, 1, 0.5])
+            axip = gca().inset_axes([-0.1, 1.1, 1, 0.5])
             noaxis(axip)
-            axip.annotate('Pop.', xy=(0.7,0.3), xytext=(0.1, 0.5), color = COLOR,
+            axip.annotate('Pop.', xy=(0.7,0.3), xytext=(0.1, 0.38), color = COLOR,
                 arrowprops=dict(facecolor='green',
                     headwidth=1.5,
                     headlength=1,
@@ -382,134 +386,134 @@ for i, g in enumerate(['adn', 'lmn']):
             axip.text(0.5, -0.25, r"$\beta_t$", fontsize = 6)
             # axip.text(0.6, 0.5, r"$\beta_t^{P}$", fontsize = 6)
 
-##############################################################################
-##############################################################################
-# LMN -> ADN
-##############################################################################
-###############################
-# Correlation
-###############################
-gs3 = gridspec.GridSpecFromSubplotSpec(1,2, subplot_spec = outergs[1,0],
-    width_ratios = [0.3, 0.25], wspace = 0.15)#, hspace = 0.5)
+# ##############################################################################
+# ##############################################################################
+# # LMN -> ADN
+# ##############################################################################
+# ###############################
+# # Correlation
+# ###############################
+# gs3 = gridspec.GridSpecFromSubplotSpec(1,2, subplot_spec = outergs[1,0],
+#     width_ratios = [0.3, 0.25], wspace = 0.15)#, hspace = 0.5)
 
-gscor = gridspec.GridSpecFromSubplotSpec(1,4, subplot_spec = gs3[0,0], 
-    wspace = 1.2, hspace = 0.6, width_ratios=[0.08, 0.5, 0.5, 0.5])
+# gscor = gridspec.GridSpecFromSubplotSpec(1,4, subplot_spec = gs3[0,0], 
+#     wspace = 1.2, hspace = 0.6, width_ratios=[0.08, 0.5, 0.5, 0.5])
 
-#gscor2 = gridspec.GridSpecFromSubplotSpec(4,2, subplot_spec = gs2[0,1], height_ratios=[0.1, 0.1, 0.6, 0.2], hspace=0.01)
+# #gscor2 = gridspec.GridSpecFromSubplotSpec(4,2, subplot_spec = gs2[0,1], height_ratios=[0.1, 0.1, 0.6, 0.2], hspace=0.01)
 
-allaxis = []
-
-
-paths = [path2+'/All_correlation_ADN_LMN.pickle'
-    ]
-
-clrs = ['sandybrown', 'olive']
-#clrs = ['lightgray', 'gray']
-names = ['ADN/LMN']
-corrcolor = COLOR
-mkrs = 6
-
-xpos = [0, 2]
-
-for i, (p, n) in enumerate(zip(paths, names)):
-    # 
-    data3 = cPickle.load(open(p, 'rb'))
-    allr = data3['allr']
-    # pearsonr = data3['pearsonr']
-    print(n, allr.shape)
-    print(len(np.unique(np.array([[p[0].split('-')[0], p[1].split('-')[0]] for p in np.array(allr.index.values)]).flatten())))
-
-    #############################################################
-    subplot(gscor[i, 1])
-    simpleaxis(gca())
-    scatter(allr['wak'], allr['rem'], color = clrs[i], alpha = 0.5, edgecolor = None, linewidths=0, s = mkrs)
-    m, b = np.polyfit(allr['wak'].values, allr['rem'].values, 1)
-    x = np.linspace(allr['wak'].min(), allr['wak'].max(),5)
-    r, p = scipy.stats.pearsonr(allr['wak'], allr['rem'])
-    plot(x, x*m + b, color = corrcolor, label = 'r = '+str(np.round(r, 2)), linewidth = 0.75)
-    xlabel('Wake corr. (r)')
-    ylabel('REM corr. (r)') 
-    text(-1.3, 0.5, n, horizontalalignment='center', verticalalignment='center', transform=gca().transAxes, fontsize = fontsize)  
-    legend(handlelength = 0.0, loc='center', bbox_to_anchor=(0.15, 0.9, 0.5, 0.5), framealpha =0)
-    ax = gca()
-    # ax.set_aspect(1)
-    locator_params(axis='y', nbins=3)
-    locator_params(axis='x', nbins=3)
-    #xlabel('Wake corr. (r)')
-    allaxis.append(gca())
-
-    #############################################################
-    subplot(gscor[i, 2])
-    simpleaxis(gca())
-    scatter(allr['wak'], allr['sws'], color = clrs[i], alpha = 0.5, edgecolor = None, linewidths=0, s = mkrs)
-    m, b = np.polyfit(allr['wak'].values, allr['sws'].values, 1)
-    x = np.linspace(allr['wak'].min(), allr['wak'].max(),5)
-    r, p = scipy.stats.pearsonr(allr['wak'], allr['sws'])
-    plot(x, x*m + b, color = corrcolor, label = 'r = '+str(np.round(r, 2)), linewidth = 0.75)
-    xlabel('Wake corr. (r)')
-    ylabel('nREM corr. (r)')
-    legend(handlelength = 0.0, loc='center', bbox_to_anchor=(0.15, 0.9, 0.5, 0.5), framealpha =0)
-    # title(n, pad = 12)
-    ax = gca()
-    aspectratio=1.0
-    ratio_default=(ax.get_xlim()[1]-ax.get_xlim()[0])/(ax.get_ylim()[1]-ax.get_ylim()[0])
-    #ax.set_aspect(ratio_default*aspectratio)
-    # ax.set_aspect(1)
-    locator_params(axis='y', nbins=3)
-    locator_params(axis='x', nbins=3)
-    allaxis.append(gca())
-
-    #############################################################
-    subplot(gscor[i,3])
-    simpleaxis(gca())   
-    marfcol = [clrs[i], 'white']
-
-    y = data3['pearsonr']
-    y = y[y['count'] > 6]
-    for j, e in enumerate(['rem', 'sws']):
-        plot(np.ones(len(y))*j + np.random.randn(len(y))*0.1, y[e], 'o',
-            markersize=2, markeredgecolor = clrs[i], markerfacecolor = marfcol[j])
-        plot([j-0.2, j+0.2], [y[e].mean(), y[e].mean()], '-', color = corrcolor, linewidth=0.75)
-    xticks([0, 1])
-    xlim(-0.4,1.4)
-    # print(scipy.stats.ttest_ind(y["rem"], y["sws"]))
-    print(scipy.stats.wilcoxon(y["rem"], y["sws"]))
-
-    ylim(0, 1.3)
-    yticks([0, 1], [0, 1])
-    # title(names[i], pad = 12)
-
-    gca().spines.left.set_bounds((0, 1))
-    ylabel("r")
-
-    xticks([0, 1], ['REM', 'nREM'])
-    text(0.5, -0.4, 'vs Wake', horizontalalignment='center', verticalalignment='center',
-        transform=gca().transAxes
-        )
-
-    lwdtt = 0.1
-    plot([0,1],[1.2,1.2], '-', color = COLOR, linewidth=lwdtt)
-    plot([0,0],[1.15,1.2], '-', color = COLOR, linewidth=lwdtt)
-    plot([1,1],[1.15,1.2], '-', color = COLOR, linewidth=lwdtt)
-    TXT = ['n.s.', 'p<0.001']
-    text(0.5, 1.4, TXT[i], 
-        horizontalalignment='center', verticalalignment='center',
-        )   
+# allaxis = []
 
 
+# paths = [path2+'/All_correlation_ADN_LMN.pickle'
+#     ]
 
-xlims = []
-ylims = []
-for ax in allaxis:
-    xlims.append(ax.get_xlim())
-    ylims.append(ax.get_ylim())
-xlims = np.array(xlims)
-ylims = np.array(ylims)
-xl = (np.min(xlims[:,0]), np.max(xlims[:,1]))
-yl = (np.min(ylims[:,0]), np.max(ylims[:,1]))
-for ax in allaxis:
-    ax.set_xlim(xl)
-    ax.set_ylim(yl)
+# clrs = ['sandybrown', 'olive']
+# #clrs = ['lightgray', 'gray']
+# names = ['ADN/LMN']
+# corrcolor = COLOR
+# mkrs = 6
+
+# xpos = [0, 2]
+
+# for i, (p, n) in enumerate(zip(paths, names)):
+#     # 
+#     data3 = cPickle.load(open(p, 'rb'))
+#     allr = data3['allr']
+#     # pearsonr = data3['pearsonr']
+#     print(n, allr.shape)
+#     print(len(np.unique(np.array([[p[0].split('-')[0], p[1].split('-')[0]] for p in np.array(allr.index.values)]).flatten())))
+
+#     #############################################################
+#     subplot(gscor[i, 1])
+#     simpleaxis(gca())
+#     scatter(allr['wak'], allr['rem'], color = clrs[i], alpha = 0.5, edgecolor = None, linewidths=0, s = mkrs)
+#     m, b = np.polyfit(allr['wak'].values, allr['rem'].values, 1)
+#     x = np.linspace(allr['wak'].min(), allr['wak'].max(),5)
+#     r, p = scipy.stats.pearsonr(allr['wak'], allr['rem'])
+#     plot(x, x*m + b, color = corrcolor, label = 'r = '+str(np.round(r, 2)), linewidth = 0.75)
+#     xlabel('Wake corr. (r)')
+#     ylabel('REM corr. (r)') 
+#     text(-1.3, 0.5, n, horizontalalignment='center', verticalalignment='center', transform=gca().transAxes, fontsize = fontsize)  
+#     legend(handlelength = 0.0, loc='center', bbox_to_anchor=(0.15, 0.9, 0.5, 0.5), framealpha =0)
+#     ax = gca()
+#     # ax.set_aspect(1)
+#     locator_params(axis='y', nbins=3)
+#     locator_params(axis='x', nbins=3)
+#     #xlabel('Wake corr. (r)')
+#     allaxis.append(gca())
+
+#     #############################################################
+#     subplot(gscor[i, 2])
+#     simpleaxis(gca())
+#     scatter(allr['wak'], allr['sws'], color = clrs[i], alpha = 0.5, edgecolor = None, linewidths=0, s = mkrs)
+#     m, b = np.polyfit(allr['wak'].values, allr['sws'].values, 1)
+#     x = np.linspace(allr['wak'].min(), allr['wak'].max(),5)
+#     r, p = scipy.stats.pearsonr(allr['wak'], allr['sws'])
+#     plot(x, x*m + b, color = corrcolor, label = 'r = '+str(np.round(r, 2)), linewidth = 0.75)
+#     xlabel('Wake corr. (r)')
+#     ylabel('nREM corr. (r)')
+#     legend(handlelength = 0.0, loc='center', bbox_to_anchor=(0.15, 0.9, 0.5, 0.5), framealpha =0)
+#     # title(n, pad = 12)
+#     ax = gca()
+#     aspectratio=1.0
+#     ratio_default=(ax.get_xlim()[1]-ax.get_xlim()[0])/(ax.get_ylim()[1]-ax.get_ylim()[0])
+#     #ax.set_aspect(ratio_default*aspectratio)
+#     # ax.set_aspect(1)
+#     locator_params(axis='y', nbins=3)
+#     locator_params(axis='x', nbins=3)
+#     allaxis.append(gca())
+
+#     #############################################################
+#     subplot(gscor[i,3])
+#     simpleaxis(gca())   
+#     marfcol = [clrs[i], 'white']
+
+#     y = data3['pearsonr']
+#     y = y[y['count'] > 6]
+#     for j, e in enumerate(['rem', 'sws']):
+#         plot(np.ones(len(y))*j + np.random.randn(len(y))*0.1, y[e], 'o',
+#             markersize=2, markeredgecolor = clrs[i], markerfacecolor = marfcol[j])
+#         plot([j-0.2, j+0.2], [y[e].mean(), y[e].mean()], '-', color = corrcolor, linewidth=0.75)
+#     xticks([0, 1])
+#     xlim(-0.4,1.4)
+#     # print(scipy.stats.ttest_ind(y["rem"], y["sws"]))
+#     print(scipy.stats.wilcoxon(y["rem"], y["sws"]))
+
+#     ylim(0, 1.3)
+#     yticks([0, 1], [0, 1])
+#     # title(names[i], pad = 12)
+
+#     gca().spines.left.set_bounds((0, 1))
+#     ylabel("r")
+
+#     xticks([0, 1], ['REM', 'nREM'])
+#     text(0.5, -0.4, 'vs Wake', horizontalalignment='center', verticalalignment='center',
+#         transform=gca().transAxes
+#         )
+
+#     lwdtt = 0.1
+#     plot([0,1],[1.2,1.2], '-', color = COLOR, linewidth=lwdtt)
+#     plot([0,0],[1.15,1.2], '-', color = COLOR, linewidth=lwdtt)
+#     plot([1,1],[1.15,1.2], '-', color = COLOR, linewidth=lwdtt)
+#     TXT = ['n.s.', 'p<0.001']
+#     text(0.5, 1.4, TXT[i], 
+#         horizontalalignment='center', verticalalignment='center',
+#         )   
+
+
+
+# xlims = []
+# ylims = []
+# for ax in allaxis:
+#     xlims.append(ax.get_xlim())
+#     ylims.append(ax.get_ylim())
+# xlims = np.array(xlims)
+# ylims = np.array(ylims)
+# xl = (np.min(xlims[:,0]), np.max(xlims[:,1]))
+# yl = (np.min(ylims[:,0]), np.max(ylims[:,1]))
+# for ax in allaxis:
+#     ax.set_xlim(xl)
+#     ax.set_ylim(yl)
 
 
 # ###############################
@@ -598,9 +602,9 @@ for ax in allaxis:
 
 
 
-outergs.update(top= 0.9, bottom = 0.09, right = 0.96, left = 0.08)
+outergs.update(top= 0.88, bottom = 0.12, right = 0.96, left = 0.03)
 
 
-savefig("/home/guillaume/Dropbox/Applications/Overleaf/Cosyne 2023 poster/figures/fig2.png", dpi = 200, facecolor = 'white')
+savefig("/home/guillaume/Dropbox/Applications/Overleaf/Cosyne 2023 poster/figures/fig2.pdf", dpi = 200, facecolor = 'white')
 
 #show() 

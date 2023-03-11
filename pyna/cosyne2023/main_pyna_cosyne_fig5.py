@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 17:49:50
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-03-02 18:38:58
+# @Last Modified time: 2023-03-10 15:56:31
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -38,7 +38,7 @@ def figsize(scale):
     golden_mean = (np.sqrt(5.0)-1.0) / 2           # Aesthetic ratio (you could change this)
     #fig_width = fig_width_pt*inches_per_pt*scale    # width in inches
     fig_width = 5
-    fig_height = fig_width*golden_mean*1.5         # height in inches
+    fig_height = fig_width*golden_mean*1.0         # height in inches
     fig_size = [fig_width,fig_height]
     return fig_size
 
@@ -145,11 +145,11 @@ markers = ['d', 'o', 'v']
 fig = figure(figsize = figsize(2))
 
 outergs = gridspec.GridSpec(2, 1, figure=fig, height_ratios = [0.4, 0.4]
-    , wspace = 0.5, hspace = 0.4)
+    , wspace = 0.6, hspace = 0.6)
 
 
 gs1 = gridspec.GridSpecFromSubplotSpec(3,3, outergs[0,0], 
-    hspace = 0.35, wspace = 0.3, width_ratios=[0.15, 0.5, 0.5])
+    hspace = 0.45, wspace = 0.4, width_ratios=[0.15, 0.5, 0.5])
 
 
 
@@ -190,7 +190,7 @@ for j, e in enumerate(['wak', 'sws']):
         xlim(exs[e].loc[0,'start'], exs[e].loc[0,'end'])
     xticks([])
     title(Epochs[j])
-    if j == 0: ylabel('ISI (s)', rotation =0, y=0.4, labelpad = 10)
+    if j == 0: ylabel('ISI (s)', rotation =0, y=0.4, labelpad = 15)
 
 for i, st in enumerate(['adn', 'lmn']):
 
@@ -205,9 +205,10 @@ for i, st in enumerate(['adn', 'lmn']):
     gca().spines['top'].set_visible(False)
     yticks([0, 2*np.pi], [0, 360])
     ylabel(names[i], rotation=0, labelpad = 15)
-    xticks([tmp.values.max()], [str(int(tmp.values.max()))])
+    # xticks([tmp.values.max()], [str(int(tmp.values.max()))])
+    xticks([])
     if i == 1:
-        xlabel("Rate (Hz)")
+        xlabel("Rate")
 
 
     for j, e in enumerate(['wak', 'sws']):
@@ -267,7 +268,7 @@ mkrstype = ['-', '--']
 # ISI HD MAPS
 ########################################################################################
 gs2 = gridspec.GridSpecFromSubplotSpec(3,4, outergs[1,:], 
-    wspace = 0.4, hspace = 0.05, 
+    wspace = 0.4, hspace = 0.1, 
     height_ratios=[0.12,0.2,0.2], width_ratios=[0.01, 0.2, 0.2, 0.15])
 
 pisi = {'adn':cPickle.load(open(os.path.join(path2, 'PISI_ADN.pickle'), 'rb')),
@@ -284,7 +285,7 @@ for j, e in enumerate(['wak', 'sws']):
         s = tc.std(1)
         plot(m, mkrstype[j], label = names[i], color = clrs[i], linewidth = 1)
         fill_between(m.index.values,  m-s, m+s, color = clrs[i], alpha = 0.1)
-        yticks([0, 0.5, 1], [0, 50, 100])
+        yticks([1], [100])
         ylim(0, 1)
         xticks([])
         xlim(-np.pi, np.pi)
@@ -338,10 +339,10 @@ for i, st in enumerate(['adn', 'lmn']):
 
 
 
-outergs.update(top= 0.95, bottom = 0.1, right = 0.98, left = 0.1)
+outergs.update(top= 0.92, bottom = 0.13, right = 0.98, left = 0.1)
 
 #show()
-savefig("/home/guillaume/Dropbox/Applications/Overleaf/Cosyne 2023 poster/figures/fig5.png", dpi = 100, facecolor = 'white')
+savefig("/home/guillaume/Dropbox/Applications/Overleaf/Cosyne 2023 poster/figures/fig5.pdf", dpi = 100, facecolor = 'white')
 
 
 
