@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-12-22 17:19:39
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2022-12-23 14:43:10
+# @Last Modified time: 2023-03-09 16:27:42
 #!/usr/bin/env python
 '''
 
@@ -109,7 +109,7 @@ for s in datasets:
             rate = count/bin_size_sws
             #rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
             rate = zscore_rate(rate)
-
+            
             p = np.sum(np.dot(rate.values, C) * rate.values, 1)
             p = nap.Tsd(t=count.index.values, d = p, time_support = sws_ep)
             

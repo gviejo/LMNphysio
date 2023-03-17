@@ -1,8 +1,13 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
+# @Date:   2023-02-20 12:27:31
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2023-02-20 18:47:33
+# -*- coding: utf-8 -*-
+# @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-03-02 15:26:55
+# @Last Modified time: 2023-02-10 16:57:11
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -31,34 +36,34 @@ import neuroseries as nts
 
 
 def figsize(scale):
-	fig_width_pt = 483.69687                         # Get this from LaTeX using \the\textwidth
-	inches_per_pt = 1.0/72.27                       # Convert pt to inch
-	golden_mean = (np.sqrt(5.0)-1.0) / 2           # Aesthetic ratio (you could change this)
-	#fig_width = fig_width_pt*inches_per_pt*scale    # width in inches
-	fig_width = 7
-	fig_height = fig_width*golden_mean*1         # height in inches
-	fig_size = [fig_width,fig_height]
-	return fig_size
+    fig_width_pt = 483.69687                         # Get this from LaTeX using \the\textwidth
+    inches_per_pt = 1.0/72.27                       # Convert pt to inch
+    golden_mean = (np.sqrt(5.0)-1.0) / 2           # Aesthetic ratio (you could change this)
+    #fig_width = fig_width_pt*inches_per_pt*scale    # width in inches
+    fig_width = 7
+    fig_height = fig_width*golden_mean*1         # height in inches
+    fig_size = [fig_width,fig_height]
+    return fig_size
 
 def simpleaxis(ax):
-	ax.spines['top'].set_visible(False)
-	ax.spines['right'].set_visible(False)
-	ax.get_xaxis().tick_bottom()
-	ax.get_yaxis().tick_left()
-	# ax.xaxis.set_tick_params(size=6)
-	# ax.yaxis.set_tick_params(size=6)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.get_xaxis().tick_bottom()
+    ax.get_yaxis().tick_left()
+    # ax.xaxis.set_tick_params(size=6)
+    # ax.yaxis.set_tick_params(size=6)
 
 def noaxis(ax):
-	ax.spines['top'].set_visible(False)
-	ax.spines['right'].set_visible(False)
-	ax.spines['left'].set_visible(False)
-	ax.spines['bottom'].set_visible(False)
-	ax.get_xaxis().tick_bottom()
-	ax.get_yaxis().tick_left()
-	ax.set_xticks([])
-	ax.set_yticks([])
-	# ax.xaxis.set_tick_params(size=6)
-	# ax.yaxis.set_tick_params(size=6)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+    ax.get_xaxis().tick_bottom()
+    ax.get_yaxis().tick_left()
+    ax.set_xticks([])
+    ax.set_yticks([])
+    # ax.xaxis.set_tick_params(size=6)
+    # ax.yaxis.set_tick_params(size=6)
 
 font_dir = ['/home/guillaume/Dropbox/CosyneData/figures_poster_2022']
 for font in font_manager.findSystemFonts(font_dir):
@@ -100,40 +105,6 @@ path = '/mnt/DataRAID2/LMN-PSB/A3019/A3019-220701A'
 path2 = '/home/guillaume/Dropbox/CosyneData'
 
 
-############################################################################################### 
-# LOADING DATA
-###############################################################################################
-# data = nap.load_session(path, 'neurosuite')
-
-# spikes = data.spikes#.getby_threshold('freq', 1.0)
-# angle = data.position['ry']
-# position = data.position
-# wake_ep = data.epochs['wake']
-# sleep_ep = data.epochs['sleep']
-# sws_ep = data.read_neuroscope_intervals('sws')
-
-# # Only taking the first wake ep
-# wake_ep = wake_ep.loc[[0]]
-
-# adn = spikes._metadata[spikes._metadata["location"] == "adn"].index.values
-# lmn = spikes._metadata[spikes._metadata["location"] == "lmn"].index.values
-
-
-# tuning_curves = nap.compute_1d_tuning_curves(spikes, angle, 60, minmax=(0, 2*np.pi))
-# tuning_curves = smoothAngularTuningCurves(tuning_curves, 10, 1)
-# SI = nap.compute_1d_mutual_info(tuning_curves, angle, angle.time_support.loc[[0]], minmax=(0,2*np.pi))
-# spikes.set_info(SI)
-# spikes = spikes.getby_threshold('SI', 0.1, op = '>')
-# tuning_curves = tuning_curves[spikes.keys()]
-
-# tokeep = list(spikes.keys())
-
-# adn = spikes._metadata[spikes._metadata["location"] == "adn"].index.values
-# lmn = spikes._metadata[spikes._metadata["location"] == "lmn"].index.values
-
-# tcurves = tuning_curves
-
-# tokeep = np.hstack((adn, lmn))
 
 decoding = cPickle.load(open('/home/guillaume/Dropbox/CosyneData/DATA_FIG_2_LMN_PSB.pickle', 'rb'))
 
@@ -166,45 +137,15 @@ markers = ['d', 'o', 'v']
 
 fig = figure(figsize = figsize(2))
 
-outergs = GridSpec(2,1, figure = fig, height_ratios = [0.3, 0.5], hspace = 0.45)
+outergs = GridSpec(2,1, figure = fig, height_ratios = [0.6, 0.3], hspace = 0.45)
 
 #####################################
 gs1 = gridspec.GridSpecFromSubplotSpec(1,3, 
-	subplot_spec = outergs[0,0], width_ratios = [0.22, 0.1, 0.4],
-	wspace = 0.15)
+    subplot_spec = outergs[0,0], width_ratios = [0.05, 0.2, 0.5],
+    wspace = 0.15)
 
 names = ['PSB', 'LMN']
 clrs = ['#EA9E8D', '#8BA6A9']
-
-#####################################
-# Histo
-#####################################
-gs_histo = gridspec.GridSpecFromSubplotSpec(2,2, 
-	subplot_spec = gs1[0,0], height_ratios=[0.6,0.4],
-	wspace = 0.01, hspace = 0.4)
-
-subplot(gs_histo[0,:])
-noaxis(gca())
-img = mpimg.imread('/home/guillaume/Dropbox/CosyneData/brain_render1.png')
-imshow(img, aspect='equal')
-xticks([])
-yticks([])
-
-# subplot(gs_histo[1,0])
-# noaxis(gca())
-# img = mpimg.imread('/home/guillaume/Dropbox/CosyneData/histo_adn.png')
-# imshow(img[:, :, 0], aspect='equal', cmap='viridis')
-# title("ADN")
-# xticks([])
-# yticks([])
-
-# subplot(gs_histo[1,1])
-# noaxis(gca())
-# img = mpimg.imread('/home/guillaume/Dropbox/CosyneData/histo_lmn.png')
-# imshow(img[:,:,0], aspect='equal', cmap = 'viridis')
-# title("LMN")
-# xticks([])
-# yticks([])
 
 
 #########################
@@ -220,7 +161,7 @@ for i, st in enumerate([psb, lmn]):
     # tmp = tmp/tmp.max(0)
     # imshow(tmp, aspect='auto')
 
-	
+    
     gs_tc2 = gridspec.GridSpecFromSubplotSpec(len(st),1, subplot_spec = gs_tc[i+1,0], hspace=0.4)
     for j, n in enumerate(peaks[st].sort_values().index.values[::-1]):
         subplot(gs_tc2[j,0])
@@ -295,10 +236,10 @@ for i, ep in enumerate(exs.keys()):
         gca().spines['left'].set_visible(False)                
         tmp2 = angle_rem.restrict(exs[ep])
         plot(tmp2, '--', linewidth = 1, color = 'gray', alpha = alp)
+        ylim(0, 2*np.pi)
         title(epochs[1], pad = 1)
         yticks([])
         xticks([])
-        ylim(0, 2*np.pi)
 
     if ep == 'sws':
         subplot(gs_raster[0,2])
@@ -308,9 +249,9 @@ for i, ep in enumerate(exs.keys()):
         tmp2 = angle_sws.restrict(exs[ep])
         plot(tmp2, '--', linewidth = 1, color = 'gray', alpha = alp)
         title(epochs[2], pad = 1)
+        ylim(0, 2*np.pi)
         yticks([])
         xticks([])
-        ylim(0, 2*np.pi)
 
     for j, st in enumerate([psb, lmn]):
         subplot(gs_raster[j+1,i])
@@ -348,150 +289,152 @@ for i, ep in enumerate(exs.keys()):
             xlabel('0.2s', horizontalalignment='right', x=1.0)
 
 
+#####################################################################
+# OPTO
+#####################################################################
+
+path = '/mnt/Data2/Opto/A8000/A8044/A8044-230217A'
+#path = '/mnt/Data2/LMN-PSB-2/A3018/A3018-220614A'
+
+data = nap.load_session(path, 'neurosuite')
+
+spikes = data.spikes.getby_threshold('rate', 0.6)
+angle = data.position['ry']
+wake_ep = data.epochs['wake']
+sleep_ep = data.epochs['sleep']
+
+tuning_curves = nap.compute_1d_tuning_curves(spikes, angle, 120, minmax=(0, 2*np.pi), ep = angle.time_support.loc[[0]])
+tuning_curves = smoothAngularTuningCurves(tuning_curves, window = 40, deviation = 3.0)
+SI = nap.compute_1d_mutual_info(tuning_curves, angle, angle.time_support.loc[[0]], minmax=(0,2*np.pi))
+spikes.set_info(SI)
+
+opto_sleep_ep = loadOptoEp(path, epoch=1, n_channels = 2, channel = 0)
+
+opto_wake_ep = loadOptoEp(path, epoch=3, n_channels = 2, channel = 0)
 
 
-# ###############################
-# # Correlation
-# ###############################
-# gs2 = gridspec.GridSpecFromSubplotSpec(1,2, subplot_spec = outergs[1,0])#, width_ratios = [0.3, 0.2, 0.3])#, wspace = 0.3)#, hspace = 0.5)
+# stim_duration = np.round(opto_ep.loc[0,'end'] - opto_ep.loc[0,'start'], 6)
 
-# gscor = gridspec.GridSpecFromSubplotSpec(2,4, subplot_spec = gs2[0,0], 
-# 	wspace = 1, hspace = 0.6, width_ratios=[0.08, 0.5, 0.5, 0.5])
+# peth = nap.compute_perievent(spikes, nap.Ts(opto_ep["start"].values), minmax=(-stim_duration, 2*stim_duration))
 
-# #gscor2 = gridspec.GridSpecFromSubplotSpec(4,2, subplot_spec = gs2[0,1], height_ratios=[0.1, 0.1, 0.6, 0.2], hspace=0.01)
+# frates = pd.DataFrame({n:peth[n].count(0.05).sum(1) for n in peth.keys()})
 
-# allaxis = []
+# rasters = {j:pd.concat([peth[j][i].as_series().fillna(i) for i in peth[j].index]) for j in peth.keys()}
 
 
-# paths = [path2+'/All_correlation_ADN.pickle',
-# 	#path2+'/All_correlation_ADN_LMN.pickle',
-# 	path2+'/All_correlation_LMN.pickle'
-# ]
-# #names = ['ADN', 'ADN/LMN', 'LMN']
-# #clrs = ['lightgray', 'darkgray', 'gray']
-# #clrs = ['sandybrown', 'olive']
-# clrs = ['lightgray', 'gray']
-# names = ['ADN', 'LMN']
+tcurves = tuning_curves
+peaks = pd.Series(index=tcurves.columns,data = np.array([circmean(tcurves.index.values, tcurves[i].values) for i in tcurves.columns]))
 
-# mkrs = 6
-
-# xpos = [0, 2]
-
-# for i, (p, n) in enumerate(zip(paths, names)):
-# 	# 
-# 	data3 = cPickle.load(open(p, 'rb'))
-# 	allr = data3['allr']
-# 	# pearsonr = data3['pearsonr']
-# 	print(n, allr.shape)
-# 	print(len(np.unique(np.array([[p[0].split('-')[0], p[1].split('-')[0]] for p in np.array(allr.index.values)]).flatten())))
-
-# 	#############################################################
-# 	subplot(gscor[i, 1])
-# 	simpleaxis(gca())
-# 	scatter(allr['wak'], allr['rem'], color = clrs[i], alpha = 0.5, edgecolor = None, linewidths=0, s = mkrs)
-# 	m, b = np.polyfit(allr['wak'].values, allr['rem'].values, 1)
-# 	x = np.linspace(allr['wak'].min(), allr['wak'].max(),5)
-# 	r, p = scipy.stats.pearsonr(allr['wak'], allr['rem'])
-# 	plot(x, x*m + b, color = 'red', label = 'r = '+str(np.round(r, 2)), linewidth = 1)
-# 	if i == 1: xlabel('Wake corr. (r)')
-# 	ylabel('REM corr. (r)')	
-# 	text(-1, 0.5, n, horizontalalignment='center', verticalalignment='center', transform=gca().transAxes, fontsize = fontsize)	
-# 	legend(handlelength = 0.0, loc='center', bbox_to_anchor=(0.15, 0.9, 0.5, 0.5), framealpha =0)
-# 	ax = gca()
-# 	# ax.set_aspect(1)
-# 	locator_params(axis='y', nbins=3)
-# 	locator_params(axis='x', nbins=3)
-# 	#xlabel('Wake corr. (r)')
-# 	allaxis.append(gca())
-
-# 	#############################################################
-# 	subplot(gscor[i, 2])
-# 	simpleaxis(gca())
-# 	scatter(allr['wak'], allr['sws'], color = clrs[i], alpha = 0.5, edgecolor = None, linewidths=0, s = mkrs)
-# 	m, b = np.polyfit(allr['wak'].values, allr['sws'].values, 1)
-# 	x = np.linspace(allr['wak'].min(), allr['wak'].max(),5)
-# 	r, p = scipy.stats.pearsonr(allr['wak'], allr['sws'])
-# 	plot(x, x*m + b, color = 'red', label = 'r = '+str(np.round(r, 2)), linewidth = 1)
-# 	if i == 1: xlabel('Wake corr. (r)')
-# 	ylabel('nREM corr. (r)')
-# 	legend(handlelength = 0.0, loc='center', bbox_to_anchor=(0.15, 0.9, 0.5, 0.5), framealpha =0)
-# 	# title(n, pad = 12)
-# 	ax = gca()
-# 	aspectratio=1.0
-# 	ratio_default=(ax.get_xlim()[1]-ax.get_xlim()[0])/(ax.get_ylim()[1]-ax.get_ylim()[0])
-# 	#ax.set_aspect(ratio_default*aspectratio)
-# 	# ax.set_aspect(1)
-# 	locator_params(axis='y', nbins=3)
-# 	locator_params(axis='x', nbins=3)
-# 	allaxis.append(gca())
-
-# 	#############################################################
-# 	subplot(gscor[i,3])
-# 	simpleaxis(gca())	
-# 	marfcol = [clrs[i], 'white']
-
-# 	y = data3['pearsonr']
-# 	y = y[y['count'] > 6]
-# 	for j, e in enumerate(['rem', 'sws']):
-# 		plot(np.ones(len(y))*j + np.random.randn(len(y))*0.1, y[e], 'o',
-# 			markersize=2, markeredgecolor = clrs[i], markerfacecolor = marfcol[j])
-# 		plot([j-0.2, j+0.2], [y[e].mean(), y[e].mean()], '-', color = 'red')
-# 	xticks([0, 1])
-# 	xlim(-0.4,1.4)
-# 	# print(scipy.stats.ttest_ind(y["rem"], y["sws"]))
-# 	print(scipy.stats.wilcoxon(y["rem"], y["sws"]))
-
-# 	ylim(0, 1.3)
-# 	yticks([0, 1], [0, 1])
-# 	# title(names[i], pad = 12)
-
-# 	gca().spines.left.set_bounds((0, 1))
-# 	ylabel("r")
-
-# 	if i == 0:
-# 		xticks([0,1], ['', ''])
-# 	else:
-# 		xticks([0, 1], ['REM', 'nREM'])
-# 		text(0.5, -0.45, 'vs Wake', horizontalalignment='center', verticalalignment='center',
-# 			transform=gca().transAxes
-# 			)
-
-# 	lwdtt = 0.1
-# 	plot([0,1],[1.2,1.2], '-', color = COLOR, linewidth=lwdtt)
-# 	plot([0,0],[1.15,1.2], '-', color = COLOR, linewidth=lwdtt)
-# 	plot([1,1],[1.15,1.2], '-', color = COLOR, linewidth=lwdtt)
-# 	TXT = ['n.s.', 'p<0.001']
-# 	text(0.5, 1.4, TXT[i], 
-# 		horizontalalignment='center', verticalalignment='center',
-# 		)	
+hd = SI[SI>0.05].dropna().index.values
 
 
 
-# xlims = []
-# ylims = []
-# for ax in allaxis:
-# 	xlims.append(ax.get_xlim())
-# 	ylims.append(ax.get_ylim())
-# xlims = np.array(xlims)
-# ylims = np.array(ylims)
-# xl = (np.min(xlims[:,0]), np.max(xlims[:,1]))
-# yl = (np.min(ylims[:,0]), np.max(ylims[:,1]))
-# for ax in allaxis:
-# 	ax.set_xlim(xl)
-# 	ax.set_ylim(yl)
+#####################################
+gs2 = gridspec.GridSpecFromSubplotSpec(2,4, 
+    subplot_spec = outergs[1,0], width_ratios = [0.1, 0.3, 0.5, 0.5],
+    height_ratios = [0.25, 0.75],
+    wspace = 0.15)
+
+names = ['PSB', 'LMN']
+clrs = ['#EA9E8D', '#8BA6A9']
 
 
-# ###############################
-# # MUA CROSS CORR
-# ###############################
-# gsmua = gridspec.GridSpecFromSubplotSpec(2,2, subplot_spec = gs2[0,1])
+#########################
+# TUNING CURVes
+#########################
+gs_tc = gridspec.GridSpecFromSubplotSpec(len(hd),1, subplot_spec = gs2[1,1])
+
+for j, n in enumerate(peaks[hd].sort_values().index.values[::-1]):
+    subplot(gs_tc[j,0])
+    simpleaxis(gca())       
+    clr = hsluv.hsluv_to_rgb([tcurves[n].idxmax()*180/np.pi,90,65])
+    # clr = hsv_to_rgb([tcurves[n].idxmax()/(2*np.pi),0.6,0.6])
+    tmp = tcurves[n]
+    tmp = tmp/tmp.max()
+    fill_between(tmp.index.values,
+        np.zeros_like(tmp.index.values),
+        tmp.values,
+        # color = clr
+        color = clrs[0]
+        )
+    xticks([])
+    yticks([])
+    xlim(0, 2*np.pi)
+    ylim(0, 1.3)
+    if j == (len(st)//2)+2:
+        ylabel(names[0], labelpad=15, rotation = 0)
+    if j == 1:
+        ylabel(str(len(hd)), rotation = 0, labelpad = 5)
+
+if i == 1: 
+    xticks([0, 2*np.pi], [0, 360])
+    xlabel("HD (deg.)", labelpad=-5)
 
 
+# #########################
+# # RASTER PLOTS
+# #########################
+
+
+mks = 2
+alp = 1
+medw = 0.8
+
+
+for i, name, opto_ep in zip(range(2), ['Wake', 'Sleep'], [opto_wake_ep, opto_sleep_ep]):
+
+    stim_duration = np.round(opto_ep.loc[0,'end'] - opto_ep.loc[0,'start'], 6)
+
+    eps = opto_ep.loc[0:2]
+
+    start = eps.start.values[0] - stim_duration*2
+    end = eps.end.values[-1] + stim_duration*2
+
+    exep = nap.IntervalSet(start=start-stim_duration, end = end+stim_duration)
+
+    mua = spikes[hd].restrict(exep).count(0.1).sum(1)
+
+    # Mua count
+    subplot(gs2[0,i+2])
+    simpleaxis(gca())
+    gca().spines['bottom'].set_visible(False)
+    xticks([])
+    xlim(start, end)
+    [axvspan(s, e, color = 'red', alpha = 0.1, linewidth =0) for s, e in eps.values]
+    gca().spines['bottom'].set_visible(False)
+    fill_between(
+        mua.index.values, np.zeros_like(mua.values), 
+        mua.values, color = 'darkgray', linewidth = 0)
+
+    title(name)
+    if i == 0:
+        ylabel("MUA\n(count)")
+
+    # rasters
+    subplot(gs2[1,i+2])
+    simpleaxis(gca())
+    gca().spines['bottom'].set_visible(False)
+
+    xlim(start, end)
+    order = tcurves[hd].idxmax().sort_values().index.values
+
+    for k, n in enumerate(order):
+        spk = spikes[n].restrict(exep).index.values
+        if len(spk):
+            clr = clrs[0]
+            plot(spk, np.ones_like(spk)*k, '|', color = clr, markersize = mks, markeredgewidth = medw, alpha = 0.5)
+
+    [axvspan(s, e, color = 'red', alpha = 0.1) for s, e in eps.values]
+    # ylim(0, 2*np.pi)
+    # xlim(exs[ep].loc[0,'start'], exs[ep].loc[0,'end'])
+    xticks([])
+    yticks([])
+    gca().spines['bottom'].set_visible(False)
 
 
 
 outergs.update(top= 0.97, bottom = 0.08, right = 0.96, left = 0.025)
 
 
-savefig("/home/guillaume/LMNphysio/figures/figures_paper_2023/fig1.pdf", dpi = 200, facecolor = 'white')
+savefig("/home/guillaume/LMNphysio/figures/figures_adrien_2022/fig_lmn_psb.pdf", dpi = 200, facecolor = 'white')
 #show() 

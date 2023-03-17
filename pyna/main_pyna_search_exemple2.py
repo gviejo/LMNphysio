@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-08-10 17:16:25
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-03-01 15:57:00
+# @Last Modified time: 2023-03-07 21:43:56
 import scipy.io
 import sys, os
 import numpy as np
@@ -15,7 +15,7 @@ from matplotlib.pyplot import *
 
 
 
-path = '/mnt/DataRAID2/LMN-ADN/A5043/A5043-230228A'
+path = '/mnt/DataRAID2/LMN-ADN/A5043/A5043-230301A'
 
 
 data = nap.load_session(path, 'neurosuite')
@@ -23,6 +23,13 @@ data = nap.load_session(path, 'neurosuite')
 spikes = data.spikes.getby_threshold('rate', 0.5)
 angle = data.position['ry']
 position = data.position
+
+# turning by pi
+tmp = np.unwrap(position['ry'].values)
+tmp += np.pi
+tmp = np.mod(tmp, 2*np.pi)
+angle = nap.Tsd(t = position.index.values, d = tmp, time_support=position.time_support)
+
 
 
 wake_ep = data.epochs['wake']
@@ -96,119 +103,79 @@ peaks = pd.Series(index=tcurves.columns,data = np.array([circmean(tcurves.index.
 adn = peaks[adn].sort_values().index.values
 lmn = peaks[lmn].sort_values().index.values
 
-sys.exit()
+# sys.exit()
 
 ###########################################################################
 #SAVING
 # ###########################################################################
-# datatosave = { 'wak':angle_wak,
-#               'rem':angle_rem,
-#               'sws':angle_sws,
-#               'tcurves':tcurves,
-#               'angle':angle,
-#               'peaks':peaks,
-#               'spikes':spikes,
-#               'up_ep':up_ep,
-#               'down_ep':down_ep,
-#               'tokeep':tokeep
-#           }
+datatosave = { 'wak':angle_wak,
+              'rem':angle_rem,
+              'sws':angle_sws,
+              'tcurves':tcurves,
+              'angle':angle,
+              'peaks':peaks,
+              'spikes':spikes,
+              'adn':adn,
+              'lmn':lmn,
+              # 'up_ep':up_ep,
+              # 'down_ep':down_ep,
+              'tokeep':tokeep,
+              'ex_sws':nap.IntervalSet(
+                start = 12693.73,
+                end = 12700.38
+                ),
+              'ex_rem':nap.IntervalSet(
+                start = 3616.38,
+                end = 3640.37
+                ),
+              'ex_wak':nap.IntervalSet(
+                start = 7968.0,
+                end = 8007.14
+                )
+          }
 
-# import _pickle as cPickle
-# # cPickle.dump(datatosave, open('../figures/figures_adrien_2022/fig_1_decoding.pickle', 'wb'))
-# cPickle.dump(datatosave, open('/home/guillaume/Dropbox/CosyneData/DATA_FIG_2_LMN_adn.pickle', 'wb'))
+import _pickle as cPickle
+# cPickle.dump(datatosave, open('../figures/figures_adrien_2022/fig_1_decoding.pickle', 'wb'))
+cPickle.dump(datatosave, open('/home/guillaume/Dropbox/CosyneData/DATA_FIG_2_LMN_ADN_A5043.pickle', 'wb'))
 
+sws2_ep = sws_ep.loc[[(sws_ep["end"] - sws_ep["start"]).sort_values().index[-1]]]
 
 # wake
 figure()
 ax = subplot(311)
 plot(angle)
+title("wwake")
 # plot(angle_wak, '--')
 subplot(312, sharex = ax)
 for i,n in enumerate(adn):
     plot(spikes[n].restrict(wake_ep).fillna(i), '|', markersize = 10)
 subplot(313, sharex = ax)
 for i,n in enumerate(lmn):
-    plot(spikes[n].restrict(wake_ep).fillna(i), '|', markersize = 5)
+    plot(spikes[n].restrict(wake_ep).fillna(i), '|', markersize = 10)
 
 # sws
 figure()
 ax = subplot(311)
-plot(angle_sws, '--')
+plot(angle_sws.restrict(sws2_ep), '--')
+title("sws")
 subplot(312, sharex = ax)
 for i,n in enumerate(adn):
-    plot(spikes[n].restrict(sws_ep).fillna(i), '|', markersize = 10)
+    plot(spikes[n].restrict(sws2_ep).fillna(i), '|', markersize = 10)
 subplot(313, sharex = ax)
 for i,n in enumerate(lmn):
-    plot(spikes[n].restrict(sws_ep).fillna(i), '|', markersize = 5)
+    plot(spikes[n].restrict(sws2_ep).fillna(i), '|', markersize = 10)
 
 
 # rem
 figure()
-#ex_rem = nts.IntervalSet(start = 1.57085e+10, end = 1.57449e+10)
-ax = subplot(211)
-for i,n in enumerate(adn):
-    if n not in tokeep:      
-      plot(spikes[n].restrict(rem_ep).fillna(peaks[n]), '|', color = 'grey', markersize = 10, alpha=0.3) 
-    else:
-      plot(spikes[n].restrict(rem_ep).fillna(peaks[n]), '|', markersize = 15, markeredgewidth=4)
-
-tmp2 = smoothAngle(angle_rem, 1)
-plot(tmp2, '--', linewidth = 2, color = 'black')
-
-subplot(212, sharex = ax)
-for i,n in enumerate(lmn):
-      plot(spikes[n].restrict(rem_ep).fillna(peaks[n]), '|', markersize = 15, markeredgewidth=4)
-
-plot(tmp2, '--', linewidth = 2, color = 'black')
-    
-
-
-# sws
-
-sws2_ep = sws_ep.loc[[(sws_ep["end"] - sws_ep["start"]).sort_values().index[-1]]]
-
-total = spikes[adn].count(0.5, sws2_ep).sum(1)/0.5
-total2 = total.rolling(window=40,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=2)
-total2 = nap.Tsd(total2, time_support = sws2_ep)
-
-
-figure()
 ax = subplot(311)
-
-for s, e in sta1_ep.intersect(sws2_ep).values:
-    axvspan(s, e, color = 'green', alpha=0.1)
-for s, e in sta2_ep.intersect(sws2_ep).values:
-    axvspan(s, e, color = 'orange', alpha=0.1)  
-
-plot(total2)  
-
+plot(angle_rem, '--')
+title("rem")
 subplot(312, sharex = ax)
 for i,n in enumerate(adn):
-    if n not in tokeep:      
-      plot(spikes[n].restrict(sws2_ep).fillna(peaks[n]), '|', color = 'grey', markersize = 10) 
-    else:
-      plot(spikes[n].restrict(sws2_ep).fillna(peaks[n]), '|', markersize = 15, markeredgewidth=4)
-tmp2 = smoothAngle(angle_sws, 1)
-#plot(tmp2, '--', linewidth = 2, color = 'darkgrey')
-plot(tmp2.restrict(up_ep.intersect(sws2_ep)), '.--', color = 'grey')
-for s, e in down_ep.intersect(sws2_ep).values:
-    axvspan(s, e, color = 'blue', alpha=0.1)
-ylim(0, 2*np.pi)
-
+    plot(spikes[n].restrict(rem_ep).fillna(i), '|', markersize = 10)
 subplot(313, sharex = ax)
 for i,n in enumerate(lmn):
-    plot(spikes[n].restrict(sws2_ep).fillna(peaks[n]), '|', markersize = 10, markeredgewidth=3)
-#plot(tmp2, '--', linewidth = 2, color = 'darkgrey')
-plot(tmp2.restrict(up_ep.intersect(sws2_ep)), '.--', color = 'grey')
-for s, e in down_ep.intersect(sws2_ep).values:
-    axvspan(s, e, color = 'blue', alpha=0.1)
-ylim(0, 2*np.pi)    
-    
-# subplot(313, sharex=ax)
-# imshow(proba_sws.restrict(sws2_ep).values.T[::-1],
-#       extent=(sws2_ep.start[0], sws2_ep.end[0], 0, 2*np.pi),
-#       aspect='auto')
+    plot(spikes[n].restrict(rem_ep).fillna(i), '|', markersize = 10)
 
 show()
-
-

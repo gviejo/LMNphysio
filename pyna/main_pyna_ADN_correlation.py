@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-01 19:20:07
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-02-06 13:32:09
+# @Last Modified time: 2023-03-07 22:08:35
 
 import numpy as np
 import pandas as pd
@@ -28,7 +28,8 @@ datasets = np.genfromtxt(os.path.join(data_directory,'datasets_ADN.list'), delim
 allr = []
 pearson = {}
 
-for s in datasets:
+# for s in datasets:
+for s in ['LMN-ADN/A5043/A5043-230301A']:
     print(s)
     ############################################################################################### 
     # LOADING DATA
@@ -50,6 +51,10 @@ for s in datasets:
     tuning_curves = nap.compute_1d_tuning_curves(spikes, position['ry'], 120, minmax=(0, 2*np.pi), ep = position.time_support.loc[[0]])
     tuning_curves = smoothAngularTuningCurves(tuning_curves, 20, 4)
     
+    SI = nap.compute_1d_mutual_info(tuning_curves, position['ry'], position.time_support.loc[[0]], minmax=(0,2*np.pi))
+    spikes.set_info(SI)
+
+
     # CHECKING HALF EPOCHS
     wake2_ep = splitWake(position.time_support.loc[[0]])    
     tokeep2 = []
@@ -63,11 +68,12 @@ for s in datasets:
         tokeep2.append(tokeep)
         stats2.append(stat)
         tcurves2.append(tcurves_half)       
-    tokeep = np.intersect1d(tokeep2[0], tokeep2[1])
+    tokeep = np.intersect1d(tokeep2[0], tokeep2[1])  
     
     if len(tokeep) > 4:
 
         spikes = spikes[tokeep]
+        spikes = spikes.getby_threshold('SI', 0.4)
         # groups = spikes._metadata.loc[tokeep].groupby("location").groups
         tcurves         = tuning_curves[tokeep]
         peaks           = pd.Series(index=tcurves.columns,data = np.array([circmean(tcurves.index.values, tcurves[i].values) for i in tcurves.columns]))
@@ -127,11 +133,11 @@ datatosave = {
     'allr':allr,
     'pearsonr':pearson
     }
-cPickle.dump(datatosave, open(os.path.join('/home/guillaume/Dropbox/CosyneData', 'All_correlation_ADN.pickle'), 'wb'))
+# cPickle.dump(datatosave, open(os.path.join('/home/guillaume/Dropbox/CosyneData', 'All_correlation_ADN.pickle'), 'wb'))
+cPickle.dump(datatosave, open(os.path.join('/home/guillaume/Dropbox/CosyneData', 'A5043_correlation_ADN.pickle'), 'wb'))
 
-
-datatosave = {'allr':allr}
-cPickle.dump(datatosave, open(os.path.join('../data/', 'All_correlation_ADN_LMN.pickle'), 'wb'))
+# datatosave = {'allr':allr}
+# cPickle.dump(datatosave, open(os.path.join('../data/', 'All_correlation_ADN_LMN.pickle'), 'wb'))
 
 
 figure()
