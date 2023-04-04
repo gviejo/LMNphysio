@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 17:49:50
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-03-10 18:43:32
+# @Last Modified by:   gviejo
+# @Last Modified time: 2023-03-21 15:51:44
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -307,7 +307,7 @@ axin3.yaxis.set_ticks_position('none')
 axin3.set_ylim(-0.2, 1.2)
 
 
-
+    
 
 ############/
 # EPOCHS
@@ -316,8 +316,8 @@ gs1 = gridspec.GridSpecFromSubplotSpec(2,1, outergs[1,0], hspace = 0.35)
 # WAKE/SLEEP
 subplot(gs1[0,0])
 simpleaxis(gca())
-# plot(epochs[:,0], linewidth = 1, color = COLOR)
-fill_between(np.arange(0, len(epochs)), np.zeros(len(epochs)), epochs[:,0], linewidth=0, color=COLOR, alpha=0.25)
+plot(epochs[:,0], linewidth = 1, color = 'grey')
+# fill_between(np.arange(0, len(epochs)), np.zeros(len(epochs)), epochs[:,0], linewidth=0, color=COLOR, alpha=0.25)
 xlim(0, N_t)
 xticks([])
 ylabel("Input", rotation=0, labelpad=15, y=0.0)
@@ -327,8 +327,8 @@ yticks([1], ["1"])
 # OPTO
 subplot(gs1[1,0])
 simpleaxis(gca())
-# plot(epochs[:,1], linewidth =1, color = COLOR)
-fill_between(np.arange(0, len(epochs)), np.zeros(len(epochs)), epochs[:,1], linewidth=0, color=COLOR, alpha=0.25)
+plot(epochs[:,1], linewidth =1, color = 'grey')
+# fill_between(np.arange(0, len(epochs)), np.zeros(len(epochs)), epochs[:,1], linewidth=0, color=COLOR, alpha=0.25)
 xlim(0, N_t)
 xticks([])
 ylabel(r"$W_{PSB-LMN}$", rotation=0, labelpad=22, y=0.0)
