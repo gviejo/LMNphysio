@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-02-28 16:16:36
-# @Last Modified by:   gviejo
-# @Last Modified time: 2023-03-08 16:54:58
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2023-04-11 16:38:57
 import numpy as np
 from numba import jit
 import pandas as pd
@@ -14,7 +14,7 @@ from pycircstat.descriptive import mean as circmean
 from pylab import *
 import pynapple as nap
 from matplotlib.colors import hsv_to_rgb
-import xgboost as xgb
+# import xgboost as xgb
 # from LinearDecoder import linearDecoder
 
 def getAllInfos(data_directory, datasets):

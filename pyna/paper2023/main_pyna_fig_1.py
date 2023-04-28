@@ -2,11 +2,12 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-03-02 15:26:55
+# @Last Modified time: 2023-04-13 17:49:27
 import numpy as np
 import pandas as pd
 import pynapple as nap
 
+import getpass
 from matplotlib.pyplot import *
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
@@ -60,9 +61,9 @@ def noaxis(ax):
 	# ax.xaxis.set_tick_params(size=6)
 	# ax.yaxis.set_tick_params(size=6)
 
-font_dir = ['/home/guillaume/Dropbox/CosyneData/figures_poster_2022']
-for font in font_manager.findSystemFonts(font_dir):
-    font_manager.fontManager.addfont(font)
+# font_dir = [os.path.expanduser("~")+'/Dropbox/CosyneData/figures_poster_2022']
+# for font in font_manager.findSystemFonts(font_dir):
+#     font_manager.fontManager.addfont(font)
 
 fontsize = 7
 
@@ -97,7 +98,7 @@ rcParams['ytick.color'] = COLOR
 name = 'A3019-220701A'
 path = '/mnt/DataRAID2/LMN-PSB/A3019/A3019-220701A'
 
-path2 = '/home/guillaume/Dropbox/CosyneData'
+path2 = os.path.expanduser("~")+'/Dropbox/CosyneData'
 
 
 ############################################################################################### 
@@ -135,7 +136,10 @@ path2 = '/home/guillaume/Dropbox/CosyneData'
 
 # tokeep = np.hstack((adn, lmn))
 
-decoding = cPickle.load(open('/home/guillaume/Dropbox/CosyneData/DATA_FIG_2_LMN_PSB.pickle', 'rb'))
+#decoding = cPickle.load(open(os.path.expanduser("~")+'/Dropbox/CosyneData/DATA_FIG_2_LMN_PSB.pickle', 'rb'))
+
+decoding = pd.read_pickle(os.path.expanduser("~")+'/Dropbox/CosyneData/DATA_FIG_2_LMN_PSB.pickle')
+
 
 angle_wak = decoding['wak']
 angle_rem = decoding['rem']
@@ -185,7 +189,7 @@ gs_histo = gridspec.GridSpecFromSubplotSpec(2,2,
 
 subplot(gs_histo[0,:])
 noaxis(gca())
-img = mpimg.imread('/home/guillaume/Dropbox/CosyneData/brain_render1.png')
+img = mpimg.imread(os.path.expanduser("~")+'/Dropbox/CosyneData/brain_render1.png')
 imshow(img, aspect='equal')
 xticks([])
 yticks([])
@@ -493,5 +497,5 @@ for i, ep in enumerate(exs.keys()):
 outergs.update(top= 0.97, bottom = 0.08, right = 0.96, left = 0.025)
 
 
-savefig("/home/guillaume/LMNphysio/figures/figures_paper_2023/fig1.pdf", dpi = 200, facecolor = 'white')
+savefig(os.path.expanduser("~")+"/Dropbox/LMNphysio/figures/paper2023/fig1.pdf", dpi = 200, facecolor = 'white')
 #show() 

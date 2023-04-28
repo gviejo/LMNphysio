@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-02-08 16:52:20
+# @Last Modified time: 2023-04-11 19:57:19
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -13,7 +13,7 @@ from matplotlib import rcParams
 import matplotlib as mpl
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import matplotlib.gridspec as gridspec
-from mpl_toolkits.axes_grid.inset_locator import (inset_axes, InsetPosition,
+from mpl_toolkits.axes_grid1.inset_locator import (inset_axes, InsetPosition,
                                                   mark_inset)
 import matplotlib.font_manager as font_manager
 #matplotlib.style.use('seaborn-paper')
@@ -61,7 +61,7 @@ def noaxis(ax):
     # ax.xaxis.set_tick_params(size=6)
     # ax.yaxis.set_tick_params(size=6)
 
-font_dir = ['/home/guillaume/Dropbox/CosyneData/figures_poster_2022']
+font_dir = [os.path.expanduser("~")+'/Dropbox/CosyneData/figures_poster_2022']
 for font in font_manager.findSystemFonts(font_dir):
     font_manager.fontManager.addfont(font)
 
@@ -96,9 +96,9 @@ rcParams['ytick.color'] = COLOR
 # GENERAL infos
 ###############################################################################################
 name = 'A5011-201014A'
-path = '/home/guillaume/Dropbox/CosyneData/A5011-201014A'
+path = os.path.expanduser("~")+'/Dropbox/CosyneData/A5011-201014A'
 
-path2 = '/home/guillaume/Dropbox/CosyneData'
+path2 = os.path.expanduser("~")+'/Dropbox/CosyneData'
 
 
 ############################################################################################### 
@@ -177,14 +177,14 @@ gs_histo = gridspec.GridSpecFromSubplotSpec(2,2,
 
 subplot(gs_histo[0,:])
 noaxis(gca())
-img = mpimg.imread('/home/guillaume/Dropbox/CosyneData/brain_render1.png')
+img = mpimg.imread(os.path.expanduser("~")+'/Dropbox/CosyneData/brain_render1.png')
 imshow(img, aspect='equal')
 xticks([])
 yticks([])
 
 subplot(gs_histo[1,0])
 noaxis(gca())
-img = mpimg.imread('/home/guillaume/Dropbox/CosyneData/histo_adn.png')
+img = mpimg.imread(os.path.expanduser("~")+'/Dropbox/CosyneData/histo_adn.png')
 imshow(img[:, :, 0], aspect='equal', cmap='viridis')
 title("ADN")
 xticks([])
@@ -192,7 +192,7 @@ yticks([])
 
 subplot(gs_histo[1,1])
 noaxis(gca())
-img = mpimg.imread('/home/guillaume/Dropbox/CosyneData/histo_lmn.png')
+img = mpimg.imread(os.path.expanduser("~")+'/Dropbox/CosyneData/histo_lmn.png')
 imshow(img[:,:,0], aspect='equal', cmap = 'viridis')
 title("LMN")
 xticks([])
@@ -484,7 +484,7 @@ gsglm = gridspec.GridSpecFromSubplotSpec(2,4, subplot_spec = gs2[0,1],
 
 # simpleGLM 
 dataglm = cPickle.load(open(
-        os.path.join('/home/guillaume/Dropbox/CosyneData', 'GLM_BETA_WITHIN.pickle'), 'rb'
+        os.path.join(os.path.expanduser("~")+'/Dropbox/CosyneData', 'GLM_BETA_WITHIN.pickle'), 'rb'
         ))
 
 coefs_mua =  dataglm['coefs_mua']
@@ -564,5 +564,5 @@ for i, g in enumerate(['adn', 'lmn']):
 outergs.update(top= 0.97, bottom = 0.09, right = 0.96, left = 0.025)
 
 
-savefig("/home/guillaume/LMNphysio/figures/figures_paper_2023/fig2.pdf", dpi = 200, facecolor = 'white')
+savefig(os.path.expanduser("~")+"/Dropbox/LMNphysio/figures/paper2023/fig2.pdf", dpi = 200, facecolor = 'white')
 #show() 
