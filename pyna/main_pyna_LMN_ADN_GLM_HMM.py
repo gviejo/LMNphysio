@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-07-07 11:11:16
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-03-03 16:57:10
+# @Last Modified time: 2023-05-31 14:12:16
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -14,14 +14,16 @@ import _pickle as cPickle
 from matplotlib.gridspec import GridSpec
 from itertools import combinations
 from scipy.stats import zscore
-from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
-from sklearn.preprocessing import StandardScaler
-from xgboost import XGBClassifier
-from sklearn.decomposition import PCA, FastICA, KernelPCA
-from sklearn.manifold import Isomap
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.ensemble import GradientBoostingClassifier
-from sklearn.metrics import f1_score
+
+from GLM_HMM import fit_pop_glm, GLM_HMM
+
+# from sklearn.preprocessing import StandardScaler
+# from xgboost import XGBClassifier
+# from sklearn.decomposition import PCA, FastICA, KernelPCA
+# from sklearn.manifold import Isomap
+# from sklearn.ensemble import RandomForestClassifier
+# from sklearn.ensemble import GradientBoostingClassifier
+# from sklearn.metrics import f1_score
 
 
 ############################################################################################### 
@@ -37,7 +39,8 @@ sta_r_down = {'adn':[], 'lmn':[]} # proba trigger on down states
 
 
 
-for s in datasets:
+# for s in datasets:
+for s in ['LMN-ADN/A5043/A5043-230301A']:
     print(s)
     ############################################################################################### 
     # LOADING DATA
@@ -46,10 +49,10 @@ for s in datasets:
     data = nap.load_session(path, 'neurosuite')
     spikes = data.spikes
     position = data.position
-    wake_ep = data.epochs['wake']
+    wake_ep = data.epochs['wake'].loc[[0]]
     sws_ep = data.read_neuroscope_intervals('sws')
     rem_ep = data.read_neuroscope_intervals('rem')
-    down_ep = data.read_neuroscope_intervals('down')
+    # down_ep = data.read_neuroscope_intervals('down')
     idx = spikes._metadata[spikes._metadata["location"].str.contains("adn|lmn")].index.values
     spikes = spikes[idx]
       
@@ -89,97 +92,41 @@ for s in datasets:
     newwake_ep = velocity.threshold(0.001).time_support 
 
     ############################################################################################### 
-    # LOGIT
+    # HMM GLM
     ###############################################################################################
+        
     groups = spikes.getby_category("location")
 
     if len(groups['adn'])>6 and len(groups['lmn'])>8:
 
-        ## MUA ########
-        mua = {
-            0:nap.Ts(t=np.sort(np.hstack([groups['adn'][j].index.values for j in groups['adn'].index]))),
-            1:nap.Ts(t=np.sort(np.hstack([groups['lmn'][j].index.values for j in groups['lmn'].index])))}
+        
 
-        mua = nap.TsGroup(mua, time_support = spikes.time_support)
+        for g in groups.keys():
 
-        ## DOWN CENTER ######
-        down_center = (down_ep["start"] + (down_ep['end'] - down_ep['start'])/2).values
-        down_center = nap.TsGroup({
-            0:nap.Ts(t=down_center, time_support = sws_ep)
-            })
-
-        ## SHUFFLING #####
-        bin_size_wake = 0.1
-        bin_size_sws = 0.01
-
-        gmap = {'adn':'lmn', 'lmn':'adn'}
-
-        for i, g in enumerate(gmap.keys()):
-
-            #  WAKE 
-            count = groups[g].count(bin_size_wake, newwake_ep)
-            rate = count/bin_size_wake
-            rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=2)
-            rate_wak = StandardScaler().fit_transform(rate)
-
-            #  WAKE SHUFFLE
-            count = nap.randomize.shuffle_ts_intervals(groups[g]).count(bin_size_wake, newwake_ep)
-            rate = count/bin_size_wake
-            rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=2)
-            rate_shu = StandardScaler().fit_transform(rate)
-
-            # # adding a zero vector
-            # rate_shu = np.vstack((rate_shu, np.zeros((1,rate_shu.shape[1]))))
+            Ws = []
+            W2s = []
             
-            # SWS
-            count = groups[g].count(bin_size_sws, sws_ep)
-            time_index = count.index.values
-            rate = count/bin_size_sws
-            rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
-            rate_sws = StandardScaler().fit_transform(rate)
+            W, W2 = fit_pop_glm(groups[g], wake_ep, 0.1, 100, 5)
+            Ws.append(W)
+            W2s.append(W2)
 
-            X = np.vstack((rate_wak, rate_shu))
-            y = np.hstack((np.zeros(len(rate_wak)), np.ones(len(rate_shu)))).astype(np.int32)
-            Xt = rate_sws
+            spikes2 = nap.randomize.shuffle_ts_intervals(groups[g].restrict(wake_ep))
+            W, W2 = fit_pop_glm(spikes2, wake_ep, 0.1, 100, 5)
+            Ws.append(W)
+            W2s.append(W2)
 
-            #####################
-            bst = XGBClassifier(
-                n_estimators=100, max_depth=20, 
-                learning_rate=0.0001, objective='binary:logistic', 
-                random_state = 0,# booster='dart',
-                #eval_metric=f1_score)
-                )
-            bst.fit(X, y)            
-            # tmp = bst.predict_proba(Xt)[:,0]
-            tmp = 1.0-bst.predict(Xt)
-            ######################
 
-            p = nap.Tsd(t = time_index, d = tmp, time_support = sws_ep)
+            hmm = GLM_HMM(Ws, 100, 5)
 
-            # figure()
-            # subplot(121)
-            # scatter(a[:, 0], a[:, 1], marker=".", c=y, alpha=0.4)
-            # title("Truth")
-            # subplot(122)
-            # scatter(a[:, 0], a[:, 1], marker=".", c=tmp, alpha=0.4)
-            # title("Predicted")
+            hmm.fit(groups[g], sws_ep.loc[[0]], 0.01)
 
-            # STA / neurons        
-            sta_neurons = nap.compute_event_trigger_average(groups[gmap[g]], p, bin_size_sws, (-0.4, 0.4), sws_ep)
-            #sta_neurons = nap.compute_event_trigger_average(mua[[i]], p, bin_size_sws, (-0.4, 0.4), sws_ep)        
-            #sta_neurons = sta_neurons.as_dataframe().apply(zscore)        
-            
-            # STA / down
-            sta_down = nap.compute_event_trigger_average(down_center, p, bin_size_sws, (-0.4, 0.4), sws_ep)
-            #sta_down = sta_down.as_dataframe().apply(zscore)        
+            sys.exit()
 
-            # CC / down
-            cc_d = nap.compute_eventcorrelogram(groups[g], down_center[0], bin_size_sws, 0.4, ep=sws_ep)
 
             ### SAVING ####
-            sta_r[g].append(sta_neurons) # trigger average of reactivtion from the other structure spikes
-            cc_down[g].append(cc_d) # cross corr of adn and lmn / adn down states
-            sta_r_down[g].append(sta_down) # reactivation trigger on down states
+            # sta_r[g].append(sta_neurons) # trigger average of reactivtion from the other structure spikes
+            # cc_down[g].append(cc_d) # cross corr of adn and lmn / adn down states
+            # sta_r_down[g].append(sta_down) # reactivation trigger on down states
 
 for i, g in enumerate(['adn', 'lmn']):
     sta_r[g] = pd.concat(sta_r[g], 1)

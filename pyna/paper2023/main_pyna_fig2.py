@@ -70,7 +70,7 @@ fontsize = 7
 COLOR = (0.25, 0.25, 0.25)
 
 rcParams['font.family'] = 'sans-serif'
-rcParams['font.sans-serif'] = ['Arial']
+# rcParams['font.sans-serif'] = ['Arial']
 rcParams['font.size'] = fontsize
 rcParams['text.color'] = COLOR
 rcParams['axes.labelcolor'] = COLOR

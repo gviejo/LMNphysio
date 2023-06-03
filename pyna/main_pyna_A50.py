@@ -11,14 +11,17 @@ import pynapple as nap
 from functions import *
 import sys
 from itertools import combinations, product
-from umap import UMAP
+# from umap import UMAP
 from matplotlib.pyplot import *
 from sklearn.manifold import Isomap
 
-path = '/mnt/DataRAID2/LMN-ADN/A5043/A5043-230306A'
+# path = '/mnt/DataRAID2/LMN-ADN/A5043/A5043-230306A'
+path = '/mnt/ceph/users/gviejo/LMN-ADN/A5043/A5043-230301A'
+
 data = nap.load_session(path, 'neurosuite')
 
-spikes = data.spikes.getby_threshold('rate', 1.0)
+# spikes = data.spikes.getby_threshold('rate', 1.0)
+spikes = data.spikes
 angle = data.position['ry']
 wake_ep = data.epochs['wake']
 

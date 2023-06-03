@@ -61,16 +61,16 @@ def noaxis(ax):
     # ax.xaxis.set_tick_params(size=6)
     # ax.yaxis.set_tick_params(size=6)
 
-font_dir = [os.path.expanduser("~")+'/Dropbox/CosyneData/figures_poster_2022']
-for font in font_manager.findSystemFonts(font_dir):
-    font_manager.fontManager.addfont(font)
+# font_dir = [os.path.expanduser("~")+'/Dropbox/CosyneData/figures_poster_2022']
+# for font in font_manager.findSystemFonts(font_dir):
+#     font_manager.fontManager.addfont(font)
 
 fontsize = 7
 
 COLOR = (0.25, 0.25, 0.25)
 
 rcParams['font.family'] = 'sans-serif'
-rcParams['font.sans-serif'] = ['Arial']
+# rcParams['font.sans-serif'] = ['Arial']
 rcParams['font.size'] = fontsize
 rcParams['text.color'] = COLOR
 rcParams['axes.labelcolor'] = COLOR
@@ -92,62 +92,45 @@ rcParams['axes.axisbelow'] = True
 rcParams['xtick.color'] = COLOR
 rcParams['ytick.color'] = COLOR
 
-############################################################################################### 
-# GENERAL infos
-###############################################################################################
-name = 'A5011-201014A'
-path = os.path.expanduser("~")+'/Dropbox/CosyneData/A5011-201014A'
 
-path2 = os.path.expanduser("~")+'/Dropbox/CosyneData'
+colors = {
+    'adn':'#EA9E8D',
+    'lmn':'#8BA6A9',
+    'psb':'#CACC90'
+    }
 
+
+# clrs = ['sandybrown', 'olive']
+# clrs = ['#CACC90', '#8BA6A9']
 
 ############################################################################################### 
 # LOADING DATA
 ###############################################################################################
-data = nap.load_session(path, 'neurosuite')
+path2 = os.path.expanduser("~")+'/Dropbox/LMNphysio/data'
 
-spikes = data.spikes#.getby_threshold('freq', 1.0)
-angle = data.position['ry']
-position = data.position
-wake_ep = data.epochs['wake']
-sleep_ep = data.epochs['sleep']
-sws_ep = data.read_neuroscope_intervals('sws')
-rem_ep = data.read_neuroscope_intervals('rem')
+session = '/mnt/DataRAID2/LMN-ADN/A5043/A5043-230301A'
 
-# Only taking the first wake ep
-wake_ep = wake_ep.loc[[0]]
-
-adn = spikes._metadata[spikes._metadata["location"] == "adn"].index.values
-lmn = spikes._metadata[spikes._metadata["location"] == "lmn"].index.values
-
-
-tuning_curves = nap.compute_1d_tuning_curves(spikes, angle, 60, minmax=(0, 2*np.pi))
-tuning_curves = smoothAngularTuningCurves(tuning_curves, 10, 1)
-SI = nap.compute_1d_mutual_info(tuning_curves, angle, angle.time_support.loc[[0]], minmax=(0,2*np.pi))
-spikes.set_info(SI)
-spikes = spikes.getby_threshold('SI', 0.1, op = '>')
-tuning_curves = tuning_curves[spikes.keys()]
-
-tokeep = list(spikes.keys())
-
-adn = spikes._metadata[spikes._metadata["location"] == "adn"].index.values
-lmn = spikes._metadata[spikes._metadata["location"] == "lmn"].index.values
-
-tcurves = tuning_curves
-
-tokeep = np.hstack((adn, lmn))
-
-tmp = cPickle.load(open(path2+'/figures_poster_2021/fig_cosyne_decoding.pickle', 'rb'))
-
+data = cPickle.load(open(path2+'/DATA_FIG_2_LMN_ADN_A5043_MS5.pickle', 'rb'))
 decoding = {
-    'wak':nap.Tsd(t=tmp['wak'].index.values, d=tmp['wak'].values, time_units = 'us'),
-    'sws':nap.Tsd(t=tmp['sws'].index.values, d=tmp['sws'].values, time_units = 'us'),
-    'rem':nap.Tsd(t=tmp['rem'].index.values, d=tmp['rem'].values, time_units = 'us'),   
+    'wak':nap.Tsd(t=data['wak'].index.values, d=data['wak'].values, time_units = 's'),
+    'sws':nap.Tsd(t=data['sws'].index.values, d=data['sws'].values, time_units = 's'),
+    'rem':nap.Tsd(t=data['rem'].index.values, d=data['rem'].values, time_units = 's'),   
 }
+angle = data['angle']
+tcurves = data['tcurves']
+peaks = data['peaks']
+spikes = data['spikes']
+tokeep = data['tokeep']
+adn = data['adn']
+lmn = data['lmn']
 
-tmp = cPickle.load(open(path2+'/DATA_FIG_1_ADN_LMN.pickle', 'rb'))
+exs = { 'wak':data['ex_wak'],
+        'rem':data['ex_rem'],
+        'sws':data['ex_sws']}
 
-peaks = tmp['peaks']
+exs['wak'] = nap.IntervalSet(start=7968.0, end=7990.14)
+exs['sws'] = nap.IntervalSet(start=12695.73, end=12701.38)
+
 
 ###############################################################################################################
 # PLOT
@@ -165,8 +148,6 @@ gs1 = gridspec.GridSpecFromSubplotSpec(1,3,
     wspace = 0.15)
 
 names = ['ADN', 'LMN']
-# clrs = ['sandybrown', 'olive']
-clrs = ['#CACC90', '#8BA6A9']
 
 #####################################
 # Histo
@@ -203,36 +184,35 @@ yticks([])
 # TUNING CURVes
 #########################
 gs_tc = gridspec.GridSpecFromSubplotSpec(3,1, subplot_spec = gs1[0,1],
-    height_ratios=[0.5, 0.3, 0.65])
+    height_ratios=[0.5, 0.5, 0.5])
 
-for i, st in enumerate([adn, lmn]):
-    # subplot(gs_tc[i+1, 0])
-    # order = peaks[st].sort_values().index.values[::-1]
-    # tmp = tcurves[order].values.T
-    # tmp = tmp/tmp.max(0)
-    # imshow(tmp, aspect='auto')
-    gs_tc2 = gridspec.GridSpecFromSubplotSpec(len(st),1, subplot_spec = gs_tc[i+1,0], hspace=0.4)
-    for j, n in enumerate(peaks[st].sort_values().index.values[::-1]):
-        subplot(gs_tc2[j,0])
-        simpleaxis(gca())       
-        # clr = hsluv.hsluv_to_rgb([tcurves[n].idxmax()*180/np.pi,90,65])
-        # clr = hsv_to_rgb([tcurves[n].idxmax()/(2*np.pi),0.6,0.6])
-        tmp = tcurves[n]
-        tmp = tmp/tmp.max()
-        fill_between(tmp.index.values,
-            np.zeros_like(tmp.index.values),
-            tmp.values,
-            # color = clr
-            color = clrs[i]
-            )
-        xticks([])
-        yticks([])
-        xlim(0, 2*np.pi)
-        ylim(0, 1.3)
-        if j == (len(st)//2)+2:
-            ylabel(names[i], labelpad=15, rotation = 0)
-        if j == 1:
-            ylabel(str(len(st)), rotation = 0, labelpad = 5)
+for i, (st,name) in enumerate(zip([adn, lmn], ['adn', 'lmn'])):
+    subplot(gs_tc[i+1, 0])
+    order = peaks[st].sort_values().index.values[::-1]
+    tmp = tcurves[order].values.T
+    tmp = tmp/tmp.max(0)
+    imshow(tmp, aspect='auto')
+    # gs_tc2 = gridspec.GridSpecFromSubplotSpec(len(st),1, subplot_spec = gs_tc[i+1,0], hspace=0.4)
+    # for j, n in enumerate(peaks[st].sort_values().index.values[::-1]):
+    #     subplot(gs_tc2[j,0])
+    #     simpleaxis(gca())       
+    #     # clr = hsluv.hsluv_to_rgb([tcurves[n].idxmax()*180/np.pi,90,65])
+    #     # clr = hsv_to_rgb([tcurves[n].idxmax()/(2*np.pi),0.6,0.6])
+    #     tmp = tcurves[n]
+    #     tmp = tmp/tmp.max()
+    #     fill_between(tmp.index.values,
+    #         np.zeros_like(tmp.index.values),
+    #         tmp.values,
+    #         color = colors[name]
+    #         )
+    #     xticks([])
+    #     yticks([])
+    #     xlim(0, 2*np.pi)
+    #     ylim(0, 1.3)
+    #     if j == (len(st)//2)+2:
+    #         ylabel(names[i], labelpad=15, rotation = 0)
+    #     if j == 1:
+    #         ylabel(str(len(st)), rotation = 0, labelpad = 5)
 
     if i == 1: 
         xticks([0, 2*np.pi], [0, 360])
@@ -244,10 +224,7 @@ for i, st in enumerate([adn, lmn]):
 #########################
 gs_raster = gridspec.GridSpecFromSubplotSpec(3,3, 
     subplot_spec = gs1[0,2],  hspace = 0.2,
-    height_ratios=[0.5, 0.3, 0.65])
-exs = { 'wak':nap.IntervalSet(start = 7590.0, end = 7600.0, time_units='s'),
-        'rem':nap.IntervalSet(start = 15710.150000, end= 15720.363258, time_units = 's'),
-        'sws':nap.IntervalSet(start = 4400600.000, end = 4402154.216186978, time_units = 'ms')}
+    height_ratios=[0.5, 0.5, 0.5])
 
 mks = 2
 alp = 1
@@ -262,11 +239,11 @@ for i, ep in enumerate(exs.keys()):
         subplot(gs_raster[0,0])
         simpleaxis(gca())
         gca().spines['bottom'].set_visible(False)        
-        tmp = position['ry'].restrict(exs[ep])
+        tmp = angle.restrict(exs[ep])
         tmp = tmp.as_series().rolling(window=40,win_type='gaussian',center=True,min_periods=1).mean(std=4.0)    
         plot(tmp, linewidth = 1, color = (0.4, 0.4, 0.4), label = 'HD')
         tmp2 = decoding['wak']
-        tmp2 = nap.Tsd(tmp2, time_support = wake_ep)
+        tmp2 = nap.Tsd(tmp2)#, time_support = wake_ep)
         tmp2 = smoothAngle(tmp2, 1)
         tmp2 = tmp2.restrict(exs[ep])
         plot(tmp2, '--', linewidth = 1, color = 'gray', alpha = alp, label = 'Decoded HD')
@@ -303,7 +280,7 @@ for i, ep in enumerate(exs.keys()):
         yticks([])
         xticks([])
 
-    for j, st in enumerate([adn, lmn]):
+    for j, (st, name) in enumerate(zip([adn, lmn], ['adn', 'lmn'])):
         subplot(gs_raster[j+1,i])
         simpleaxis(gca())
         gca().spines['bottom'].set_visible(False)
@@ -314,8 +291,8 @@ for i, ep in enumerate(exs.keys()):
         for k, n in enumerate(order):
             spk = spikes[n].restrict(exs[ep]).index.values
             if len(spk):
-                clr = hsluv.hsluv_to_rgb([tcurves[n].idxmax()*180/np.pi,90,65])
-                clr = clrs[j]
+                # clr = hsluv.hsluv_to_rgb([tcurves[n].idxmax()*180/np.pi,90,65])
+                clr = colors[name]
                 #clr = hsv_to_rgb([tcurves[n].idxmax()/(2*np.pi),0.6,0.7])
                 # plot(spk, np.ones_like(spk)*tcurves[n].idxmax(), '|', color = clr, markersize = mks, markeredgewidth = medw, alpha = 0.5)
                 plot(spk, np.ones_like(spk)*k, '|', color = clr, markersize = mks, markeredgewidth = medw, alpha = 0.5)
@@ -380,7 +357,7 @@ for i, (p, n) in enumerate(zip(paths, names)):
     #############################################################
     subplot(gscor[i, 1])
     simpleaxis(gca())
-    scatter(allr['wak'], allr['rem'], color = clrs[i], alpha = 0.5, edgecolor = None, linewidths=0, s = mkrs)
+    scatter(allr['wak'], allr['rem'], color = colors[n.lower()], alpha = 0.5, edgecolor = None, linewidths=0, s = mkrs)
     m, b = np.polyfit(allr['wak'].values, allr['rem'].values, 1)
     x = np.linspace(allr['wak'].min(), allr['wak'].max(),5)
     r, p = scipy.stats.pearsonr(allr['wak'], allr['rem'])
@@ -399,7 +376,7 @@ for i, (p, n) in enumerate(zip(paths, names)):
     #############################################################
     subplot(gscor[i, 2])
     simpleaxis(gca())
-    scatter(allr['wak'], allr['sws'], color = clrs[i], alpha = 0.5, edgecolor = None, linewidths=0, s = mkrs)
+    scatter(allr['wak'], allr['sws'], color = colors[n.lower()], alpha = 0.5, edgecolor = None, linewidths=0, s = mkrs)
     m, b = np.polyfit(allr['wak'].values, allr['sws'].values, 1)
     x = np.linspace(allr['wak'].min(), allr['wak'].max(),5)
     r, p = scipy.stats.pearsonr(allr['wak'], allr['sws'])
@@ -420,13 +397,13 @@ for i, (p, n) in enumerate(zip(paths, names)):
     #############################################################
     subplot(gscor[i,3])
     simpleaxis(gca())   
-    marfcol = [clrs[i], 'white']
+    marfcol = [colors[n.lower()], 'white']
 
     y = data3['pearsonr']
     y = y[y['count'] > 6]
     for j, e in enumerate(['rem', 'sws']):
         plot(np.ones(len(y))*j + np.random.randn(len(y))*0.1, y[e], 'o',
-            markersize=2, markeredgecolor = clrs[i], markerfacecolor = marfcol[j])
+            markersize=2, markeredgecolor = colors[n.lower()], markerfacecolor = marfcol[j])
         plot([j-0.2, j+0.2], [y[e].mean(), y[e].mean()], '-', color = corrcolor, linewidth=0.75)
     xticks([0, 1])
     xlim(-0.4,1.4)
@@ -491,10 +468,7 @@ coefs_mua =  dataglm['coefs_mua']
 coefs_pai =  dataglm['coefs_pai']
 pairs_info = dataglm['pairs_info']
 
-c = 3    
-# colors = {0:'#AAABBC', c:'#84DD63'}
-colors = {0:'#00708F', c:'#F47E3E'}
-# colors = {0:'sandybrown', c:'olive'}
+clrs = ['sandybrown', 'olive']
 
 for i, g in enumerate(['adn', 'lmn']):
 
@@ -505,11 +479,11 @@ for i, g in enumerate(['adn', 'lmn']):
     subplot(gsglm[i,0])
     simpleaxis(gca())
     plot(pairs_info[g]['offset'].values.astype("float"), np.arange(len(pairs_info[g]))[::-1],color = 'grey')    
-    for l in [0,c]:
+    for j, l in enumerate([0,3]):
         plot(pairs_info[g]['offset'].values[idx==l], np.arange(len(pairs_info[g]))[::-1][idx==l],
-            color = colors[l])
-    axhspan(len(idx)-np.sum(idx==0), len(idx), color = colors[0], alpha = 0.2)
-    axhspan(0, np.sum(idx==c), color = colors[c], alpha = 0.2)
+            color = clrs[j])
+    axhspan(len(idx)-np.sum(idx==0), len(idx), color = clrs[0], alpha = 0.2)
+    axhspan(0, np.sum(idx==3), color = clrs[1], alpha = 0.2)
     xticks([0, np.pi], ['0', r'$\pi$'])
     ylabel("Pair", labelpad=-10)
     # xticks([])
@@ -519,12 +493,12 @@ for i, g in enumerate(['adn', 'lmn']):
     # glm
     subplot(gsglm[i,1])
     simpleaxis(gca())
-    for l in [0,c]:
+    for j, l in enumerate([0,3]):
         tmp = coefs_pai[g]['sws'].iloc[:,idx==l]#.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
         m = tmp.mean(1)
         s = tmp.sem(1)
-        plot(m, '-', color=colors[l], linewidth = 1)   
-        fill_between(m.index.values, m.values - s.values, m.values + s.values, color = colors[l], alpha=0.25)
+        plot(m, '-', color=clrs[j], linewidth = 1)   
+        fill_between(m.index.values, m.values - s.values, m.values + s.values, color = clrs[i], alpha=0.25)
     yticks([])
     ylabel(r"$\beta_t^{nREM}$", labelpad=-1)
     if i == 1:
@@ -564,5 +538,5 @@ for i, g in enumerate(['adn', 'lmn']):
 outergs.update(top= 0.97, bottom = 0.09, right = 0.96, left = 0.025)
 
 
-savefig(os.path.expanduser("~")+"/Dropbox/LMNphysio/figures/paper2023/fig2.pdf", dpi = 200, facecolor = 'white')
+savefig(os.path.expanduser("~")+"/Dropbox/LMNphysio/paper2023/fig1.pdf", dpi = 200, facecolor = 'white')
 #show() 

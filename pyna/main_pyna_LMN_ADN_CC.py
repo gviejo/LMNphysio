@@ -23,7 +23,7 @@ from matplotlib.gridspec import GridSpec
 ############################################################################################### 
 # GENERAL infos
 ###############################################################################################
-data_directory = '/mnt/DataRAID2/'
+data_directory = '/mnt/ceph/users/gviejo'
 datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#')
 
 # infos = getAllInfos(data_directory, datasets)
@@ -178,7 +178,7 @@ figure()
 count = 1
 for i, g in enumerate(sess_groups.keys()):
     for j, n in enumerate(sess_groups[g]):
-        subplot(13,20,count, projection = 'polar')
+        subplot(13,21,count, projection = 'polar')
         plot(alltcurves[n], color = colors[i])
         # title(n)
         xticks([])

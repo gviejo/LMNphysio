@@ -17,7 +17,7 @@ from itertools import combinations, product
 from scipy.stats import zscore
 from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
 from sklearn.preprocessing import StandardScaler
-from xgboost import XGBClassifier
+# from xgboost import XGBClassifier
 from sklearn.decomposition import PCA, FastICA, KernelPCA
 from sklearn.manifold import Isomap
 from sklearn.ensemble import RandomForestClassifier
@@ -44,7 +44,7 @@ def offset_matrix(rate, binsize=0.01, windowsize = 0.1):
 ############################################################################################### 
 # GENERAL infos
 ###############################################################################################
-data_directory = '/mnt/DataRAID2/'
+data_directory = '/mnt/ceph/users/gviejo'
 
 datasets = {k:np.genfromtxt(os.path.join(data_directory,'datasets_'+k.upper()+'.list'), delimiter = '\n', dtype = str, comments = '#') for k in ['adn', 'lmn']}
 
@@ -206,9 +206,9 @@ datatosave = {
     'pairs_info':pairs_info
     }
 
-cPickle.dump(datatosave, open(
-    os.path.join('/home/guillaume/Dropbox/CosyneData', 'GLM_BETA_WITHIN.pickle'), 'wb'
-    ))
+# cPickle.dump(datatosave, open(
+#     os.path.join('/home/guillaume/Dropbox/CosyneData', 'GLM_BETA_WITHIN.pickle'), 'wb'
+#     ))
 
 
 

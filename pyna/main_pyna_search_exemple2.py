@@ -15,7 +15,8 @@ from matplotlib.pyplot import *
 
 
 
-path = '/mnt/DataRAID2/LMN-ADN/A5043/A5043-230301A'
+# path = '/mnt/DataRAID2/LMN-ADN/A5043/A5043-230301A'
+path = '/mnt/ceph/users/gviejo/LMN-ADN/A5043/A5043-230301A'
 
 
 data = nap.load_session(path, 'neurosuite')
@@ -136,7 +137,8 @@ datatosave = { 'wak':angle_wak,
 
 import _pickle as cPickle
 # cPickle.dump(datatosave, open('../figures/figures_adrien_2022/fig_1_decoding.pickle', 'wb'))
-cPickle.dump(datatosave, open('/home/guillaume/Dropbox/CosyneData/DATA_FIG_2_LMN_ADN_A5043.pickle', 'wb'))
+filepath = os.path.join(os.path.expanduser("~"), 'Dropbox/LMNphysio/data/DATA_FIG_2_LMN_ADN_A5043_MS5.pickle')
+cPickle.dump(datatosave, open(filepath, 'wb'))
 
 sws2_ep = sws_ep.loc[[(sws_ep["end"] - sws_ep["start"]).sort_values().index[-1]]]
 
