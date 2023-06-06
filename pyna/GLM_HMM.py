@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-06-02 12:52:31
+# @Last Modified by:   gviejo
+# @Last Modified time: 2023-06-05 22:25:56
 import numpy as np
 import os, sys
 from scipy.optimize import minimize
@@ -171,7 +171,7 @@ class GLM_HMM(object):
         As = []
         Zs = []
 
-        for _ in range(5):
+        for _ in range(2):
 
             score = []
             init = np.random.rand(self.K)
@@ -179,7 +179,7 @@ class GLM_HMM(object):
             A = np.random.rand(self.K, self.K)
             A = A/A.sum(1)[:,None]
             
-            for i in range(50):
+            for i in range(30):
                             
                 # Forward
                 alpha = np.zeros((self.T, self.K))
