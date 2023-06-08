@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
-# @Last Modified by:   gviejo
-# @Last Modified time: 2023-06-05 22:25:56
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2023-06-06 20:21:55
 import numpy as np
 import os, sys
 from scipy.optimize import minimize
@@ -13,7 +13,7 @@ from scipy.ndimage import gaussian_filter1d
 from scipy.stats import poisson
 from scipy.optimize import minimize
 from sklearn.linear_model import PoissonRegressor
-
+from numba import njit
 
 import neurostatslib as nsl
 from neurostatslib.glm import GLM
@@ -113,7 +113,7 @@ def fit_pop_glm(spikes, ep, bin_size, ws=100, nb=5):
         # w = minimize(loss1, b0[:,i], (X, Y[:,i]), jac=True, method='newton-cg', options={"disp":True})
         # W.append(w['x'])
 
-        model= PoissonRegressor(verbose=1)
+        model= PoissonRegressor()
         model.fit(X, Y[:,i])
         W.append(model.coef_)
 
@@ -123,6 +123,30 @@ def fit_pop_glm(spikes, ep, bin_size, ws=100, nb=5):
     W2 = W[0:-1].reshape((n_neurons, n_basis_funcs, n_neurons))
 
     return (W, W2)
+
+@njit
+def forward(A, T, K, O, init):                    
+    alpha = np.zeros((T, K))
+    scaling = np.zeros(T)
+    alpha[0] = init*O[0]
+    scaling[0] = alpha[0].sum()
+    alpha[0] = alpha[0]/scaling[0]
+    for t in range(1, T):
+        # alpha[t] = np.dot(alpha[t-1], A)*B[:,Y[t]]
+        alpha[t] = np.dot(alpha[t-1], A)*O[t]
+        scaling[t] = alpha[t].sum()
+        alpha[t] = alpha[t]/scaling[t]
+    return alpha, scaling
+
+@njit
+def backward(A, T, K, O, scaling):
+    beta = np.zeros((T, K))
+    beta[-1] = 1/scaling[-1]
+    for t in np.arange(0, T-1)[::-1]:
+        # beta[t] = np.dot(A, beta[t+1]*B[:,Y[t+1]])
+        beta[t] = np.dot(A, beta[t+1]*O[t+1])
+        beta[t] = beta[t]/scaling[t]
+    return beta
 
 
 class GLM_HMM(object):
@@ -162,6 +186,7 @@ class GLM_HMM(object):
         O = []
         for i in range(len(self.Ws)):
             p = poisson.pmf(k=self.Y, mu=np.exp(np.dot(self.X, self.Ws[i])))
+            p = np.clip(p, 1e-9, 1.0)
             O.append(p.prod(1))
             # O.append(p.sum(1))
 
@@ -171,7 +196,7 @@ class GLM_HMM(object):
         As = []
         Zs = []
 
-        for _ in range(2):
+        for _ in range(5):
 
             score = []
             init = np.random.rand(self.K)
@@ -179,27 +204,11 @@ class GLM_HMM(object):
             A = np.random.rand(self.K, self.K)
             A = A/A.sum(1)[:,None]
             
-            for i in range(30):
-                            
-                # Forward
-                alpha = np.zeros((self.T, self.K))
-                scaling = np.zeros(self.T)
-                alpha[0] = init*self.O[0]
-                scaling[0] = alpha[0].sum()
-                alpha[0] = alpha[0]/scaling[0]
-                for t in range(1, self.T):
-                    # alpha[t] = np.dot(alpha[t-1], A)*B[:,Y[t]]
-                    alpha[t] = np.dot(alpha[t-1], A)*self.O[t]
-                    scaling[t] = alpha[t].sum()
-                    alpha[t] = alpha[t]/scaling[t]
-
-                # Backward    
-                beta = np.zeros((self.T, self.K))
-                beta[-1] = 1/scaling[-1]
-                for t in np.arange(0, self.T-1)[::-1]:
-                    # beta[t] = np.dot(A, beta[t+1]*B[:,Y[t+1]])
-                    beta[t] = np.dot(A, beta[t+1]*self.O[t+1])
-                    beta[t] = beta[t]/scaling[t]
+            for i in range(50):
+                         
+                alpha, scaling = forward(A, self.T, self.K, self.O, init)
+                
+                beta = backward(A, self.T, self.K, self.O, scaling)
 
                 # Expectation
                 E = np.tile(A, (self.T-1, 1, 1)) * alpha[0:-1,:,None]*beta[1:,None,:]
