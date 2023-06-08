@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-06-06 20:27:38
+# @Last Modified time: 2023-06-07 20:23:55
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -98,18 +98,20 @@ for s in ['LMN-ADN/A5002/A5002-200304A']:
             # HMM GLM
             ###############################################################################################
             
-            bin_size = 0.1
+            bin_size = 0.01
             nbasis = 8
             nt = 200
 
             Ws = []
             W2s = []
-            
+
+            # GLM 0            
 
             W, W2 = fit_pop_glm(spikes, newwake_ep, bin_size*1, nt, nbasis)
             Ws.append(W)
             W2s.append(W2)
 
+            # GLM 1
 
             spikes2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(wake_ep))
             W, W2 = fit_pop_glm(spikes2, newwake_ep, bin_size*1, nt, nbasis)
@@ -117,16 +119,16 @@ for s in ['LMN-ADN/A5002/A5002-200304A']:
             W2s.append(W2)
 
 
-            figure()
-            gs = GridSpec(2, nbasis)
-            for i in range(2):
-                for j in range(nbasis):
-                    subplot(gs[i, j])
-                    tmp = pd.DataFrame(data=W2s[i][:,j,:], index = spikes.keys(), columns=spikes.keys())
-                    imshow(tmp.loc[order,order], aspect='auto')
+            # figure()
+            # gs = GridSpec(2, nbasis)
+            # for i in range(2):
+            #     for j in range(nbasis):
+            #         subplot(gs[i, j])
+            #         tmp = pd.DataFrame(data=W2s[i][:,j,:], index = spikes.keys(), columns=spikes.keys())
+            #         imshow(tmp.loc[order,order], aspect='auto')
             # show()
 
-            hmm = GLM_HMM(Ws, nt, nbasis)
+            hmm = GLM_HMM(Ws, nt, nbasis)            
 
             hmm.fit(spikes, sws_ep, bin_size)
 

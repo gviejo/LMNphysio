@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-06-06 20:21:55
+# @Last Modified time: 2023-06-07 20:20:12
 import numpy as np
 import os, sys
 from scipy.optimize import minimize
@@ -168,7 +168,7 @@ class GLM_HMM(object):
         # if order:
         #     count = count[order]
 
-        self.Y = count.values       
+        self.Y = count.values
         self.N = self.Y.shape[1]
         self.T = len(self.Y)
 
@@ -222,6 +222,29 @@ class GLM_HMM(object):
                 # Maximisation
                 init = G[0]
                 A = E.sum(0)/(G[0:-1].sum(0)[:,None])
+
+                # Learning GLM based on best sequence for each state
+                z = np.argmax(G, 1)
+                Ws = []
+                for k in range(self.K):
+                    W = []
+                    for j in range(self.Ws[k].shape[1]):                        
+                        print(i, k, j)
+                        model= PoissonRegressor()
+                        model.fit(self.X[z==k,:], self.Y[z==k,j])
+                        W.append(model.coef_)
+                    W = np.array(W).T
+                    Ws.append(W)
+                self.Ws = Ws
+
+                O = []
+                for k in range(len(self.Ws)):
+                    p = poisson.pmf(k=self.Y, mu=np.exp(np.dot(self.X, self.Ws[k])))
+                    p = np.clip(p, 1e-9, 1.0)
+                    O.append(p.prod(1))
+                    # O.append(p.sum(1))
+
+                self.O = np.array(O).T
 
                 # for j, o in enumerate(np.unique(Y)):
                 #     B[:,j] = G[Y == o].sum(0)/G.sum(0)
