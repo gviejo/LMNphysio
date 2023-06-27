@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-06-07 20:23:55
+# @Last Modified by:   gviejo
+# @Last Modified time: 2023-06-26 08:31:45
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -14,8 +14,9 @@ import _pickle as cPickle
 from matplotlib.gridspec import GridSpec
 from itertools import combinations
 from scipy.stats import zscore
-
-from GLM_HMM import fit_pop_glm, GLM_HMM
+from scipy.ndimage import gaussian_filter1d
+from sklearn.linear_model import PoissonRegressor
+from GLM_HMM import GLM_HMM
 
 # from sklearn.preprocessing import StandardScaler
 # from xgboost import XGBClassifier
@@ -30,8 +31,8 @@ from GLM_HMM import fit_pop_glm, GLM_HMM
 # GENERAL infos
 ###############################################################################################
 # data_directory = '/mnt/DataRAID2/'
-data_directory = '/mnt/ceph/users/gviejo'
-# data_directory = '/media/guillaume/LaCie'
+# data_directory = '/mnt/ceph/users/gviejo'
+data_directory = '/media/guillaume/LaCie'
 datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN.list'), delimiter = '\n', dtype = str, comments = '#')
 
 
@@ -42,9 +43,14 @@ SI_thr = {
     }
 
 allr = []
+allr_glm = []
 
-# for s in datasets:
-for s in ['LMN-ADN/A5002/A5002-200304A']:
+corr = []
+
+for s in datasets:
+# # for s in ['LMN-ADN/A5002/A5002-200304A']:
+# # for s in ['LMN/A1413/A1413-200918A']:
+# for s in ['LMN/A1414/A1414-200929A']:
     print(s)
     ############################################################################################### 
     # LOADING DATA
@@ -79,11 +85,11 @@ for s in ['LMN-ADN/A5002/A5002-200304A']:
         tokeep = spikes.index
         tcurves = tcurves[tokeep]
         peaks = pd.Series(index=tcurves.columns,data = np.array([circmean(tcurves.index.values, tcurves[i].values) for i in tcurves.columns]))
-        order = peaks.sort_values().index.values
+        order = np.argsort(peaks.values)
         spikes.set_info(order=order, peaks=peaks)
 
 
-        if len(tokeep) > 7:
+        if len(tokeep) > 8:
             
             # figure()
             # for i in range(len(tokeep)):
@@ -98,25 +104,28 @@ for s in ['LMN-ADN/A5002/A5002-200304A']:
             # HMM GLM
             ###############################################################################################
             
-            bin_size = 0.01
-            nbasis = 8
-            nt = 200
+            bin_size = 0.02
+            # nbasis = 6
+            # nt = 100
+            n_state  = 2
 
-            Ws = []
-            W2s = []
+            # Ws = []
+            # W2s = []
 
-            # GLM 0            
+            # sys.exit()
 
-            W, W2 = fit_pop_glm(spikes, newwake_ep, bin_size*1, nt, nbasis)
-            Ws.append(W)
-            W2s.append(W2)
+            # # GLM 0            
 
-            # GLM 1
+            # W, W2 = fit_pop_glm(spikes, newwake_ep, bin_size*1, nt, nbasis)
+            # Ws.append(W)
+            # W2s.append(W2)
 
-            spikes2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(wake_ep))
-            W, W2 = fit_pop_glm(spikes2, newwake_ep, bin_size*1, nt, nbasis)
-            Ws.append(W)
-            W2s.append(W2)
+            # # GLM 1
+
+            # spikes2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(wake_ep))
+            # W, W2 = fit_pop_glm(spikes2, newwake_ep, bin_size*1, nt, nbasis)
+            # Ws.append(W)
+            # W2s.append(W2)
 
 
             # figure()
@@ -128,35 +137,72 @@ for s in ['LMN-ADN/A5002/A5002-200304A']:
             #         imshow(tmp.loc[order,order], aspect='auto')
             # show()
 
-            hmm = GLM_HMM(Ws, nt, nbasis)            
+            hmm = GLM_HMM(n_state)#, nt, nbasis)            
+
+            # sys.exit()
 
             hmm.fit(spikes, sws_ep, bin_size)
 
             time_idx = spikes[spikes.index[0]].count(bin_size, sws_ep).index.values
 
-            figure()
-            ax = subplot(311)        
-            plot(time_idx, hmm.bestZ)
-            # plot(position['ry'].restrict(newwake_ep))
+            # sys.exit()
 
-            subplot(312, sharex=ax)
-            plot(spikes.restrict(sws_ep).to_tsd("peaks"), '|', markersize=10)
-
-            subplot(313, sharex=ax)
-            plot(time_idx, hmm.O)
+            # figure()
+            # ax = subplot(311)        
+            # plot(time_idx, hmm.bestZ)
+            # # plot(position['ry'].restrict(newwake_ep))
+            # subplot(312, sharex=ax)
+            # plot(spikes.restrict(sws_ep).to_tsd("order"), '|', markersize=10)
+            # subplot(313, sharex=ax)
+            # plot(time_idx, hmm.O)
             # show()
 
+
+            # Finding sub epochs
             Z = nap.Tsd(t=time_idx, d=hmm.bestZ, time_support=sws_ep)
+            eps = []
+            for i in range(n_state):
+                ep = Z.threshold(i-0.5).threshold(i+0.5, "below").time_support.drop_short_intervals(0.05)
+                eps.append(ep)
 
-            ep1 = Z.threshold(0.5).time_support.drop_short_intervals(0.05)
-            ep0 = Z.threshold(0.5, 'below').time_support.drop_short_intervals(0.05)
+            # ep0 = Z.threshold(0.5, 'below').time_support.drop_short_intervals(0.05)
+            # ep1 = Z.threshold(0.5).threshold(1.5,"below").time_support.drop_short_intervals(0.05)
+            # ep2 = Z.threshold(1.5).time_support.drop_short_intervals(0.05)            
+            # eps = [ep0, ep1, ep2]
 
+            ############################################################################################### 
+            # GLM CORRELATION
+            ###############################################################################################        
+            pairs = []
+            for n in spikes.index:
+                for k in list(set(spikes.index)-set([n])):
+                    pairs.append(data.basename+'_'+str(n)+'-'+str(k))
+            r_glm = pd.DataFrame(index = pairs, dtype = np.float32)
+
+            # Fit wake glm
+            count = spikes.count(0.3, newwake_ep)
+            Y = count.values            
+            X = gaussian_filter1d(count.values.astype("float"), sigma=1, order=0)
+            X = X - X.mean(0)
+            X = X / X.std(0)
+            N = len(spikes)
+            W = []
+            for n in range(N):
+                model= PoissonRegressor()
+                model.fit(X[:,list(set(np.arange(N))-set([n]))], Y[:,n])
+                W.append(model.coef_)
+            W = np.array(W)
+
+            r_glm['wake'] = W.T.flatten()
+
+            for i in range(n_state):
+                r_glm['ep'+str(i)] = hmm.W[i].T.flatten()
 
             ############################################################################################### 
             # PEARSON CORRELATION
             ###############################################################################################        
             rates = {}
-            for e, ep, bin_size, std in zip(['wake', 'sws'], [newwake_ep, sws_ep], [0.3, 0.02], [1, 2]):
+            for e, ep, bin_size, std in zip(['wake', 'sws'], [newwake_ep, sws_ep], [0.3, 0.01], [1, 2]):
                 count = spikes.count(bin_size, ep)
                 rate = count/bin_size
                 rate = rate.as_dataframe()
@@ -164,52 +210,52 @@ for s in ['LMN-ADN/A5002/A5002-200304A']:
                 rate = rate.apply(zscore)                    
                 rates[e] = nap.TsdFrame(rate)
             
-            rates['ep0'] = rates['sws'].restrict(ep0)
-            rates['ep1'] = rates['sws'].restrict(ep1)
+            for i in range(len(eps)):
+                rates['ep'+str(i)] = rates['sws'].restrict(eps[i])
+
             _ = rates.pop("sws")
 
             # pairs = list(product(groups['adn'].astype(str), groups['lmn'].astype(str)))
-            pairs = list(combinations(np.array(spikes.keys()).astype(str), 2))
-            pairs = pd.MultiIndex.from_tuples(pairs)
+            pairs = [data.basename+"_"+i+"-"+j for i,j in list(combinations(np.array(spikes.keys()).astype(str), 2))]
             r = pd.DataFrame(index = pairs, columns = rates.keys(), dtype = np.float32)
 
             for ep in rates.keys():
                 tmp = np.corrcoef(rates[ep].values.T)
                 r[ep] = tmp[np.triu_indices(tmp.shape[0], 1)]
 
-            name = data.basename
-            pairs = list(combinations([name+'_'+str(n) for n in spikes.keys()], 2)) 
-            pairs = pd.MultiIndex.from_tuples(pairs)
-            r.index = pairs
-            
+            #######################
+            # Session correlation
+            #######################
+            tmp = pd.DataFrame(index=[data.basename], columns=range(n_state))
+            for i in range(n_state):
+                tmp.loc[data.basename,i] = scipy.stats.pearsonr(r['wake'], r['ep'+str(i)])[0]
+            corr.append(tmp)            
+
             #######################
             # SAVING
             #######################
             allr.append(r)
+            allr_glm.append(r_glm)
 
 allr = pd.concat(allr, 0)
+allr_glm = pd.concat(allr_glm, 0)
 
+corr = pd.concat(corr, 0)
 
 
 figure()
-subplot(131)
-plot(allr['wake'], allr['ep0'], 'o', color = 'red', alpha = 0.5)
-m, b = np.polyfit(allr['wake'].values, allr['ep0'].values, 1)
-x = np.linspace(allr['wake'].min(), allr['wake'].max(),5)
-plot(x, x*m + b)
-xlabel('wakee')
-ylabel('ep0')
-r, p = scipy.stats.pearsonr(allr['wake'], allr['ep0'])
-title('r = '+str(np.round(r, 3)))
 
-subplot(132)
-plot(allr['wake'], allr['ep1'], 'o',  alpha = 0.5)
-m, b = np.polyfit(allr['wake'].values, allr['ep1'].values, 1)
-x = np.linspace(allr['wake'].min(), allr['wake'].max(), 4)
-plot(x, x*m + b)
-xlabel('wakee')
-ylabel('ep1')
-r, p = scipy.stats.pearsonr(allr['wake'], allr['ep1'])
-title('r = '+str(np.round(r, 3)))
+for i in range(len(eps)):
+    subplot(1,len(eps),i+1)
+    plot(allr['wake'], allr['ep'+str(i)], 'o', color = 'red', alpha = 0.5)
+    m, b = np.polyfit(allr['wake'].values, allr['ep'+str(i)].values, 1)
+    x = np.linspace(allr['wake'].min(), allr['wake'].max(),5)
+    plot(x, x*m + b)
+    xlabel('wake')
+    ylabel('ep'+str(i))
+    xlim(-1, 1)
+    ylim(-1, 1)
+    r, p = scipy.stats.pearsonr(allr['wake'], allr['ep'+str(i)])
+    title('r = '+str(np.round(r, 3)))
 
 show()

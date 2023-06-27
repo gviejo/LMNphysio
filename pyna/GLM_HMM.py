@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-06-07 20:20:12
+# @Last Modified by:   gviejo
+# @Last Modified time: 2023-06-26 08:32:34
 import numpy as np
 import os, sys
 from scipy.optimize import minimize
@@ -14,115 +14,120 @@ from scipy.stats import poisson
 from scipy.optimize import minimize
 from sklearn.linear_model import PoissonRegressor
 from numba import njit
+from multiprocessing import Pool
 
-import neurostatslib as nsl
-from neurostatslib.glm import GLM
-from neurostatslib.basis import RaisedCosineBasis, MSplineBasis
+# import neurostatslib as nsl
+# from neurostatslib.glm import GLM
+# from neurostatslib.basis import RaisedCosineBasis, MSplineBasis
 
-# Jax import ##########################
-import jax
-import jax.numpy as jnp
-from functools import partial
-import jaxopt
-from jaxopt import ProximalGradient
-from jaxopt.prox import prox_lasso
-
-
-
-jax.config.update("jax_platform_name", "cpu")
-jax.config.update("jax_enable_x64", True)
-#######################################
-
-_CORR1 = jax.vmap(partial(jnp.convolve, mode='same'), (0, None), 0)
-# [[n x t],[p x w]] -> [n x p x (t - w + 1)]
-_CORR2 = jax.vmap(_CORR1, (None, 0), 0)
+# # Jax import ##########################
+# import jax
+# import jax.numpy as jnp
+# from functools import partial
+# import jaxopt
+# from jaxopt import ProximalGradient
+# from jaxopt.prox import prox_lasso
 
 
 
-def fit_pop_glm(spikes, ep, bin_size, ws=100, nb=5):
-    count = spikes.count(bin_size, ep)
-    # if len(order):
-    #     count = count[order]
+# jax.config.update("jax_platform_name", "cpu")
+# jax.config.update("jax_enable_x64", True)
+# #######################################
+
+# _CORR1 = jax.vmap(partial(jnp.convolve, mode='same'), (0, None), 0)
+# # [[n x t],[p x w]] -> [n x p x (t - w + 1)]
+# _CORR2 = jax.vmap(_CORR1, (None, 0), 0)
+
+
+# def fit_sklearn_glm(X, Y
+
+
+# def fit_pop_glm(spikes, ep, bin_size, ws=100, nb=5):
+#     count = spikes.count(bin_size, ep)
+#     # if len(order):
+#     #     count = count[order]
     
-    Y = count.values
-    spike_data = jnp.array(count.values.T)
+#     Y = count.values
+#     spike_data = jnp.array(count.values.T)
 
-    N = spike_data.shape[0]     
-    T = len(Y)
+#     N = spike_data.shape[0]     
+#     T = len(Y)
 
-    #######################################
-    # Getting the spike basis function
-    #######################################
-    spike_basis = RaisedCosineBasis(n_basis_funcs=nb,window_size=ws)
-    sim_pts = nsl.sample_points.raised_cosine_linear(nb, ws)
-    B = spike_basis.gen_basis_funcs(sim_pts)
+#     #######################################
+#     # Getting the spike basis function
+#     #######################################
+#     spike_basis = RaisedCosineBasis(n_basis_funcs=nb,window_size=ws)
+#     sim_pts = nsl.sample_points.raised_cosine_log(nb, ws)
+#     B = spike_basis.gen_basis_funcs(sim_pts)
 
-    spike_basis = B
+#     B = B[-2:]
 
-    n_basis_funcs, window_size = spike_basis.shape
+#     spike_basis = B
 
-    #######################################
-    # FITTING BOTH GLM
-    #######################################
-    def loss_all(b, X, Y):
-        Xb = jnp.dot(X, b) 
-        exp_Xb = jnp.exp(Xb)
-        loss = jnp.sum(exp_Xb, 0) - jnp.sum(Y*Xb, 0) # + jax.scipy.special.gammaln(Y+1)
-        # penalty = jnp.sqrt(jnp.sum(jnp.maximum(b**2, 0), 0))        
-        # return jnp.mean(loss) + 0.1*jnp.sum(jnp.abs(b))
-        return jnp.mean(loss) + 0.1*jnp.sum(jnp.power(b, 2))
-        # return jnp.mean(loss) + 0.1*jnp.sum(jnp.sqrt(jnp.maximum(0, jnp.sum(b**2.0, 1))))
+#     n_basis_funcs, window_size = spike_basis.shape
 
-    def loss1(b, X, y):
-        Xb = np.dot(X, b) 
-        exp_Xb = np.exp(Xb)
-        loss = np.sum(exp_Xb, 0) - np.sum(y*Xb, 0) # + jax.scipy.special.gammaln(Y+1)
-        grad = np.dot(X.T, exp_Xb - y)
-        return loss + 0.5*np.sum(np.power(b, 2)), grad
-        # return jnp.mean(loss) + 0.1*jnp.sum(jnp.sqrt(jnp.maximum(0, jnp.sum(b**2.0, 1))))
+#     #######################################
+#     # FITTING BOTH GLM
+#     #######################################
+#     def loss_all(b, X, Y):
+#         Xb = jnp.dot(X, b) 
+#         exp_Xb = jnp.exp(Xb)
+#         loss = jnp.sum(exp_Xb, 0) - jnp.sum(Y*Xb, 0) # + jax.scipy.special.gammaln(Y+1)
+#         # penalty = jnp.sqrt(jnp.sum(jnp.maximum(b**2, 0), 0))        
+#         # return jnp.mean(loss) + 0.1*jnp.sum(jnp.abs(b))
+#         return jnp.mean(loss) + 0.1*jnp.sum(jnp.power(b, 2))
+#         # return jnp.mean(loss) + 0.1*jnp.sum(jnp.sqrt(jnp.maximum(0, jnp.sum(b**2.0, 1))))
+
+#     def loss1(b, X, y):
+#         Xb = np.dot(X, b) 
+#         exp_Xb = np.exp(Xb)
+#         loss = np.sum(exp_Xb, 0) - np.sum(y*Xb, 0) # + jax.scipy.special.gammaln(Y+1)
+#         grad = np.dot(X.T, exp_Xb - y)
+#         return loss + 0.5*np.sum(np.power(b, 2)), grad
+#         # return jnp.mean(loss) + 0.1*jnp.sum(jnp.sqrt(jnp.maximum(0, jnp.sum(b**2.0, 1))))
     
 
-    Ws = []
+#     Ws = []
     
-    n_neurons, _ = spike_data.shape
+#     n_neurons, _ = spike_data.shape
 
-    X = _CORR2(jnp.atleast_2d(spike_basis),jnp.atleast_2d(spike_data))
-    X = X.reshape(np.prod(X.shape[0:2]), X.shape[-1])
-    X = X.T
-    X = X - X.mean(0)
-    X = X / X.std(0)
-    X = np.hstack((X, jnp.ones((len(X), 1))))
+#     X = _CORR2(jnp.atleast_2d(spike_basis),jnp.atleast_2d(spike_data))
+#     X = X.reshape(np.prod(X.shape[0:2]), X.shape[-1])
+#     X = X.T
+#     X = X - X.mean(0)
+#     X = X / X.std(0)
+#     X = np.hstack((X, jnp.ones((len(X), 1))))
 
-    b0 = jnp.zeros(((n_neurons*n_basis_funcs)+1, n_neurons))
-
-
-    # solver = jaxopt.GradientDescent(
-    #     fun=loss2, maxiter=20000, acceleration=False, verbose=True, stepsize=0.001
-    #     )
-    # W, state = solver.run(b0, X=X, Y=Y)    
-    # solver = ProximalGradient(
-    #     fun=loss1, maxiter=5000, 
-    #     prox=prox_lasso, verbose=True
-    #     )
-    # W, state = solver.run(b0, hyperparams_prox=0.1, X=X, Y=Y[:,0][:,None])
-
-    W = []
-
-    for i in range(n_neurons):
-        print(i)
-        # w = minimize(loss1, b0[:,i], (X, Y[:,i]), jac=True, method='newton-cg', options={"disp":True})
-        # W.append(w['x'])
-
-        model= PoissonRegressor()
-        model.fit(X, Y[:,i])
-        W.append(model.coef_)
+#     b0 = jnp.zeros(((n_neurons*n_basis_funcs)+1, n_neurons))
 
 
-    W = np.array(W).T
+#     # solver = jaxopt.GradientDescent(
+#     #     fun=loss2, maxiter=20000, acceleration=False, verbose=True, stepsize=0.001
+#     #     )
+#     # W, state = solver.run(b0, X=X, Y=Y)    
+#     # solver = ProximalGradient(
+#     #     fun=loss1, maxiter=5000, 
+#     #     prox=prox_lasso, verbose=True
+#     #     )
+#     # W, state = solver.run(b0, hyperparams_prox=0.1, X=X, Y=Y[:,0][:,None])
+
+#     W = []
+
+#     for i in range(n_neurons):
+#         print(i)
+#         # w = minimize(loss1, b0[:,i], (X, Y[:,i]), jac=True, method='newton-cg', options={"disp":True})
+#         # W.append(w['x'])
+
+#         model= PoissonRegressor()
+#         model.fit(X, Y[:,i])
+#         W.append(model.coef_)
+
+
+#     W = np.array(W).T
     
-    W2 = W[0:-1].reshape((n_neurons, n_basis_funcs, n_neurons))
+#     W2 = W[0:-1].reshape((n_neurons, n_basis_funcs, n_neurons))
 
-    return (W, W2)
+#     return (W, W2)
 
 @njit
 def forward(A, T, K, O, init):                    
@@ -151,17 +156,19 @@ def backward(A, T, K, O, scaling):
 
 class GLM_HMM(object):
 
-    def __init__(self, Ws, window_size=100, nb=5):
-        self.Ws = Ws
-        self.K = len(Ws)
-        self.window_size = window_size
-        self.nb = nb
+    def __init__(self, n_state):#, window_size=100, nb=5):        
+        self.K = n_state
+        # self.window_size = window_size
+        # self.nb = nb
 
-        spike_basis = RaisedCosineBasis(n_basis_funcs=nb,window_size=window_size)
-        sim_pts = nsl.sample_points.raised_cosine_linear(nb, window_size)
-        self.B = spike_basis.gen_basis_funcs(sim_pts)
-        self.spike_basis = self.B
-        self.n_basis_funcs, self.window_size = self.spike_basis.shape
+        # spike_basis = RaisedCosineBasis(n_basis_funcs=nb,window_size=window_size)
+        # sim_pts = nsl.sample_points.raised_cosine_log(nb, window_size)
+        # self.B = spike_basis.gen_basis_funcs(sim_pts)
+
+        # self.B = self.B[-2:]
+
+        # self.spike_basis = self.B
+        # self.n_basis_funcs, self.window_size = self.spike_basis.shape
 
     def fit(self, spikes, ep, bin_size):
         count = spikes.count(bin_size, ep)
@@ -172,20 +179,38 @@ class GLM_HMM(object):
         self.N = self.Y.shape[1]
         self.T = len(self.Y)
 
+        X = gaussian_filter1d(count.values.astype("float"), sigma=1, order=0)
+        X = X - X.mean(0)
+        X = X / X.std(0)
+
+        # self.X = []
+        # for n in range(self.N):
+        #     self.X.append(X[:,list(set(np.arange(self.N))-set([n]))])
+        # self.X = np.array(self.X)
+
+        self.X = X
+
         ############################################
         # FITTING THE HMM
         ############################################
+        self.W = np.random.randn(self.K, self.N-1, self.N)*0.1
+        self.W[1] *= 0.0
 
-        X = _CORR2(jnp.atleast_2d(self.spike_basis),jnp.atleast_2d(self.Y.T))
-        X = X.reshape(np.prod(X.shape[0:2]), X.shape[-1])
-        X = X.T
-        X = X - X.mean(0)
-        X = X / X.std(0)
-        self.X = np.hstack((X, jnp.ones((len(X), 1))))
 
+        # X = _CORR2(jnp.atleast_2d(self.spike_basis),jnp.atleast_2d(self.Y.T))
+        # X = X.reshape(np.prod(X.shape[0:2]), X.shape[-1])
+        # X = X.T
+        # X = X - X.mean(0)
+        # X = X / X.std(0)
+        # self.X = np.hstack((X, jnp.ones((len(X), 1))))
+
+        # Computing the observation
         O = []
-        for i in range(len(self.Ws)):
-            p = poisson.pmf(k=self.Y, mu=np.exp(np.dot(self.X, self.Ws[i])))
+        for k in range(self.K):
+            mu = np.zeros_like(self.Y)
+            for n in range(self.N):
+                mu[:,n] = np.exp(np.dot(self.X[:,list(set(np.arange(self.N))-set([n]))], self.W[k,:,n]))
+            p = poisson.pmf(k=self.Y, mu=mu)
             p = np.clip(p, 1e-9, 1.0)
             O.append(p.prod(1))
             # O.append(p.sum(1))
@@ -196,15 +221,15 @@ class GLM_HMM(object):
         As = []
         Zs = []
 
-        for _ in range(5):
+        for _ in range(1):
 
             score = []
             init = np.random.rand(self.K)
             init = init/init.sum()
-            A = np.random.rand(self.K, self.K)
+            A = np.random.rand(self.K, self.K) + np.eye(self.K)
             A = A/A.sum(1)[:,None]
             
-            for i in range(50):
+            for i in range(200):
                          
                 alpha, scaling = forward(A, self.T, self.K, self.O, init)
                 
@@ -224,27 +249,42 @@ class GLM_HMM(object):
                 A = E.sum(0)/(G[0:-1].sum(0)[:,None])
 
                 # Learning GLM based on best sequence for each state
-                z = np.argmax(G, 1)
-                Ws = []
-                for k in range(self.K):
-                    W = []
-                    for j in range(self.Ws[k].shape[1]):                        
-                        print(i, k, j)
-                        model= PoissonRegressor()
-                        model.fit(self.X[z==k,:], self.Y[z==k,j])
-                        W.append(model.coef_)
-                    W = np.array(W).T
-                    Ws.append(W)
-                self.Ws = Ws
+                self.z = np.argmax(G, 1)
+                new_W = np.zeros_like(self.W)
 
+                if np.all(np.unique(self.z) == np.arange(self.K)):
+                
+                    for k in range(self.K):
+                        args = []
+                        for n in range(self.N):
+                            args.append((self.X[self.z==k][:,list(set(np.arange(self.N))-set([n]))], self.Y[self.z==k,n]))
+                        
+                        with Pool(10) as pool:                        
+                            for n, result in enumerate(pool.map(fit_pop_glm, args)):
+                                new_W[k,:,n] = result
+                    
+                self.W = new_W
+                        # print(i, k, n)
+                        # model= PoissonRegressor()
+                        # model.fit(self.X[z==k][:,list(set(np.arange(self.N))-set([n]))], self.Y[z==k,n])
+                        # new_W[k,:,n] = model.coef_
+                #     W = np.array(W).T
+                #     Ws.append(W)
+                
+                
+                # New observation probablities
                 O = []
-                for k in range(len(self.Ws)):
-                    p = poisson.pmf(k=self.Y, mu=np.exp(np.dot(self.X, self.Ws[k])))
+                for k in range(self.K):
+                    mu = np.zeros_like(self.Y)
+                    for n in range(self.N):
+                        mu[:,n] = np.exp(np.dot(self.X[:,list(set(np.arange(self.N))-set([n]))], self.W[k,:,n]))
+                    p = poisson.pmf(k=self.Y, mu=mu)
                     p = np.clip(p, 1e-9, 1.0)
                     O.append(p.prod(1))
                     # O.append(p.sum(1))
 
                 self.O = np.array(O).T
+
 
                 # for j, o in enumerate(np.unique(Y)):
                 #     B[:,j] = G[Y == o].sum(0)/G.sum(0)
@@ -267,3 +307,8 @@ class GLM_HMM(object):
         self.bestZ = Zs[np.argmax(self.scores[-1])]
 
 
+def fit_pop_glm(arg):
+    X, Y = arg
+    model= PoissonRegressor()
+    model.fit(X, Y)
+    return model.coef_

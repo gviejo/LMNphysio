@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-12-16 14:24:56
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-03-14 12:06:52
+# @Last Modified by:   gviejo
+# @Last Modified time: 2023-04-12 16:37:09
 import scipy.io
 import sys, os
 import numpy as np
@@ -18,7 +18,7 @@ from matplotlib.pyplot import *
 # sns.set_theme()
 
 
-path = '/mnt/Data2/Opto/A8000/A8047/A8047-230313A'
+path = '/media/guillaume/New Volume/A8000/A8049/A8049-230412A'
 #path = '/mnt/Data2/LMN-PSB-2/A3018/A3018-220614A'
 
 data = nap.load_session(path, 'neurosuite')

@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-12-16 14:24:56
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-03-14 14:39:24
+# @Last Modified by:   gviejo
+# @Last Modified time: 2023-04-17 09:57:02
 import scipy.io
 import sys, os
 import numpy as np
@@ -18,7 +18,7 @@ from matplotlib.pyplot import *
 # sns.set_theme()
 
 
-path = '/mnt/Data2/Opto/A8000/A8047/A8047-230310A'
+path = '/media/guillaume/New Volume/A8000/A8049/A8049-230412A'
 #path = '/mnt/Data2/LMN-PSB-2/A3018/A3018-220614A'
 
 data = nap.load_session(path, 'neurosuite')
@@ -113,14 +113,14 @@ show()
 sys.exit()
 
 
-opto_ep = loadOptoEp(path, epoch=3, n_channels = 2, channel = 0)
+opto_ep = loadOptoEp(path, epoch=1, n_channels = 2, channel = 0)
 
-wake2_ep = wake_ep.loc[[1]].set_diff(opto_ep.merge_close_intervals(10.0))
+wake2_ep = wake_ep.loc[[0]].set_diff(opto_ep.merge_close_intervals(10.0))
 
-wake2_ep = nap.IntervalSet(
-    start = data.position.time_support.loc[0,'start'],
-    end = opto_ep.loc[0,'start']
-    )
+# wake2_ep = nap.IntervalSet(
+#     start = data.position.time_support.loc[0,'start'],
+#     end = opto_ep.loc[0,'start']
+#     )
 
 
 tc_opto = nap.compute_1d_tuning_curves(spikes, angle, 120, minmax=(0, 2*np.pi), ep = opto_ep)
@@ -129,7 +129,7 @@ tc_opto = smoothAngularTuningCurves(tc_opto, window = 20, deviation = 2.0)
 
 tuning_curves = nap.compute_1d_tuning_curves(spikes, angle, 120, minmax=(0, 2*np.pi), ep = wake2_ep)
 tuning_curves = smoothAngularTuningCurves(tuning_curves, window = 20, deviation = 2.0)
-
+SI = nap.compute_1d_mutual_info(tuning_curves, angle, wake2_ep, minmax=(0,2*np.pi))
 
 figure()
 count = 1
@@ -144,6 +144,18 @@ for l,j in enumerate(np.unique(shank)):
         gca().set_xticklabels([])
         legend()
 # show()
+
+
+stim_duration = np.round(opto_ep.loc[0,'end'] - opto_ep.loc[0,'start'], 6)
+
+peth = nap.compute_perievent(spikes, nap.Ts(opto_ep["start"].values), minmax=(-stim_duration, 2*stim_duration))
+
+frates = pd.DataFrame({n:peth[n].count(0.5).sum(1) for n in peth.keys()})
+
+rasters = {j:pd.concat([peth[j][i].as_series().fillna(i) for i in peth[j].index]) for j in peth.keys()}
+
+
+
 
 hd = SI[SI>0.1].dropna().index.values
 nhd = SI[SI<0.1].dropna().index.values
