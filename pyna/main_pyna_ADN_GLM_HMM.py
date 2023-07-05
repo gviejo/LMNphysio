@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-07-04 17:47:00
+# @Last Modified time: 2023-07-03 16:12:49
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -17,8 +17,8 @@ from scipy.stats import zscore
 from scipy.ndimage import gaussian_filter1d
 from sklearn.linear_model import PoissonRegressor
 from GLM_HMM import GLM_HMM
-from GLM import HankelGLM, ConvolvedGLM, CorrelationGLM
-from sklearn.preprocessing import StandardScaler
+from GLM import HankelGLM, ConvolvedGLM
+
 
 
 ############################################################################################### 
@@ -27,7 +27,7 @@ from sklearn.preprocessing import StandardScaler
 # data_directory = '/mnt/DataRAID2/'
 data_directory = '/mnt/ceph/users/gviejo'
 # data_directory = '/media/guillaume/LaCie'
-datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN.list'), delimiter = '\n', dtype = str, comments = '#')
+datasets = np.genfromtxt(os.path.join(data_directory,'datasets_ADN.list'), delimiter = '\n', dtype = str, comments = '#')
 
 
 SI_thr = {
@@ -38,11 +38,11 @@ SI_thr = {
 
 allr = []
 allr_glm = []
-durations = []
+
 corr = []
 
-for s in datasets:
-#for s in ['LMN-ADN/A5002/A5002-200304A']:
+# for s in datasets:
+for s in ['LMN-ADN/A5002/A5002-200304A']:
     print(s)
     ############################################################################################### 
     # LOADING DATA
@@ -57,7 +57,7 @@ for s in datasets:
         sws_ep = data.read_neuroscope_intervals('sws')
         rem_ep = data.read_neuroscope_intervals('rem')
         # down_ep = data.read_neuroscope_intervals('down')
-        idx = spikes._metadata[spikes._metadata["location"].str.contains("lmn")].index.values
+        idx = spikes._metadata[spikes._metadata["location"].str.contains("adn")].index.values
         spikes = spikes[idx]
           
         ############################################################################################### 
@@ -70,7 +70,7 @@ for s in datasets:
         spikes.set_info(SI)
         spikes.set_info(max_fr = tcurves.max())
 
-        spikes = spikes.getby_threshold("SI", SI_thr["lmn"])
+        spikes = spikes.getby_threshold("SI", SI_thr["adn"])
         spikes = spikes.getby_threshold("rate", 1.0)
         spikes = spikes.getby_threshold("max_fr", 3.0)
 
@@ -81,7 +81,7 @@ for s in datasets:
         spikes.set_info(order=order, peaks=peaks)
 
 
-        if len(tokeep) > 7:
+        if len(tokeep) > 8:
             
             # figure()
             # for i in range(len(tokeep)):
@@ -96,24 +96,21 @@ for s in datasets:
             # HMM GLM
             ###############################################################################################
             
-            bin_size = 0.01
+            bin_size = 0.04
             
             
             glm = ConvolvedGLM(spikes, bin_size, 1.0, newwake_ep)
             glm.fit_scipy()
 
-            # spikes2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(wake_ep))
-            spikes2 = nap.randomize.resample_timestamps(spikes.restrict(wake_ep))
+            spikes2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(wake_ep))
             glms = ConvolvedGLM(spikes2, bin_size, 1.0, newwake_ep)
             glms.fit_scipy()
 
 
             hmm = GLM_HMM((glm, glms))
 
-            # hmm.fit_transition(spikes, sws_ep, bin_size)
+            hmm.fit(spikes, sws_ep, bin_size)
 
-            hmm.fit_observation(spikes, sws_ep, bin_size)
-            
             # figure()
             # ax = subplot(311)        
             # plot(hmm.Z)            
@@ -125,24 +122,39 @@ for s in datasets:
 
             ############################################################################################### 
             # GLM CORRELATION
-            ############################################################################################### 
-            corrglm = CorrelationGLM(spikes, data.basename)
+            ###############################################################################################        
+            '''
+            pairs = []
+            for n in spikes.index:
+                for k in list(set(spikes.index)-set([n])):
+                    pairs.append(data.basename+'_'+str(n)+'-'+str(k))
+            r_glm = pd.DataFrame(index = pairs, dtype = np.float32)
 
-            cc_glm = {'wak':corrglm.fit(newwake_ep, 0.3, 3.0)[0]}
+            # Fit wake glm
+            count = spikes.count(0.3, newwake_ep)
+            Y = count.values            
+            X = gaussian_filter1d(count.values.astype("float"), sigma=1, order=0)
+            X = X - X.mean(0)
+            X = X / X.std(0)
+            N = len(spikes)
+            W = []
+            for n in range(N):
+                model= PoissonRegressor()
+                model.fit(X[:,list(set(np.arange(N))-set([n]))], Y[:,n])
+                W.append(model.coef_)
+            W = np.array(W)
 
-            eps = hmm.eps            
-            for i in range(len(eps)):
-                cc_glm['ep'+str(i)] = corrglm.fit(eps[i], 0.01, 0.5)[0]
+            r_glm['wake'] = W.T.flatten()
 
-            rglm = pd.DataFrame(index = cc_glm['wak'].columns, columns = cc_glm.keys())
-            for e in cc_glm.keys():
-                rglm[e] = cc_glm[e].loc[0]
+            for i in range(n_state):
+                r_glm['ep'+str(i)] = hmm.W[i].T.flatten()
+            '''
 
             ############################################################################################### 
             # PEARSON CORRELATION
             ###############################################################################################        
             rates = {}
-            for e, ep, bin_size, std in zip(['wak', 'sws'], [newwake_ep, sws_ep], [0.3, 0.03], [1, 1]):
+            for e, ep, bin_size, std in zip(['wake', 'sws'], [newwake_ep, sws_ep], [0.3, 0.02], [1, 1]):
                 count = spikes.count(bin_size, ep)
                 rate = count/bin_size
                 rate = rate.as_dataframe()
@@ -169,63 +181,34 @@ for s in datasets:
             #######################
             tmp = pd.DataFrame(index=[data.basename], columns=range(hmm.K))
             for i in range(hmm.K):
-                tmp.loc[data.basename,i] = scipy.stats.pearsonr(r['wak'], r['ep'+str(i)])[0]
-            corr.append(tmp)
+                tmp.loc[data.basename,i] = scipy.stats.pearsonr(r['wake'], r['ep'+str(i)])[0]
+            corr.append(tmp)            
 
             #######################
             # SAVING
             #######################
             allr.append(r)
-            # allr_glm.append(rglm)
-            durations.append(pd.DataFrame(data=[e.tot_length('s') for e in eps], columns=[data.basename]).T)
+            # allr_glm.append(r_glm)
 
 allr = pd.concat(allr, 0)
 # allr_glm = pd.concat(allr_glm, 0)
-durations = pd.concat(durations, 0)
-corr = pd.concat(corr, 0)
 
-print(scipy.stats.wilcoxon(corr[0], corr[1]))
+corr = pd.concat(corr, 0)
 
 
 figure()
-gs = GridSpec(2, 4)
 
 for i in range(len(eps)):
-    subplot(gs[0,i])
-    plot(allr['wak'], allr['ep'+str(i)], 'o', color = 'red', alpha = 0.5)
-    m, b = np.polyfit(allr['wak'].values, allr['ep'+str(i)].values, 1)
-    x = np.linspace(allr['wak'].min(), allr['wak'].max(),5)
+    subplot(1,len(eps),i+1)
+    plot(allr['wake'], allr['ep'+str(i)], 'o', color = 'red', alpha = 0.5)
+    m, b = np.polyfit(allr['wake'].values, allr['ep'+str(i)].values, 1)
+    x = np.linspace(allr['wake'].min(), allr['wake'].max(),5)
     plot(x, x*m + b)
-    xlabel('wak')
+    xlabel('wake')
     ylabel('ep'+str(i))
-    xlim(allr['wak'].min(), allr['wak'].max())
-    ylim(allr.iloc[:,1:].min().min(), allr.iloc[:,1:].max().max())
-    r, p = scipy.stats.pearsonr(allr['wak'], allr['ep'+str(i)])
+    xlim(-1, 1)
+    ylim(-1, 1)
+    r, p = scipy.stats.pearsonr(allr['wake'], allr['ep'+str(i)])
     title('r = '+str(np.round(r, 3)))
 
-# for i in range(len(eps)):
-#     subplot(gs[1,i])
-#     plot(allr_glm['wak'], allr_glm['ep'+str(i)], 'o', color = 'red', alpha = 0.5)
-#     m, b = np.polyfit(allr_glm['wak'].values, allr_glm['ep'+str(i)].values, 1)
-#     x = np.linspace(allr_glm['wak'].min(), allr_glm['wak'].max(),5)
-#     plot(x, x*m + b)
-#     xlabel('wak')
-#     ylabel('ep'+str(i))
-#     xlim(allr_glm['wak'].min(), allr_glm['wak'].max())
-#     ylim(allr_glm.iloc[:,1:].min().min(), allr_glm.iloc[:,1:].max().max())
-#     r, p = scipy.stats.pearsonr(allr_glm['wak'], allr_glm['ep'+str(i)])
-#     title('r = '+str(np.round(r, 3)))
-
-
-subplot(gs[0,2])
-for i in range(len(durations)):
-    plot(np.arange(durations.shape[1]), durations.iloc[i], 'o-')
-title("Durations")
-
-subplot(gs[0,3])
-for i in range(2):
-    plot(np.random.randn(len(corr))*0.1+np.ones(len(corr))*i, corr[i], 'o')
-ylim(0, 1)
-
 show()
-
