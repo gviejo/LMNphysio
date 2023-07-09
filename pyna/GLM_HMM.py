@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-07-04 17:42:47
+# @Last Modified time: 2023-07-09 16:05:40
 import numpy as np
 import os, sys
 from scipy.optimize import minimize
@@ -69,7 +69,7 @@ def optimize_transition(args):
     init = init/init.sum()
     A = np.random.rand(K, K) + np.eye(K)
     A = A/A.sum(1)[:,None]
-    for i in range(40):                         
+    for i in range(1000):                         
         alpha, scaling = forward(A, T, K, O, init)                
         beta = backward(A, T, K, O, scaling)
         # Expectation
@@ -86,7 +86,7 @@ def optimize_transition(args):
 
         # for j, o in enumerate(np.unique(Y)):
         #     B[:,j] = G[Y == o].sum(0)/G.sum(0)
-
+        print(np.sum(np.log(scaling)))
         score.append(np.sum(np.log(scaling)))
 
     Z = np.argmax(G, 1)
@@ -104,7 +104,7 @@ def optimize_observation(args):
     # Computing the observation
     O = compute_observation(W, X, Y, K)
     
-    for i in range(100):
+    for i in range(1000):
 
         # Forward/backward
         alpha, scaling = forward(A, T, K, O, init)                
@@ -119,27 +119,27 @@ def optimize_observation(args):
 
         # Maximisation
         init = G[0]
-        A = E.sum(0)/(G[0:-1].sum(0)[:,None])        
+        # A = E.sum(0)/(G[0:-1].sum(0)[:,None])        
 
         # Learning GLM based on best sequence for each state
-        if i %10 == 0:
-            z = np.argmax(G, 1)        
-            W0 = np.zeros_like(W)
-            for j in range(K):
-                if np.sum(z == j) > 100:
-                    solver = minimize(
-                        loss_all, 
-                        W0[j].flatten(), 
-                        (
-                            X[z==j], 
-                            Y[z==j]
-                            ), 
-                        jac=True, method='L-BFGS-B'
-                        )
-                    W0[j] = solver['x'].reshape(W0[j].shape)
+        # if i %20 == 0:
+        z = np.argmax(G, 1)
+        W0 = np.zeros_like(W)
+        for j in range(K):
+            if np.sum(z == j) > 100:
+                solver = minimize(
+                    loss_all, 
+                    W0[j].flatten(), 
+                    (
+                        X[z==j], 
+                        Y[z==j]
+                        ), 
+                    jac=True, method='L-BFGS-B'
+                    )
+                W0[j] = solver['x'].reshape(W0[j].shape)
 
-            W = W0
-            O = compute_observation(W, X, Y, K)
+        W = W0
+        O = compute_observation(W, X, Y, K)
 
         print(np.sum(np.log(scaling)))
         score.append(np.sum(np.log(scaling)))
@@ -150,11 +150,11 @@ def optimize_observation(args):
 
 class GLM_HMM(object):
 
-    def __init__(self, glms, n_basis = 5):
+    def __init__(self, glms):
         self.K = len(glms)
-        self.glms = glms
-        self.n_basis = 5
+        self.glms = glms        
         self.B = glms[0].B
+        self.n_basis = self.B.shape[1]
 
     def fit_transition(self, spikes, ep, bin_size):        
         self.spikes = spikes
@@ -175,7 +175,7 @@ class GLM_HMM(object):
         self.C = np.zeros((self.T, self.N, self.n_basis))
         for i in range(self.N):
             for j in range(self.n_basis):
-                self.C[:,i,j] = np.convolve(self.Y[:,i], self.B[:,j], mode='same')
+                self.C[:,i,j] = np.convolve(self.Y[:,i], self.B[:,j][::-1], mode='same')
 
         self.X = []
         for i in range(self.N):
@@ -206,99 +206,21 @@ class GLM_HMM(object):
         As = []
         Zs = []
 
-        args = [(self.K, self.T, self.O) for i in range(15)]
-
+        args = [(self.K, self.T, self.O) for i in range(3)]
         with Pool(len(args)) as pool:
             for result in pool.map(optimize_transition, args):
                 As.append(result[0])
                 Zs.append(result[1])
                 self.scores.append(result[2])
 
-        '''
-        for _ in range(3):
-            A, Z, score = fit_hmm(self.K, self.T, self.O)
 
-            self.scores.append(score)
-            As.append(A)
-            Zs.append(Z)
+        # for _ in range(3):
+        #     A, Z, score = optimize_transition((self.K, self.T, self.O))
 
+        #     self.scores.append(score)
+        #     As.append(A)
+        #     Zs.append(Z)
 
-            score = []
-            init = np.random.rand(self.K)
-            init = init/init.sum()
-            A = np.random.rand(self.K, self.K) + np.eye(self.K)
-            A = A/A.sum(1)[:,None]
-            
-            for i in range(50):
-                         
-                alpha, scaling = forward(A, self.T, self.K, self.O, init)
-                
-                beta = backward(A, self.T, self.K, self.O, scaling)
-
-                # Expectation
-                E = np.tile(A, (self.T-1, 1, 1)) * alpha[0:-1,:,None]*beta[1:,None,:]
-                # E = E * np.tile(B[:,Y[1:]].T[:,None,:], (1, K, 1)) # Adding emission    
-                E = E * np.tile(self.O[1:][:,None,:], (1, self.K, 1)) # Adding emission    
-
-                G = np.zeros((self.T, self.K))
-                G[0:-1] = E.sum(-1)
-                G[-1] = alpha[-1]
-
-                # Maximisation
-                init = G[0]
-                A = E.sum(0)/(G[0:-1].sum(0)[:,None])
-
-                """
-                # Learning GLM based on best sequence for each state
-                self.z = np.argmax(G, 1)
-                new_W = np.zeros_like(self.W)
-
-                if np.all(np.unique(self.z) == np.arange(self.K)):
-                
-                    for k in range(self.K):
-                        args = []
-                        for n in range(self.N):
-                            args.append((self.X[self.z==k][:,list(set(np.arange(self.N))-set([n]))], self.Y[self.z==k,n]))
-                        
-                        with Pool(15) as pool:
-                            for n, result in enumerate(pool.map(fit_pop_glm, args)):
-                                new_W[k,:,n] = result
-                    
-                self.W = new_W
-                        # print(i, k, n)
-                        # model= PoissonRegressor()
-                        # model.fit(self.X[z==k][:,list(set(np.arange(self.N))-set([n]))], self.Y[z==k,n])
-                        # new_W[k,:,n] = model.coef_
-                #     W = np.array(W).T
-                #     Ws.append(W)
-                
-                
-                # New observation probablities
-                O = []
-                for k in range(self.K):
-                    mu = np.zeros_like(self.Y)
-                    for n in range(self.N):
-                        mu[:,n] = np.exp(np.dot(self.X[:,list(set(np.arange(self.N))-set([n]))], self.W[k,:,n]))
-                    p = poisson.pmf(k=self.Y, mu=mu)
-                    p = np.clip(7p, 1e-9, 1.0)
-                    O.append(p.prod(1))
-                    # O.append(p.sum(1))
-
-                self.O = np.array(O).T
-                """
-
-                # for j, o in enumerate(np.unique(Y)):
-                #     B[:,j] = G[Y == o].sum(0)/G.sum(0)
-
-                score.append(np.sum(np.log(scaling)))
-
-                print(i, score[-1])
-
-            self.scores.append(score)
-            As.append(A)
-            Zs.append(np.argmax(G, 1))
-            # Bs.append(B)
-            '''
 
         self.scores = np.array(self.scores).T
         As = np.array(As)
@@ -337,7 +259,7 @@ class GLM_HMM(object):
         self.C = np.zeros((self.T, self.N, self.n_basis))
         for i in range(self.N):
             for j in range(self.n_basis):
-                self.C[:,i,j] = np.convolve(self.Y[:,i], self.B[:,j], mode='same')
+                self.C[:,i,j] = np.convolve(self.Y[:,i], self.B[:,j][::-1], mode='same')
 
         self.X = []
         for i in range(self.N):
@@ -359,7 +281,7 @@ class GLM_HMM(object):
         As = []
         Zs = []
 
-        args = [(self.K, self.T, self.initial_W, self.X, self.Y) for i in range(15)]        
+        args = [(self.K, self.T, self.initial_W, self.X, self.Y) for i in range(10)]
         with Pool(len(args)) as pool:
             for result in pool.map(optimize_observation, args):
                 As.append(result[0])

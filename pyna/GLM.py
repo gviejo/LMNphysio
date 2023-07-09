@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-07-04 13:06:42
+# @Last Modified time: 2023-07-06 10:41:29
 import numpy as np
 import pynapple as nap
 import os, sys
@@ -15,7 +15,7 @@ from jaxopt import GradientDescent, LBFGS, ScipyMinimize
 import jax.numpy as jnp
 
 from scipy.ndimage import gaussian_filter1d
-from scipy.stats import poisson
+from scipy.stats import poisson, gamma
 from sklearn.linear_model import PoissonRegressor
 from numba import njit
 from multiprocessing import Pool
@@ -117,19 +117,26 @@ class ConvolvedGLM(object):
         self.T = len(self.Y)
 
         nt = int(windowsize/binsize)
+        if nt%2==0: nt += 1
 
-        n_basis_funcs = 5
-        x = np.logspace(np.log10(np.pi * (n_basis_funcs - 1)), -1, nt) - .1
-        shifted_x = x[None, :] - (np.pi * np.arange(n_basis_funcs))[:, None]
-        B = .5 * (np.cos(np.clip(shifted_x, -np.pi, np.pi)) + 1)        
-        B = B.T[::-1]
+        n_basis_funcs = 3
+        # x = np.logspace(np.log10(np.pi * (n_basis_funcs - 1)), -1, nt) - .1
+        # shifted_x = x[None, :] - (np.pi * np.arange(n_basis_funcs))[:, None]
+        # B = .5 * (np.cos(np.clip(shifted_x, -np.pi, np.pi)) + 1)        
+        # B = B.T[::-1]
+        x = np.arange(0, nt, 1)
+        B = []
+        for i in range(1, 4):        
+            B.append(gamma.pdf(x, a=i, scale=2))
+        B = np.array(B).T
+        B = B/B.sum(0)
 
-        self.B = np.vstack((B, np.zeros((B.shape[0]+1, B.shape[1]))))
+        self.B = np.vstack((B[::-1], np.zeros((B.shape[0]-1, B.shape[1]))))
 
         self.C = np.zeros((self.T, self.N, n_basis_funcs))
         for i in range(self.N):
             for j in range(n_basis_funcs):
-                self.C[:,i,j] = np.convolve(self.Y[:,i], self.B[:,j], mode='same')
+                self.C[:,i,j] = np.convolve(self.Y[:,i], self.B[:,j][::-1], mode='same')
 
         self.X = []
         for i in range(self.N):
