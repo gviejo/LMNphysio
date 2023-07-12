@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-07-06 10:41:29
+# @Last Modified time: 2023-07-12 17:49:24
 import numpy as np
 import pynapple as nap
 import os, sys
@@ -111,7 +111,18 @@ class ConvolvedGLM(object):
     def __init__(self, spikes, binsize, windowsize, ep):
         self.spikes = spikes
         self.N = len(self.spikes)
-       
+        
+        # mask
+        self.mask = np.ones((self.N, self.N-1), dtype=np.int32)
+        maxch = self.spikes._metadata["maxch"].values
+        groups = self.spikes._metadata["group"].values
+        tmp = np.arange(self.N)
+        for i in range(self.N):
+            for j, k in zip(range(self.N-1), tmp[tmp!=i]):                    
+                if maxch[i]==maxch[k] and groups[i]==groups[k]:
+                        self.mask[i,j] = 0                        
+
+
         count = self.spikes.count(binsize, ep)
         self.Y = count.values
         self.T = len(self.Y)
@@ -136,11 +147,13 @@ class ConvolvedGLM(object):
         self.C = np.zeros((self.T, self.N, n_basis_funcs))
         for i in range(self.N):
             for j in range(n_basis_funcs):
-                self.C[:,i,j] = np.convolve(self.Y[:,i], self.B[:,j][::-1], mode='same')
+                self.C[:,i,j] = np.convolve(self.Y[:,i], self.B[:,j][::-1], mode='same')        
 
         self.X = []
         for i in range(self.N):
             tmp = self.C[:,list(set(list(np.arange(self.N))) - set([i])),:]
+            # apply mask
+            tmp[:,self.mask[i]==0,:] = 0
             tmp = tmp.reshape(tmp.shape[0], tmp.shape[1]*tmp.shape[2])
             tmp = StandardScaler().fit_transform(tmp)
             self.X.append(tmp)

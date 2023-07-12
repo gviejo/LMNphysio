@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-07-04 17:39:32
+# @Last Modified time: 2023-07-12 19:07:52
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -36,13 +36,13 @@ SI_thr = {
     'psb':1.5
     }
 
-allr = []
-allr_glm = []
+allr = {'adn':[], 'lmn':[]}
+allr_glm = {'adn':[], 'lmn':[]}
+durations = []
+corr = {'adn':[], 'lmn':[]}
 
-corr = []
-
-# for s in datasets:
-for s in ['LMN-ADN/A5043/A5043-230301A']:
+for s in datasets:
+# for s in ['LMN-ADN/A5043/A5043-230301A']:
 # # for s in ['LMN/A1413/A1413-200918A']:
 # for s in ['LMN/A1414/A1414-200929A']:
     print(s)
@@ -59,9 +59,18 @@ for s in ['LMN-ADN/A5043/A5043-230301A']:
         sws_ep = data.read_neuroscope_intervals('sws')
         rem_ep = data.read_neuroscope_intervals('rem')
         # down_ep = data.read_neuroscope_intervals('down')
-        idx = spikes._metadata[spikes._metadata["location"].str.contains("adn|lmn")].index.values
+        idx = spikes._metadata[spikes._metadata["location"].str.contains("lmn|adn")].index.values
         spikes = spikes[idx]
-          
+
+        try:
+            maxch = pd.read_csv(data.nwb_path + "/maxch.csv", index_col=0)['0']
+            
+        except:
+            meanwf, maxch = data.load_mean_waveforms(spike_count=1000)
+            maxch.to_csv(data.nwb_path + "/maxch.csv")        
+
+        spikes.set_info(maxch = maxch[idx])
+
         ############################################################################################### 
         # COMPUTING TUNING CURVES
         ###############################################################################################
@@ -72,20 +81,21 @@ for s in ['LMN-ADN/A5043/A5043-230301A']:
         spikes.set_info(SI)
         spikes.set_info(max_fr = tcurves.max())
 
-        groups = {}        
+        groups = {}
         for k in ['adn', 'lmn']:
-            groups[k] = spikes.getby_category("location")[k]
-            groups[k] = groups[k].getby_threshold("SI", SI_thr[k])
-            groups[k] = groups[k].getby_threshold("rate", 1.0)
-            groups[k] = groups[k].getby_threshold("max_fr", 3.0)            
-            tokeep = groups[k].index
-            tmp = tcurves[tokeep]
-            peaks = pd.Series(index=tmp.columns,data = np.array([circmean(tmp.index.values, tmp[i].values) for i in tmp.columns]))
+            group = spikes.getby_threshold("SI", SI_thr[k])
+            group = group.getby_threshold("rate", 1.0)
+            group = group.getby_threshold("max_fr", 3.0)            
+            tokeep = group.index
+            tcurves = tuning_curves[tokeep]
+            peaks = pd.Series(index=tcurves.columns,data = np.array([circmean(tcurves.index.values, tcurves[i].values) for i in tcurves.columns]))
             order = np.argsort(peaks.values)
-            groups[k].set_info(order=order, peaks=peaks)
+            group.set_info(order=order, peaks=peaks)
+            groups[k] = group
 
+        spikes = groups['lmn']
 
-        if len(groups['adn'])>6 and len(groups['lmn'])>6:
+        if len(groups['lmn']) > 5 and len(groups['adn']) > 3:
             
             # figure()
             # for i in range(len(tokeep)):
@@ -100,87 +110,138 @@ for s in ['LMN-ADN/A5043/A5043-230301A']:
             # HMM GLM
             ###############################################################################################
             
-            bin_size = 0.03
+            bin_size = 0.01
+            
+            
+            glm = ConvolvedGLM(spikes, bin_size, 1.0, newwake_ep)
+            glm.fit_scipy()            
 
-            hmms = {}
+            spikes2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(wake_ep))
+            # spikes2 = nap.randomize.resample_timestamps(spikes.restrict(wake_ep))
+            spikes2.set_info(maxch = spikes._metadata["maxch"], group = spikes._metadata["group"])
+            glms = ConvolvedGLM(spikes2, bin_size, 1.0, newwake_ep)
+            glms.fit_scipy()            
 
-            for g in ['adn', 'lmn']:
+            glm0 = ConvolvedGLM(spikes, bin_size, 1.0, newwake_ep)
+            glm0.W = np.zeros_like(glm.W)
 
-                glm = ConvolvedGLM(groups[g], bin_size, 1.0, newwake_ep)
-                glm.fit_scipy()
+            hmm = GLM_HMM((glm, glms))
 
-                # spikes2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(wake_ep))
-                spikes2 = nap.randomize.resample_timestamps(groups[g].restrict(wake_ep))
-                glms = ConvolvedGLM(spikes2, bin_size, 1.0, newwake_ep)
-                glms.fit_scipy()
+            hmm.fit_transition(spikes, sws_ep, 0.03)
 
+            # hmm.fit_observation(spikes, sws_ep, bin_size)
+            
+            # figure()
+            # ax = subplot(311)        
+            # plot(hmm.Z)            
+            # subplot(312, sharex=ax)
+            # plot(spikes.restrict(sws_ep).to_tsd("order"), '|', markersize=20)
+            # subplot(313, sharex=ax)
+            # plot(hmm.time_idx, hmm.O)
+            # show()
+            
+            ############################################################################################### 
+            # GLM CORRELATION
+            ############################################################################################### 
+            # corrglm = CorrelationGLM(spikes, data.basename)
 
-                hmm = GLM_HMM((glm, glms))
+            # cc_glm = {'wak':corrglm.fit(newwake_ep, 0.3, 3.0)[0]}
 
-                hmm.fit_transition(groups[g], sws_ep, bin_size)
+            # eps = hmm.eps            
+            # for i in range(len(eps)):
+            #     cc_glm['ep'+str(i)] = corrglm.fit(eps[i], 0.01, 0.5)[0]
 
-                # hmm.fit_observation(spikes, sws_ep, bin_size)
+            # rglm = pd.DataFrame(index = cc_glm['wak'].columns, columns = cc_glm.keys())
+            # for e in cc_glm.keys():
+            #     rglm[e] = cc_glm[e].loc[0]
 
-                hmms[g] = hmm
+            eps = hmm.eps
+            durations.append(pd.DataFrame(data=[e.tot_length('s') for e in eps], columns=[data.basename]).T)
+            
 
-#                 ############################################################################################### 
-#                 # PEARSON CORRELATION
-#                 ###############################################################################################        
-#                 rates = {}
-#                 for e, ep, bin_size, std in zip(['wake', 'sws'], [newwake_ep, sws_ep], [0.3, 0.02], [1, 1]):
-#                     count = groups[g].count(bin_size, ep)
-#                     rate = count/bin_size
-#                     rate = rate.as_dataframe()
-#                     rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=std)
-#                     rate = rate.apply(zscore)
-#                     rates[e] = nap.TsdFrame(rate)
+            for k in ['adn', 'lmn']:
+                spikes = groups[k]
+
+                ############################################################################################### 
+                # PEARSON CORRELATION
+                ###############################################################################################
+                rates = {}
+                for e, ep, bin_size, std in zip(['wak', 'sws'], [newwake_ep, sws_ep], [0.3, 0.03], [1, 1]):
+                    count = spikes.count(bin_size, ep)
+                    rate = count/bin_size
+                    rate = rate.as_dataframe()
+                    rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=std)       
+                    rate = rate.apply(zscore)                    
+                    rates[e] = nap.TsdFrame(rate)
                 
-#                 for i in range(len(eps)):
-#                     rates['ep'+str(i)] = rates['sws'].restrict(eps[i])
+                
+                for i in range(len(eps)):
+                    rates['ep'+str(i)] = rates['sws'].restrict(eps[i])
 
-#                 _ = rates.pop("sws")
+                _ = rates.pop("sws")
 
-#                 # pairs = list(product(groups['adn'].astype(str), groups['lmn'].astype(str)))
-#                 pairs = [data.basename+"_"+i+"-"+j for i,j in list(combinations(np.array(groups[g].keys()).astype(str), 2))]
-#                 r = pd.DataFrame(index = pairs, columns = rates.keys(), dtype = np.float32)
+                # pairs = list(product(groups['adn'].astype(str), groups['lmn'].astype(str)))
+                pairs = [data.basename+"_"+i+"-"+j for i,j in list(combinations(np.array(spikes.keys()).astype(str), 2))]
+                r = pd.DataFrame(index = pairs, columns = rates.keys(), dtype = np.float32)
 
-#                 for ep in rates.keys():
-#                     tmp = np.corrcoef(rates[ep].values.T)
-#                     r[ep] = tmp[np.triu_indices(tmp.shape[0], 1)]
+                for ep in rates.keys():
+                    tmp = np.corrcoef(rates[ep].values.T)
+                    if len(tmp):
+                        r[ep] = tmp[np.triu_indices(tmp.shape[0], 1)]
 
-#             #######################
-#             # Session correlation
-#             #######################
-#             tmp = pd.DataFrame(index=[data.basename], columns=range(n_state))
-#             for i in range(n_state):
-#                 tmp.loc[data.basename,i] = scipy.stats.pearsonr(r['wake'], r['ep'+str(i)])[0]
-#             corr.append(tmp)            
+                #######################
+                # SAVING
+                #######################
+                allr[k].append(r)
+                # allr_glm.append(rglm)                
 
-#             #######################
-#             # SAVING
-#             #######################
-#             allr.append(r)
-#             allr_glm.append(r_glm)
+                #######################
+                # Session correlation
+                #######################
+                tmp = pd.DataFrame(index=[data.basename], columns=range(hmm.K))
+                for i in range(hmm.K):
+                    tmp.loc[data.basename,i] = scipy.stats.pearsonr(r['wak'], r['ep'+str(i)])[0]
+                corr[k].append(tmp)
+                
+    
+durations = pd.concat(durations, 0)
 
-# allr = pd.concat(allr, 0)
-# allr_glm = pd.concat(allr_glm, 0)
+for k in ['adn', 'lmn']:
+    allr[k] = pd.concat(allr[k], 0)
+    # allr_glm = pd.concat(allr_glm, 0)    
+    corr[k] = pd.concat(corr[k], 0)
 
-# corr = pd.concat(corr, 0)
+# print(scipy.stats.wilcoxon(corr[0], corr[1]))
 
 
-# figure()
+figure()
+gs = GridSpec(2, len(eps))
+for j, k in enumerate(allr.keys()):
+    for i in range(len(eps)):
+        subplot(gs[j,i])
+        plot(allr[k]['wak'], allr[k]['ep'+str(i)], 'o', color = 'red', alpha = 0.5)
+        m, b = np.polyfit(allr[k]['wak'].values, allr[k]['ep'+str(i)].values, 1)
+        x = np.linspace(allr[k]['wak'].min(), allr[k]['wak'].max(),5)
+        plot(x, x*m + b)
+        xlabel('wak')
+        ylabel('ep'+str(i))
+        xlim(allr[k]['wak'].min(), allr[k]['wak'].max())
+        ylim(allr[k].iloc[:,1:].min().min(), allr[k].iloc[:,1:].max().max())
+        r, p = scipy.stats.pearsonr(allr[k]['wak'], allr[k]['ep'+str(i)])
+        title('r = '+str(np.round(r, 3)))
 
-# for i in range(len(eps)):
-#     subplot(1,len(eps),i+1)
-#     plot(allr['wake'], allr['ep'+str(i)], 'o', color = 'red', alpha = 0.5)
-#     m, b = np.polyfit(allr['wake'].values, allr['ep'+str(i)].values, 1)
-#     x = np.linspace(allr['wake'].min(), allr['wake'].max(),5)
-#     plot(x, x*m + b)
-#     xlabel('wake')
-#     ylabel('ep'+str(i))
-#     xlim(-1, 1)
-#     ylim(-1, 1)
-#     r, p = scipy.stats.pearsonr(allr['wake'], allr['ep'+str(i)])
-#     title('r = '+str(np.round(r, 3)))
 
-# show()
+figure()    
+gs = GridSpec(1, len(eps)+1)
+subplot(gs[0,0])
+tmp = durations.values
+tmp = tmp/tmp.sum(1)[:,None]
+plot(tmp.T, 'o', color = 'grey')
+plot(tmp.mean(0), 'o-', markersize=20)
+
+for i, k in enumerate(corr.keys()):
+    subplot(gs[0,i+1])
+    plot(corr[k].values.T, 'o-', color='grey')
+    ylim(0, 1)
+    print(k, scipy.stats.wilcoxon(corr[k][0], corr[k][1]))
+show()

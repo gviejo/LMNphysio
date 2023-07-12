@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-07-09 17:49:14
+# @Last Modified time: 2023-07-12 18:49:53
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -28,6 +28,12 @@ from sklearn.preprocessing import StandardScaler
 data_directory = '/mnt/ceph/users/gviejo'
 # data_directory = '/media/guillaume/LaCie'
 datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN.list'), delimiter = '\n', dtype = str, comments = '#')
+
+datasets = np.hstack([
+    np.genfromtxt(os.path.join(data_directory,'datasets_LMN.list'), delimiter = '\n', dtype = str, comments = '#'),
+    np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#'),
+    np.genfromtxt(os.path.join(data_directory,'datasets_LMN_PSB.list'), delimiter = '\n', dtype = str, comments = '#'),
+    ])
 
 
 SI_thr = {
@@ -57,6 +63,7 @@ for s in datasets:
         sws_ep = data.read_neuroscope_intervals('sws')
         rem_ep = data.read_neuroscope_intervals('rem')
         # down_ep = data.read_neuroscope_intervals('down')
+
         idx = spikes._metadata[spikes._metadata["location"].str.contains("lmn")].index.values
         spikes = spikes[idx]
           
@@ -80,8 +87,16 @@ for s in datasets:
         order = np.argsort(peaks.values)
         spikes.set_info(order=order, peaks=peaks)
 
+        try:
+            maxch = pd.read_csv(data.nwb_path + "/maxch.csv", index_col=0)['0']
+            
+        except:
+            meanwf, maxch = data.load_mean_waveforms(spike_count=1000)
+            maxch.to_csv(data.nwb_path + "/maxch.csv")        
 
-        if len(tokeep) >= 5:
+        spikes.set_info(maxch = maxch[tokeep])
+
+        if len(tokeep) > 5:
             
             # figure()
             # for i in range(len(tokeep)):
@@ -96,23 +111,24 @@ for s in datasets:
             # HMM GLM
             ###############################################################################################
             
-            bin_size = 0.03
-            
+            bin_size = 0.01
+
             
             glm = ConvolvedGLM(spikes, bin_size, 1.0, newwake_ep)
             glm.fit_scipy()            
 
             spikes2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(wake_ep))
             # spikes2 = nap.randomize.resample_timestamps(spikes.restrict(wake_ep))
+            spikes2.set_info(maxch = spikes._metadata["maxch"], group = spikes._metadata["group"])
             glms = ConvolvedGLM(spikes2, bin_size, 1.0, newwake_ep)
             glms.fit_scipy()            
 
-            glm0 = ConvolvedGLM(spikes, bin_size, 1.0, newwake_ep)
-            glm0.W = np.zeros_like(glm.W)
+            # glm0 = ConvolvedGLM(spikes, bin_size, 1.0, newwake_ep)
+            # glm0.W = np.zeros_like(glm.W)
 
-            hmm = GLM_HMM((glm, glms, glm0))
+            hmm = GLM_HMM((glm, glms))
 
-            hmm.fit_transition(spikes, sws_ep, 0.03)
+            hmm.fit_transition(spikes, sws_ep, bin_size)
 
             # hmm.fit_observation(spikes, sws_ep, bin_size)
             
@@ -124,7 +140,7 @@ for s in datasets:
             # subplot(313, sharex=ax)
             # plot(hmm.time_idx, hmm.O)
             # show()
-
+            
             ############################################################################################### 
             # GLM CORRELATION
             ############################################################################################### 
@@ -181,6 +197,7 @@ for s in datasets:
             allr.append(r)
             # allr_glm.append(rglm)
             durations.append(pd.DataFrame(data=[e.tot_length('s') for e in eps], columns=[data.basename]).T)
+            
 
 allr = pd.concat(allr, 0)
 # allr_glm = pd.concat(allr_glm, 0)
@@ -232,4 +249,5 @@ for i in range(durations.shape[1]):
 ylim(0, 1)
 
 show()
+
 

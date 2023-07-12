@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-07-09 16:05:40
+# @Last Modified time: 2023-07-12 17:44:22
 import numpy as np
 import os, sys
 from scipy.optimize import minimize
@@ -48,7 +48,7 @@ def compute_observation(W, X, Y, K):
     for k in range(K):
         mu = np.exp(np.einsum('tnk,kn->tn', X, W[k]))
         p = poisson.pmf(k=Y, mu=mu)
-        p = np.clip(p, 1e-9, 1.0)
+        p = np.clip(p, 1e-10, 1.0)
         O.append(p.prod(1))
     O = np.array(O).T
     return O
@@ -69,7 +69,7 @@ def optimize_transition(args):
     init = init/init.sum()
     A = np.random.rand(K, K) + np.eye(K)
     A = A/A.sum(1)[:,None]
-    for i in range(1000):                         
+    for i in range(100):
         alpha, scaling = forward(A, T, K, O, init)                
         beta = backward(A, T, K, O, scaling)
         # Expectation
@@ -86,7 +86,7 @@ def optimize_transition(args):
 
         # for j, o in enumerate(np.unique(Y)):
         #     B[:,j] = G[Y == o].sum(0)/G.sum(0)
-        print(np.sum(np.log(scaling)))
+        # print(np.sum(np.log(scaling)))
         score.append(np.sum(np.log(scaling)))
 
     Z = np.argmax(G, 1)
@@ -155,9 +155,10 @@ class GLM_HMM(object):
         self.glms = glms        
         self.B = glms[0].B
         self.n_basis = self.B.shape[1]
+        self.mask = self.glms[0].mask
 
     def fit_transition(self, spikes, ep, bin_size):        
-        self.spikes = spikes
+        self.spikes = spikes        
 
         ############################################
         # BINNING
@@ -180,6 +181,8 @@ class GLM_HMM(object):
         self.X = []
         for i in range(self.N):
             tmp = self.C[:,list(set(list(np.arange(self.N))) - set([i])),:]
+            # apply mask
+            tmp[:,self.mask[i]==0,:] = 0            
             tmp = tmp.reshape(tmp.shape[0], tmp.shape[1]*tmp.shape[2])
             tmp = StandardScaler().fit_transform(tmp)
             self.X.append(tmp)
@@ -196,7 +199,7 @@ class GLM_HMM(object):
         for k in range(self.K):
             mu = self.glms[k].predict(self.X)
             p = poisson.pmf(k=self.Y, mu=mu)
-            p = np.clip(p, 1e-9, 1.0)
+            # p = np.clip(p, 1e-9, 1.0)
             O.append(p.prod(1))
         self.O = np.array(O).T
 
