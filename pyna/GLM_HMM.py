@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-07-12 17:44:22
+# @Last Modified time: 2023-07-13 17:03:14
 import numpy as np
 import os, sys
 from scipy.optimize import minimize
@@ -69,7 +69,7 @@ def optimize_transition(args):
     init = init/init.sum()
     A = np.random.rand(K, K) + np.eye(K)
     A = A/A.sum(1)[:,None]
-    for i in range(100):
+    for i in range(60):
         alpha, scaling = forward(A, T, K, O, init)                
         beta = backward(A, T, K, O, scaling)
         # Expectation
@@ -199,7 +199,7 @@ class GLM_HMM(object):
         for k in range(self.K):
             mu = self.glms[k].predict(self.X)
             p = poisson.pmf(k=self.Y, mu=mu)
-            # p = np.clip(p, 1e-9, 1.0)
+            p = np.clip(p, 1e-9, 1.0)
             O.append(p.prod(1))
         self.O = np.array(O).T
 

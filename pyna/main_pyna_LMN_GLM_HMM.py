@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-07-12 18:49:53
+# @Last Modified time: 2023-07-13 17:14:43
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -32,7 +32,7 @@ datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN.list'), delim
 datasets = np.hstack([
     np.genfromtxt(os.path.join(data_directory,'datasets_LMN.list'), delimiter = '\n', dtype = str, comments = '#'),
     np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#'),
-    np.genfromtxt(os.path.join(data_directory,'datasets_LMN_PSB.list'), delimiter = '\n', dtype = str, comments = '#'),
+    # np.genfromtxt(os.path.join(data_directory,'datasets_LMN_PSB.list'), delimiter = '\n', dtype = str, comments = '#'),
     ])
 
 
@@ -111,16 +111,16 @@ for s in datasets:
             # HMM GLM
             ###############################################################################################
             
-            bin_size = 0.01
-
+            bin_size = 0.03
+            window_size = bin_size*20.0
             
-            glm = ConvolvedGLM(spikes, bin_size, 1.0, newwake_ep)
+            glm = ConvolvedGLM(spikes, bin_size, window_size, newwake_ep)
             glm.fit_scipy()            
 
             spikes2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(wake_ep))
             # spikes2 = nap.randomize.resample_timestamps(spikes.restrict(wake_ep))
             spikes2.set_info(maxch = spikes._metadata["maxch"], group = spikes._metadata["group"])
-            glms = ConvolvedGLM(spikes2, bin_size, 1.0, newwake_ep)
+            glms = ConvolvedGLM(spikes2, bin_size, window_size, newwake_ep)
             glms.fit_scipy()            
 
             # glm0 = ConvolvedGLM(spikes, bin_size, 1.0, newwake_ep)
@@ -160,7 +160,7 @@ for s in datasets:
             # PEARSON CORRELATION
             ###############################################################################################        
             rates = {}
-            for e, ep, bin_size, std in zip(['wak', 'sws'], [newwake_ep, sws_ep], [0.3, 0.03], [1, 1]):
+            for e, ep, bin_size, std in zip(['wak', 'sws'], [newwake_ep, sws_ep], [0.3, 0.03], [2, 2]):
                 count = spikes.count(bin_size, ep)
                 rate = count/bin_size
                 rate = rate.as_dataframe()
@@ -183,6 +183,14 @@ for s in datasets:
                 if len(tmp):
                     r[ep] = tmp[np.triu_indices(tmp.shape[0], 1)]
 
+            to_keep = []
+            for p in r.index:
+                tmp = spikes._metadata.loc[np.array(p.split("_")[1].split("-"), dtype=np.int32), ['group', 'maxch']]
+                if tmp['group'].iloc[0] == tmp['group'].iloc[1]:
+                    if tmp['maxch'].iloc[0] != tmp['maxch'].iloc[1]:
+                        to_keep.append(p)
+            r = r.loc[to_keep]
+            
             #######################
             # Session correlation
             #######################
