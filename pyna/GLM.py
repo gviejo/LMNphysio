@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-07-12 17:49:24
+# @Last Modified time: 2023-07-14 12:45:39
 import numpy as np
 import pynapple as nap
 import os, sys
@@ -15,7 +15,7 @@ from jaxopt import GradientDescent, LBFGS, ScipyMinimize
 import jax.numpy as jnp
 
 from scipy.ndimage import gaussian_filter1d
-from scipy.stats import poisson, gamma
+from scipy.stats import poisson, gamma, norm
 from sklearn.linear_model import PoissonRegressor
 from numba import njit
 from multiprocessing import Pool
@@ -118,9 +118,10 @@ class ConvolvedGLM(object):
         groups = self.spikes._metadata["group"].values
         tmp = np.arange(self.N)
         for i in range(self.N):
-            for j, k in zip(range(self.N-1), tmp[tmp!=i]):                    
-                if maxch[i]==maxch[k] and groups[i]==groups[k]:
-                        self.mask[i,j] = 0                        
+            for j, k in zip(range(self.N-1), tmp[tmp!=i]):
+                if groups[i]==groups[k]:
+                    if maxch[i]==maxch[k]:
+                            self.mask[i,j] = 0
 
 
         count = self.spikes.count(binsize, ep)
@@ -130,17 +131,26 @@ class ConvolvedGLM(object):
         nt = int(windowsize/binsize)
         if nt%2==0: nt += 1
 
-        n_basis_funcs = 3
+        n_basis_funcs = 2
+        # V1
         # x = np.logspace(np.log10(np.pi * (n_basis_funcs - 1)), -1, nt) - .1
         # shifted_x = x[None, :] - (np.pi * np.arange(n_basis_funcs))[:, None]
         # B = .5 * (np.cos(np.clip(shifted_x, -np.pi, np.pi)) + 1)        
         # B = B.T[::-1]
+        # V2
         x = np.arange(0, nt, 1)
         B = []
-        for i in range(1, 4):        
+        for i in range(1, n_basis_funcs+1):
             B.append(gamma.pdf(x, a=i, scale=2))
         B = np.array(B).T
         B = B/B.sum(0)
+        # V3
+        # x = np.arange(-nt//2+1, nt//2+1, 1)
+        # B = []
+        # for i in range(1, n_basis_funcs+1):
+        #     B.append(norm.pdf(x, 0, i))
+        # B = np.array(B).T
+        # B = B/B.sum(0)
 
         self.B = np.vstack((B[::-1], np.zeros((B.shape[0]-1, B.shape[1]))))
 

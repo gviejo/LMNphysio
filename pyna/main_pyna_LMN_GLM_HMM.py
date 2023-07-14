@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-07-13 17:14:43
+# @Last Modified time: 2023-07-14 16:51:26
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -27,7 +27,7 @@ from sklearn.preprocessing import StandardScaler
 # data_directory = '/mnt/DataRAID2/'
 data_directory = '/mnt/ceph/users/gviejo'
 # data_directory = '/media/guillaume/LaCie'
-datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN.list'), delimiter = '\n', dtype = str, comments = '#')
+# datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN.list'), delimiter = '\n', dtype = str, comments = '#')
 
 datasets = np.hstack([
     np.genfromtxt(os.path.join(data_directory,'datasets_LMN.list'), delimiter = '\n', dtype = str, comments = '#'),
@@ -96,7 +96,7 @@ for s in datasets:
 
         spikes.set_info(maxch = maxch[tokeep])
 
-        if len(tokeep) > 5:
+        if len(tokeep) > 6:
             
             # figure()
             # for i in range(len(tokeep)):
@@ -112,25 +112,26 @@ for s in datasets:
             ###############################################################################################
             
             bin_size = 0.03
-            window_size = bin_size*20.0
+            window_size = bin_size*50.0
             
             glm = ConvolvedGLM(spikes, bin_size, window_size, newwake_ep)
             glm.fit_scipy()            
 
-            spikes2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(wake_ep))
-            # spikes2 = nap.randomize.resample_timestamps(spikes.restrict(wake_ep))
+
+            spikes2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(sws_ep))
+            # spikes2 = nap.randomize.resample_timestamps(spikes.restrict(sws_ep))
             spikes2.set_info(maxch = spikes._metadata["maxch"], group = spikes._metadata["group"])
-            glms = ConvolvedGLM(spikes2, bin_size, window_size, newwake_ep)
-            glms.fit_scipy()            
+            glms = ConvolvedGLM(spikes2, bin_size, window_size, sws_ep)
+            glms.fit_scipy()
 
             # glm0 = ConvolvedGLM(spikes, bin_size, 1.0, newwake_ep)
             # glm0.W = np.zeros_like(glm.W)
 
             hmm = GLM_HMM((glm, glms))
 
-            hmm.fit_transition(spikes, sws_ep, bin_size)
+            # hmm.fit_transition(spikes, sws_ep, bin_size)
 
-            # hmm.fit_observation(spikes, sws_ep, bin_size)
+            hmm.fit_observation(spikes, sws_ep, bin_size)
             
             # figure()
             # ax = subplot(311)        
@@ -160,7 +161,7 @@ for s in datasets:
             # PEARSON CORRELATION
             ###############################################################################################        
             rates = {}
-            for e, ep, bin_size, std in zip(['wak', 'sws'], [newwake_ep, sws_ep], [0.3, 0.03], [2, 2]):
+            for e, ep, bin_size, std in zip(['wak', 'sws'], [newwake_ep, sws_ep], [0.3, 0.03], [1, 1]):
                 count = spikes.count(bin_size, ep)
                 rate = count/bin_size
                 rate = rate.as_dataframe()
@@ -197,6 +198,15 @@ for s in datasets:
             tmp = pd.DataFrame(index=[data.basename], columns=range(hmm.K))
             for i in range(hmm.K):
                 tmp.loc[data.basename,i] = scipy.stats.pearsonr(r['wak'], r['ep'+str(i)])[0]
+
+            # flippinge eps
+            if tmp.iloc[0, 1]>tmp.iloc[0,0]:
+                r.columns = pd.Index(['wak', 'ep1', 'ep0'])
+                r = r[['wak', 'ep0', 'ep1']]
+                tmp.columns = pd.Index([1, 0])
+                tmp = tmp[[0, 1]]
+                eps = [eps[1], eps[0]]
+
             corr.append(tmp)
             
             #######################
@@ -205,6 +215,7 @@ for s in datasets:
             allr.append(r)
             # allr_glm.append(rglm)
             durations.append(pd.DataFrame(data=[e.tot_length('s') for e in eps], columns=[data.basename]).T)
+            
             
 
 allr = pd.concat(allr, 0)
@@ -246,10 +257,12 @@ for i in range(len(eps)):
 
 
 subplot(gs[1,0])
-for i in range(len(durations)):
-    plot(np.arange(durations.shape[1]), durations.iloc[i], 'o-')
+tmp = durations.values
+tmp = tmp/tmp.sum(1)[:,None]
+plot(tmp.T, 'o', color = 'grey')
+plot(tmp.mean(0), 'o-', markersize=20)
+
 title("Durations")
-plot(durations.mean(), 'o', markersize = 20)
 
 subplot(gs[1,1])
 for i in range(durations.shape[1]):

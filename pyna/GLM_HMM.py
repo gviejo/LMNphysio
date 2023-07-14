@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-07-13 17:03:14
+# @Last Modified time: 2023-07-14 16:56:06
 import numpy as np
 import os, sys
 from scipy.optimize import minimize
@@ -48,7 +48,7 @@ def compute_observation(W, X, Y, K):
     for k in range(K):
         mu = np.exp(np.einsum('tnk,kn->tn', X, W[k]))
         p = poisson.pmf(k=Y, mu=mu)
-        p = np.clip(p, 1e-10, 1.0)
+        p = np.clip(p, 1e-15, 1.0)
         O.append(p.prod(1))
     O = np.array(O).T
     return O
@@ -104,7 +104,7 @@ def optimize_observation(args):
     # Computing the observation
     O = compute_observation(W, X, Y, K)
     
-    for i in range(1000):
+    for i in range(100):
 
         # Forward/backward
         alpha, scaling = forward(A, T, K, O, init)                
@@ -199,7 +199,7 @@ class GLM_HMM(object):
         for k in range(self.K):
             mu = self.glms[k].predict(self.X)
             p = poisson.pmf(k=self.Y, mu=mu)
-            p = np.clip(p, 1e-9, 1.0)
+            p = np.clip(p, 1e-15, 1.0)
             O.append(p.prod(1))
         self.O = np.array(O).T
 
@@ -267,6 +267,8 @@ class GLM_HMM(object):
         self.X = []
         for i in range(self.N):
             tmp = self.C[:,list(set(list(np.arange(self.N))) - set([i])),:]
+            # apply mask
+            tmp[:,self.mask[i]==0,:] = 0            
             tmp = tmp.reshape(tmp.shape[0], tmp.shape[1]*tmp.shape[2])
             tmp = StandardScaler().fit_transform(tmp)
             self.X.append(tmp)
@@ -284,7 +286,7 @@ class GLM_HMM(object):
         As = []
         Zs = []
 
-        args = [(self.K, self.T, self.initial_W, self.X, self.Y) for i in range(10)]
+        args = [(self.K, self.T, self.initial_W, self.X, self.Y) for i in range(20)]
         with Pool(len(args)) as pool:
             for result in pool.map(optimize_observation, args):
                 As.append(result[0])
@@ -313,6 +315,7 @@ class GLM_HMM(object):
         eps = []
         for i in range(self.K):
             ep = self.Z.threshold(i-0.5).threshold(i+0.5, "below").time_support
+            ep = ep.drop_short_intervals(0.1)
             eps.append(ep)
 
         self.eps = eps
