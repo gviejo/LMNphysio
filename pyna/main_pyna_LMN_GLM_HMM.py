@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-07-14 16:51:26
+# @Last Modified time: 2023-07-14 19:08:58
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -111,12 +111,11 @@ for s in datasets:
             # HMM GLM
             ###############################################################################################
             
-            bin_size = 0.03
+            bin_size = 0.02
             window_size = bin_size*50.0
             
-            glm = ConvolvedGLM(spikes, bin_size, window_size, newwake_ep)
-            glm.fit_scipy()            
-
+            glm = ConvolvedGLM(spikes, bin_size, window_size, newwake_ep)            
+            glm.fit_scipy()
 
             spikes2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(sws_ep))
             # spikes2 = nap.randomize.resample_timestamps(spikes.restrict(sws_ep))
@@ -124,14 +123,16 @@ for s in datasets:
             glms = ConvolvedGLM(spikes2, bin_size, window_size, sws_ep)
             glms.fit_scipy()
 
-            # glm0 = ConvolvedGLM(spikes, bin_size, 1.0, newwake_ep)
-            # glm0.W = np.zeros_like(glm.W)
+            glm0 = ConvolvedGLM(spikes, bin_size, 1.0, newwake_ep)
+            glm0.W = np.zeros_like(glm.W)
 
-            hmm = GLM_HMM((glm, glms))
+            # hmm = GLM_HMM((glm, glms))
+            hmm = GLM_HMM((glm0, glm0))
 
             # hmm.fit_transition(spikes, sws_ep, bin_size)
 
             hmm.fit_observation(spikes, sws_ep, bin_size)
+
             
             # figure()
             # ax = subplot(311)        

@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-07-14 12:45:39
+# @Last Modified time: 2023-07-14 19:08:44
 import numpy as np
 import pynapple as nap
 import os, sys
@@ -137,22 +137,23 @@ class ConvolvedGLM(object):
         # shifted_x = x[None, :] - (np.pi * np.arange(n_basis_funcs))[:, None]
         # B = .5 * (np.cos(np.clip(shifted_x, -np.pi, np.pi)) + 1)        
         # B = B.T[::-1]
+        # self.B = np.vstack((B[::-1], np.zeros((B.shape[0]-1, B.shape[1]))))
         # V2
-        x = np.arange(0, nt, 1)
-        B = []
-        for i in range(1, n_basis_funcs+1):
-            B.append(gamma.pdf(x, a=i, scale=2))
-        B = np.array(B).T
-        B = B/B.sum(0)
-        # V3
-        # x = np.arange(-nt//2+1, nt//2+1, 1)
+        # x = np.arange(0, nt, 1)
         # B = []
         # for i in range(1, n_basis_funcs+1):
-        #     B.append(norm.pdf(x, 0, i))
+        #     B.append(gamma.pdf(x, a=i, scale=2))
         # B = np.array(B).T
         # B = B/B.sum(0)
-
-        self.B = np.vstack((B[::-1], np.zeros((B.shape[0]-1, B.shape[1]))))
+        # self.B = np.vstack((B[::-1], np.zeros((B.shape[0]-1, B.shape[1]))))
+        # V3
+        x = np.arange(-nt//2+1, nt//2+1, 1)
+        B = []
+        for i in range(1, n_basis_funcs+1):
+            B.append(norm.pdf(x, 0, i))
+        B = np.array(B).T
+        B = B/B.sum(0)
+        self.B = B
 
         self.C = np.zeros((self.T, self.N, n_basis_funcs))
         for i in range(self.N):

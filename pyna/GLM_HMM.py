@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-07-14 16:56:06
+# @Last Modified time: 2023-07-14 18:59:35
 import numpy as np
 import os, sys
 from scipy.optimize import minimize
@@ -104,7 +104,7 @@ def optimize_observation(args):
     # Computing the observation
     O = compute_observation(W, X, Y, K)
     
-    for i in range(100):
+    for i in range(200):
 
         # Forward/backward
         alpha, scaling = forward(A, T, K, O, init)                
