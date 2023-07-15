@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-07-14 19:08:58
+# @Last Modified time: 2023-07-15 16:15:10
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -27,13 +27,13 @@ from sklearn.preprocessing import StandardScaler
 # data_directory = '/mnt/DataRAID2/'
 data_directory = '/mnt/ceph/users/gviejo'
 # data_directory = '/media/guillaume/LaCie'
-# datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN.list'), delimiter = '\n', dtype = str, comments = '#')
+datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN.list'), delimiter = '\n', dtype = str, comments = '#')
 
-datasets = np.hstack([
-    np.genfromtxt(os.path.join(data_directory,'datasets_LMN.list'), delimiter = '\n', dtype = str, comments = '#'),
-    np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#'),
-    # np.genfromtxt(os.path.join(data_directory,'datasets_LMN_PSB.list'), delimiter = '\n', dtype = str, comments = '#'),
-    ])
+# datasets = np.hstack([
+#     np.genfromtxt(os.path.join(data_directory,'datasets_LMN.list'), delimiter = '\n', dtype = str, comments = '#'),
+#     np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#'),
+#     # np.genfromtxt(os.path.join(data_directory,'datasets_LMN_PSB.list'), delimiter = '\n', dtype = str, comments = '#'),
+#     ])
 
 
 SI_thr = {
@@ -111,23 +111,24 @@ for s in datasets:
             # HMM GLM
             ###############################################################################################
             
-            bin_size = 0.02
-            window_size = bin_size*50.0
+            bin_size = 0.01
+            window_size = bin_size*100.0
             
             glm = ConvolvedGLM(spikes, bin_size, window_size, newwake_ep)            
             glm.fit_scipy()
+            glm.W = np.zeros_like(glm.W)
 
-            spikes2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(sws_ep))
-            # spikes2 = nap.randomize.resample_timestamps(spikes.restrict(sws_ep))
-            spikes2.set_info(maxch = spikes._metadata["maxch"], group = spikes._metadata["group"])
-            glms = ConvolvedGLM(spikes2, bin_size, window_size, sws_ep)
-            glms.fit_scipy()
+            # spikes2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(sws_ep))
+            # # spikes2 = nap.randomize.resample_timestamps(spikes.restrict(sws_ep))
+            # spikes2.set_info(maxch = spikes._metadata["maxch"], group = spikes._metadata["group"])
+            # glms = ConvolvedGLM(spikes2, bin_size, window_size, sws_ep)
+            # glms.fit_scipy()
 
-            glm0 = ConvolvedGLM(spikes, bin_size, 1.0, newwake_ep)
-            glm0.W = np.zeros_like(glm.W)
+            # glm0 = ConvolvedGLM(spikes, bin_size, 1.0, newwake_ep)
+            # glm0.W = np.zeros_like(glm.W)
 
             # hmm = GLM_HMM((glm, glms))
-            hmm = GLM_HMM((glm0, glm0))
+            hmm = GLM_HMM((glm, glm))
 
             # hmm.fit_transition(spikes, sws_ep, bin_size)
 

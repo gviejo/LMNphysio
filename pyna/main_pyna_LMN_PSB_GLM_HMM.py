@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-07-15 16:28:30
+# @Last Modified time: 2023-07-15 16:36:24
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -27,7 +27,7 @@ from sklearn.preprocessing import StandardScaler
 # data_directory = '/mnt/DataRAID2/'
 data_directory = '/mnt/ceph/users/gviejo'
 # data_directory = '/media/guillaume/LaCie'
-datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#')
+datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN_PSB.list'), delimiter = '\n', dtype = str, comments = '#')
 
 
 SI_thr = {
@@ -36,10 +36,10 @@ SI_thr = {
     'psb':1.5
     }
 
-allr = {'adn':[], 'lmn':[]}
-allr_glm = {'adn':[], 'lmn':[]}
+allr = {'psb':[], 'lmn':[]}
+allr_glm = {'psb':[], 'lmn':[]}
 durations = []
-corr = {'adn':[], 'lmn':[]}
+corr = {'psb':[], 'lmn':[]}
 
 for s in datasets:
 # for s in ['LMN-ADN/A5043/A5043-230301A']:
@@ -59,7 +59,7 @@ for s in datasets:
         sws_ep = data.read_neuroscope_intervals('sws')
         rem_ep = data.read_neuroscope_intervals('rem')
         # down_ep = data.read_neuroscope_intervals('down')
-        idx = spikes._metadata[spikes._metadata["location"].str.contains("lmn|adn")].index.values
+        idx = spikes._metadata[spikes._metadata["location"].str.contains("lmn|psb")].index.values
         spikes = spikes[idx]
 
         try:
@@ -82,7 +82,7 @@ for s in datasets:
         spikes.set_info(max_fr = tcurves.max())
 
         groups = {}
-        for k in ['adn', 'lmn']:
+        for k in ['psb', 'lmn']:
             group = spikes.getby_threshold("SI", SI_thr[k])
             group = group.getby_threshold("rate", 1.0)
             group = group.getby_threshold("max_fr", 3.0)            
@@ -95,7 +95,7 @@ for s in datasets:
 
         spikes = groups['lmn']
 
-        if len(groups['lmn']) > 5 and len(groups['adn']) > 3:
+        if len(groups['lmn']) > 5 and len(groups['psb']) > 3:
             
             # figure()
             # for i in range(len(tokeep)):
@@ -161,7 +161,7 @@ for s in datasets:
             durations.append(pd.DataFrame(data=[e.tot_length('s') for e in eps], columns=[data.basename]).T)
             
 
-            for k in ['adn', 'lmn']:
+            for k in ['psb', 'lmn']:
                 spikes = groups[k]
 
                 ############################################################################################### 
@@ -182,7 +182,7 @@ for s in datasets:
 
                 _ = rates.pop("sws")
 
-                # pairs = list(product(groups['adn'].astype(str), groups['lmn'].astype(str)))
+                # pairs = list(product(groups['psb'].astype(str), groups['lmn'].astype(str)))
                 pairs = [data.basename+"_"+i+"-"+j for i,j in list(combinations(np.array(spikes.keys()).astype(str), 2))]
                 r = pd.DataFrame(index = pairs, columns = rates.keys(), dtype = np.float32)
 
@@ -208,7 +208,7 @@ for s in datasets:
     
 durations = pd.concat(durations, 0)
 
-for k in ['adn', 'lmn']:
+for k in ['psb', 'lmn']:
     allr[k] = pd.concat(allr[k], 0)
     # allr_glm = pd.concat(allr_glm, 0)    
     corr[k] = pd.concat(corr[k], 0)

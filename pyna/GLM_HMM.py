@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-07-14 18:59:35
+# @Last Modified time: 2023-07-15 15:25:06
 import numpy as np
 import os, sys
 from scipy.optimize import minimize
@@ -104,7 +104,7 @@ def optimize_observation(args):
     # Computing the observation
     O = compute_observation(W, X, Y, K)
     
-    for i in range(200):
+    for i in range(100):
 
         # Forward/backward
         alpha, scaling = forward(A, T, K, O, init)                
@@ -141,12 +141,16 @@ def optimize_observation(args):
         W = W0
         O = compute_observation(W, X, Y, K)
 
-        print(np.sum(np.log(scaling)))
+        print(i, np.sum(np.log(scaling)))
         score.append(np.sum(np.log(scaling)))
+
+        if i > 2:
+            if np.abs(score[-2]-score[-1]) < 1e-10:
+                break
 
     Z = np.argmax(G, 1)
 
-    return A, Z, score
+    return A, Z, np.array(score)
 
 class GLM_HMM(object):
 
@@ -286,7 +290,7 @@ class GLM_HMM(object):
         As = []
         Zs = []
 
-        args = [(self.K, self.T, self.initial_W, self.X, self.Y) for i in range(20)]
+        args = [(self.K, self.T, self.initial_W, self.X, self.Y) for i in range(10)]
         with Pool(len(args)) as pool:
             for result in pool.map(optimize_observation, args):
                 As.append(result[0])
@@ -301,15 +305,16 @@ class GLM_HMM(object):
         #     Zs.append(Z)
 
 
-        self.scores = np.array(self.scores).T
+        # self.scores = np.array(self.scores).T
+        self.max_L = np.array([score.max() for score in self.scores])
         As = np.array(As)
         # Bs = np.array(Bs)
 
-        self.A = As[np.argmax(self.scores[-1])]
+        self.A = As[np.argmax(self.max_L)]
         # B = Bs[np.argmax(scores[-1])]        
 
         self.Z = nap.Tsd(t = self.time_idx, 
-            d = Zs[np.argmax(self.scores[-1])], 
+            d = Zs[np.argmax(self.max_L)],
             time_support = ep)
 
         eps = []
