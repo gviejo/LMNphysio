@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-07-15 16:15:10
+# @Last Modified by:   gviejo
+# @Last Modified time: 2023-07-17 08:23:34
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -25,8 +25,10 @@ from sklearn.preprocessing import StandardScaler
 # GENERAL infos
 ###############################################################################################
 # data_directory = '/mnt/DataRAID2/'
-data_directory = '/mnt/ceph/users/gviejo'
-# data_directory = '/media/guillaume/LaCie'
+# data_directory = '/mnt/ceph/users/gviejo'
+data_directory = '/media/guillaume/LaCie'
+data_directory = '/media/guillaume/Raid2'
+
 datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN.list'), delimiter = '\n', dtype = str, comments = '#')
 
 # datasets = np.hstack([
@@ -91,12 +93,12 @@ for s in datasets:
             maxch = pd.read_csv(data.nwb_path + "/maxch.csv", index_col=0)['0']
             
         except:
-            meanwf, maxch = data.load_mean_waveforms(spike_count=1000)
+            meanwf, maxch = data.load_mean_waveforms(spike_count=100)
             maxch.to_csv(data.nwb_path + "/maxch.csv")        
 
         spikes.set_info(maxch = maxch[tokeep])
 
-        if len(tokeep) > 6:
+        if len(tokeep) > 5:
             
             # figure()
             # for i in range(len(tokeep)):
@@ -111,12 +113,18 @@ for s in datasets:
             # HMM GLM
             ###############################################################################################
             
-            bin_size = 0.01
-            window_size = bin_size*100.0
-            
-            glm = ConvolvedGLM(spikes, bin_size, window_size, newwake_ep)            
-            glm.fit_scipy()
-            glm.W = np.zeros_like(glm.W)
+            bin_size = 0.02
+            window_size = bin_size*50.0
+
+            glms = []
+
+            for _ in range(2):
+                glm = ConvolvedGLM(spikes, bin_size, window_size, newwake_ep)
+                # glm.fit_scipy()
+                glm.W = np.zeros((glm.X.shape[-1], glm.N))
+
+                glms.append(glm)
+            # glm.W = np.zeros_like(glm.W)
 
             # spikes2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(sws_ep))
             # # spikes2 = nap.randomize.resample_timestamps(spikes.restrict(sws_ep))
@@ -128,7 +136,7 @@ for s in datasets:
             # glm0.W = np.zeros_like(glm.W)
 
             # hmm = GLM_HMM((glm, glms))
-            hmm = GLM_HMM((glm, glm))
+            hmm = GLM_HMM(tuple(glms))
 
             # hmm.fit_transition(spikes, sws_ep, bin_size)
 
@@ -163,7 +171,7 @@ for s in datasets:
             # PEARSON CORRELATION
             ###############################################################################################        
             rates = {}
-            for e, ep, bin_size, std in zip(['wak', 'sws'], [newwake_ep, sws_ep], [0.3, 0.03], [1, 1]):
+            for e, ep, bin_size, std in zip(['wak', 'sws'], [newwake_ep, sws_ep], [0.2, 0.02], [2, 2]):
                 count = spikes.count(bin_size, ep)
                 rate = count/bin_size
                 rate = rate.as_dataframe()
@@ -175,7 +183,7 @@ for s in datasets:
             for i in range(len(eps)):
                 rates['ep'+str(i)] = rates['sws'].restrict(eps[i])
 
-            _ = rates.pop("sws")
+            # _ = rates.pop("sws")
 
             # pairs = list(product(groups['adn'].astype(str), groups['lmn'].astype(str)))
             pairs = [data.basename+"_"+i+"-"+j for i,j in list(combinations(np.array(spikes.keys()).astype(str), 2))]
@@ -202,12 +210,13 @@ for s in datasets:
                 tmp.loc[data.basename,i] = scipy.stats.pearsonr(r['wak'], r['ep'+str(i)])[0]
 
             # flippinge eps
-            if tmp.iloc[0, 1]>tmp.iloc[0,0]:
-                r.columns = pd.Index(['wak', 'ep1', 'ep0'])
-                r = r[['wak', 'ep0', 'ep1']]
-                tmp.columns = pd.Index([1, 0])
-                tmp = tmp[[0, 1]]
-                eps = [eps[1], eps[0]]
+            # if tmp.iloc[0, 1]>tmp.iloc[0,0]:
+            ido = np.argsort(tmp.values[0])
+            r.columns = pd.Index(['wak', 'sws'] + ['ep'+str(i) for i in ido])
+            r = r[['wak', 'sws']+['ep'+str(i) for i in range(len(eps))]]
+            tmp.columns = pd.Index(ido)
+            tmp = tmp[np.arange(len(eps))]
+            eps = [eps[i] for i in ido]
 
             corr.append(tmp)
             
@@ -263,7 +272,7 @@ tmp = durations.values
 tmp = tmp/tmp.sum(1)[:,None]
 plot(tmp.T, 'o', color = 'grey')
 plot(tmp.mean(0), 'o-', markersize=20)
-
+ylim(0, 1)
 title("Durations")
 
 subplot(gs[1,1])
