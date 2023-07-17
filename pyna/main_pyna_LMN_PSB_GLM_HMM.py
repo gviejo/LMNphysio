@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-07-15 16:36:24
+# @Last Modified time: 2023-07-16 16:57:44
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -110,8 +110,8 @@ for s in datasets:
             # HMM GLM
             ###############################################################################################
             
-            bin_size = 0.03
-            window_size = bin_size*100.0
+            bin_size = 0.01
+            window_size = bin_size*50.0
             
             glm = ConvolvedGLM(spikes, bin_size, window_size, newwake_ep)            
             glm.fit_scipy()
@@ -168,7 +168,7 @@ for s in datasets:
                 # PEARSON CORRELATION
                 ###############################################################################################
                 rates = {}
-                for e, ep, bin_size, std in zip(['wak', 'sws'], [newwake_ep, sws_ep], [0.3, 0.03], [1, 1]):
+                for e, ep, bin_size, std in zip(['wak', 'sws'], [newwake_ep, sws_ep], [0.15, 0.015], [1, 1]):
                     count = spikes.count(bin_size, ep)
                     rate = count/bin_size
                     rate = rate.as_dataframe()

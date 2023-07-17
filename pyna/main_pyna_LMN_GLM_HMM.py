@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
-# @Last Modified by:   gviejo
-# @Last Modified time: 2023-07-17 08:23:34
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2023-07-17 19:19:23
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -25,9 +25,9 @@ from sklearn.preprocessing import StandardScaler
 # GENERAL infos
 ###############################################################################################
 # data_directory = '/mnt/DataRAID2/'
-# data_directory = '/mnt/ceph/users/gviejo'
-data_directory = '/media/guillaume/LaCie'
-data_directory = '/media/guillaume/Raid2'
+data_directory = '/mnt/ceph/users/gviejo'
+# data_directory = '/media/guillaume/LaCie'
+# data_directory = '/media/guillaume/Raid2'
 
 datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN.list'), delimiter = '\n', dtype = str, comments = '#')
 
@@ -49,8 +49,9 @@ allr_glm = []
 durations = []
 corr = []
 
-for s in datasets:
+# for s in datasets:
 #for s in ['LMN-ADN/A5002/A5002-200304A']:
+for s in ['LMN-PSB/A3010/A3010-210324A']:
     print(s)
     ############################################################################################### 
     # LOADING DATA
@@ -113,45 +114,48 @@ for s in datasets:
             # HMM GLM
             ###############################################################################################
             
-            bin_size = 0.02
+            bin_size = 0.03
             window_size = bin_size*50.0
 
             glms = []
-
-            for _ in range(2):
+            for _ in range(3):
                 glm = ConvolvedGLM(spikes, bin_size, window_size, newwake_ep)
                 # glm.fit_scipy()
                 glm.W = np.zeros((glm.X.shape[-1], glm.N))
-
                 glms.append(glm)
-            # glm.W = np.zeros_like(glm.W)
+            hmm = GLM_HMM(tuple(glms))
+
+
+            # glm = ConvolvedGLM(spikes, bin_size, window_size, newwake_ep)
+            # glm.fit_scipy()
 
             # spikes2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(sws_ep))
-            # # spikes2 = nap.randomize.resample_timestamps(spikes.restrict(sws_ep))
+            # # # spikes2 = nap.randomize.resample_timestamps(spikes.restrict(sws_ep))
             # spikes2.set_info(maxch = spikes._metadata["maxch"], group = spikes._metadata["group"])
-            # glms = ConvolvedGLM(spikes2, bin_size, window_size, sws_ep)
-            # glms.fit_scipy()
+            # rglm = ConvolvedGLM(spikes2, bin_size, window_size, sws_ep)
+            # rglm.fit_scipy()
 
-            # glm0 = ConvolvedGLM(spikes, bin_size, 1.0, newwake_ep)
+            # glm0 = ConvolvedGLM(spikes, bin_size, window_size, newwake_ep)            
             # glm0.W = np.zeros_like(glm.W)
 
             # hmm = GLM_HMM((glm, glms))
-            hmm = GLM_HMM(tuple(glms))
+            
 
             # hmm.fit_transition(spikes, sws_ep, bin_size)
 
             hmm.fit_observation(spikes, sws_ep, bin_size)
 
+
+            figure()
+            ax = subplot(311)        
+            plot(hmm.Z)            
+            subplot(312, sharex=ax)
+            plot(spikes.restrict(sws_ep).to_tsd("order"), '|', markersize=20)
+            subplot(313, sharex=ax)
+            plot(hmm.time_idx, hmm.O)
+            show()
             
-            # figure()
-            # ax = subplot(311)        
-            # plot(hmm.Z)            
-            # subplot(312, sharex=ax)
-            # plot(spikes.restrict(sws_ep).to_tsd("order"), '|', markersize=20)
-            # subplot(313, sharex=ax)
-            # plot(hmm.time_idx, hmm.O)
-            # show()
-            
+            sys.exit()
             ############################################################################################### 
             # GLM CORRELATION
             ############################################################################################### 

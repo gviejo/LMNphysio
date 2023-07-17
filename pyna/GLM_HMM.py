@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
-# @Last Modified by:   gviejo
-# @Last Modified time: 2023-07-16 19:32:25
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2023-07-17 19:14:15
 import numpy as np
 import os, sys
 from scipy.optimize import minimize
@@ -125,7 +125,7 @@ def optimize_observation(args):
         # if i %20 == 0:
         z = np.argmax(G, 1)
         W0 = np.zeros_like(W)
-        for j in range(K):
+        for j in range(1, K): # NOt learning the glm 0
             if np.sum(z == j) > 100:
                 solver = minimize(
                     loss_all, 
@@ -291,20 +291,21 @@ class GLM_HMM(object):
         Zs = []
         Ws = []
 
-        # args = [(self.K, self.T, self.initial_W, self.X, self.Y) for i in range(10)]
-        # with Pool(len(args)) as pool:
-        #     for result in pool.map(optimize_observation, args):
-        #         As.append(result[0])
-        #         Zs.append(result[1])
-        #         self.scores.append(result[2])
+        args = [(self.K, self.T, self.initial_W, self.X, self.Y) for i in range(5)]
+        with Pool(len(args)) as pool:
+            for result in pool.map(optimize_observation, args):
+                As.append(result[0])
+                Zs.append(result[1])
+                Ws.append(result[2])
+                self.scores.append(result[3])
 
-        for _ in range(2):
-            args = (self.K, self.T, self.initial_W, self.X, self.Y)
-            A, Z, W, score = optimize_observation(args)
-            self.scores.append(score)
-            As.append(A)
-            Zs.append(Z)
-            Ws.append(W)
+        # for _ in range(5):
+        #     args = (self.K, self.T, self.initial_W, self.X, self.Y)
+        #     A, Z, W, score = optimize_observation(args)
+        #     self.scores.append(score)
+        #     As.append(A)
+        #     Zs.append(Z)
+        #     Ws.append(W)
 
 
         # self.scores = np.array(self.scores).T
@@ -329,3 +330,5 @@ class GLM_HMM(object):
             eps.append(ep)
 
         self.eps = eps
+        self.W = np.array([self.glms[i].W for i in range(self.K)])
+        self.O = compute_observation(self.W, self.X, self.Y, self.K)
