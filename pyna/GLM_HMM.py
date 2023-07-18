@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
-# @Last Modified by:   gviejo
-# @Last Modified time: 2023-07-17 22:47:19
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2023-07-18 16:11:57
 import numpy as np
 import os, sys
 from scipy.optimize import minimize
@@ -69,9 +69,9 @@ def optimize_transition(args):
     score = []
     init = np.random.rand(K)
     init = init/init.sum()
-    A = np.eye(K) + np.random.rand(K, K)*0.1
+    A = np.eye(K) + np.random.rand(K, K)
     A = A/A.sum(1)[:,None]
-    for i in range(60):
+    for i in range(100):
         alpha, scaling = forward(A, T, K, O, init)                
         beta = backward(A, T, K, O, scaling)
         # Expectation
@@ -88,7 +88,7 @@ def optimize_transition(args):
 
         # for j, o in enumerate(np.unique(Y)):
         #     B[:,j] = G[Y == o].sum(0)/G.sum(0)
-        # print(np.sum(np.log(scaling)))
+        print(np.sum(np.log(scaling)))
         score.append(np.sum(np.log(scaling)))
 
     Z = np.argmax(G, 1)
@@ -217,7 +217,7 @@ class GLM_HMM(object):
         As = []
         Zs = []
 
-        args = [(self.K, self.T, self.O) for i in range(3)]
+        args = [(self.K, self.T, self.O) for i in range(10)]
         with Pool(len(args)) as pool:
             for result in pool.map(optimize_transition, args):
                 As.append(result[0])
@@ -244,12 +244,18 @@ class GLM_HMM(object):
             d = Zs[np.argmax(self.scores[-1])], 
             time_support = ep)
 
+        # for i in range(self.K):
+        #     self.glms[i].W = Ws[np.argmax(self.max_L)][i]        
+
         eps = []
         for i in range(self.K):
             ep = self.Z.threshold(i-0.5).threshold(i+0.5, "below").time_support
             eps.append(ep)
 
         self.eps = eps
+
+        self.W = np.array([self.glms[i].W for i in range(self.K)])        
+
 
     def fit_observation(self, spikes, ep, bin_size):        
         self.spikes = spikes
@@ -297,21 +303,21 @@ class GLM_HMM(object):
         Zs = []
         Ws = []
 
-        # args = [(self.K, self.T, self.initial_W, self.X, self.Y) for i in range(5)]
-        # with Pool(len(args)) as pool:
-        #     for result in pool.map(optimize_observation, args):
-        #         As.append(result[0])
-        #         Zs.append(result[1])
-        #         Ws.append(result[2])
-        #         self.scores.append(result[3])
+        args = [(self.K, self.T, self.initial_W, self.X, self.Y) for i in range(5)]
+        with Pool(len(args)) as pool:
+            for result in pool.map(optimize_observation, args):
+                As.append(result[0])
+                Zs.append(result[1])
+                Ws.append(result[2])
+                self.scores.append(result[3])
 
-        for _ in range(1):
-            args = (self.K, self.T, self.initial_W, self.X, self.Y)
-            A, Z, W, score = optimize_observation(args)
-            self.scores.append(score)
-            As.append(A)
-            Zs.append(Z)
-            Ws.append(W)
+        # for _ in range(1):
+        #     args = (self.K, self.T, self.initial_W, self.X, self.Y)
+        #     A, Z, W, score = optimize_observation(args)
+        #     self.scores.append(score)
+        #     As.append(A)
+        #     Zs.append(Z)
+        #     Ws.append(W)
 
 
         # self.scores = np.array(self.scores).T
@@ -332,7 +338,7 @@ class GLM_HMM(object):
         eps = []
         for i in range(self.K):
             ep = self.Z.threshold(i-0.5).threshold(i+0.5, "below").time_support
-            ep = ep.drop_short_intervals(0.1)
+            ep = ep.drop_short_intervals(0.05)
             eps.append(ep)
 
         self.eps = eps
