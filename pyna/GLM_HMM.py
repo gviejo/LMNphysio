@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-07-17 19:14:15
+# @Last Modified by:   gviejo
+# @Last Modified time: 2023-07-17 22:47:19
 import numpy as np
 import os, sys
 from scipy.optimize import minimize
@@ -47,6 +47,8 @@ def compute_observation(W, X, Y, K):
     O = []
     for k in range(K):
         mu = np.exp(np.einsum('tnk,kn->tn', X, W[k]))
+        if k == 0:
+            mu*=0.0
         p = poisson.pmf(k=Y, mu=mu)
         p = np.clip(p, 1e-15, 1.0)
         O.append(p.prod(1))
@@ -202,8 +204,10 @@ class GLM_HMM(object):
         O = []
         for k in range(self.K):
             mu = self.glms[k].predict(self.X)
+            if k == 0:
+                mu*=0.0            
             p = poisson.pmf(k=self.Y, mu=mu)
-            p = np.clip(p, 1e-15, 1.0)
+            p = np.clip(p, 1e-10, 1.0)
             O.append(p.prod(1))
         self.O = np.array(O).T
 
@@ -282,6 +286,8 @@ class GLM_HMM(object):
 
         self.initial_W = np.array([self.glms[i].W for i in range(self.K)])
 
+
+
         ############################################
         # FITTING THE HMM
         ############################################
@@ -291,21 +297,21 @@ class GLM_HMM(object):
         Zs = []
         Ws = []
 
-        args = [(self.K, self.T, self.initial_W, self.X, self.Y) for i in range(5)]
-        with Pool(len(args)) as pool:
-            for result in pool.map(optimize_observation, args):
-                As.append(result[0])
-                Zs.append(result[1])
-                Ws.append(result[2])
-                self.scores.append(result[3])
+        # args = [(self.K, self.T, self.initial_W, self.X, self.Y) for i in range(5)]
+        # with Pool(len(args)) as pool:
+        #     for result in pool.map(optimize_observation, args):
+        #         As.append(result[0])
+        #         Zs.append(result[1])
+        #         Ws.append(result[2])
+        #         self.scores.append(result[3])
 
-        # for _ in range(5):
-        #     args = (self.K, self.T, self.initial_W, self.X, self.Y)
-        #     A, Z, W, score = optimize_observation(args)
-        #     self.scores.append(score)
-        #     As.append(A)
-        #     Zs.append(Z)
-        #     Ws.append(W)
+        for _ in range(1):
+            args = (self.K, self.T, self.initial_W, self.X, self.Y)
+            A, Z, W, score = optimize_observation(args)
+            self.scores.append(score)
+            As.append(A)
+            Zs.append(Z)
+            Ws.append(W)
 
 
         # self.scores = np.array(self.scores).T

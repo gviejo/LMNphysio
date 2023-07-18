@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-07-17 19:19:23
+# @Last Modified by:   gviejo
+# @Last Modified time: 2023-07-18 08:19:04
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -25,17 +25,17 @@ from sklearn.preprocessing import StandardScaler
 # GENERAL infos
 ###############################################################################################
 # data_directory = '/mnt/DataRAID2/'
-data_directory = '/mnt/ceph/users/gviejo'
+# data_directory = '/mnt/ceph/users/gviejo'
 # data_directory = '/media/guillaume/LaCie'
-# data_directory = '/media/guillaume/Raid2'
+data_directory = '/media/guillaume/Raid2'
 
-datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN.list'), delimiter = '\n', dtype = str, comments = '#')
+# datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN.list'), delimiter = '\n', dtype = str, comments = '#')
 
-# datasets = np.hstack([
-#     np.genfromtxt(os.path.join(data_directory,'datasets_LMN.list'), delimiter = '\n', dtype = str, comments = '#'),
-#     np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#'),
-#     # np.genfromtxt(os.path.join(data_directory,'datasets_LMN_PSB.list'), delimiter = '\n', dtype = str, comments = '#'),
-#     ])
+datasets = np.hstack([
+    np.genfromtxt(os.path.join(data_directory,'datasets_LMN.list'), delimiter = '\n', dtype = str, comments = '#'),
+    np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#'),
+    # np.genfromtxt(os.path.join(data_directory,'datasets_LMN_PSB.list'), delimiter = '\n', dtype = str, comments = '#'),
+    ])
 
 
 SI_thr = {
@@ -49,9 +49,9 @@ allr_glm = []
 durations = []
 corr = []
 
-# for s in datasets:
-#for s in ['LMN-ADN/A5002/A5002-200304A']:
-for s in ['LMN-PSB/A3010/A3010-210324A']:
+for s in datasets:
+# for s in ['LMN-ADN/A5002/A5002-200304A']:
+# for s in ['LMN-PSB/A3010/A3010-210324A']:
     print(s)
     ############################################################################################### 
     # LOADING DATA
@@ -99,7 +99,7 @@ for s in ['LMN-PSB/A3010/A3010-210324A']:
 
         spikes.set_info(maxch = maxch[tokeep])
 
-        if len(tokeep) > 5:
+        if len(tokeep) > 7:
             
             # figure()
             # for i in range(len(tokeep)):
@@ -146,16 +146,16 @@ for s in ['LMN-PSB/A3010/A3010-210324A']:
             hmm.fit_observation(spikes, sws_ep, bin_size)
 
 
-            figure()
-            ax = subplot(311)        
-            plot(hmm.Z)            
-            subplot(312, sharex=ax)
-            plot(spikes.restrict(sws_ep).to_tsd("order"), '|', markersize=20)
-            subplot(313, sharex=ax)
-            plot(hmm.time_idx, hmm.O)
-            show()
+            # figure()
+            # ax = subplot(311)        
+            # plot(hmm.Z)            
+            # subplot(312, sharex=ax)
+            # plot(spikes.restrict(sws_ep).to_tsd("order"), '|', markersize=20)
+            # subplot(313, sharex=ax)
+            # plot(hmm.time_idx, hmm.O)
+            # show()
             
-            sys.exit()
+            # sys.exit()
             ############################################################################################### 
             # GLM CORRELATION
             ############################################################################################### 
@@ -175,7 +175,7 @@ for s in ['LMN-PSB/A3010/A3010-210324A']:
             # PEARSON CORRELATION
             ###############################################################################################        
             rates = {}
-            for e, ep, bin_size, std in zip(['wak', 'sws'], [newwake_ep, sws_ep], [0.2, 0.02], [2, 2]):
+            for e, ep, bin_size, std in zip(['wak', 'sws'], [newwake_ep, sws_ep], [0.3, 0.03], [2, 2]):
                 count = spikes.count(bin_size, ep)
                 rate = count/bin_size
                 rate = rate.as_dataframe()
@@ -215,15 +215,16 @@ for s in ['LMN-PSB/A3010/A3010-210324A']:
 
             # flippinge eps
             # if tmp.iloc[0, 1]>tmp.iloc[0,0]:
-            ido = np.argsort(tmp.values[0])
-            r.columns = pd.Index(['wak', 'sws'] + ['ep'+str(i) for i in ido])
-            r = r[['wak', 'sws']+['ep'+str(i) for i in range(len(eps))]]
-            tmp.columns = pd.Index(ido)
-            tmp = tmp[np.arange(len(eps))]
-            eps = [eps[i] for i in ido]
+            ido = np.hstack(([0], np.argsort(tmp.values[0][1:])+1))
+            if np.any(ido != np.arange(len(eps))):
+                r.columns = pd.Index(['wak', 'sws'] + ['ep'+str(i) for i in ido])
+                r = r[['wak', 'sws']+['ep'+str(i) for i in range(len(eps))]]
+                tmp.columns = pd.Index(ido)
+                tmp = tmp[np.arange(len(eps))]
+                eps = [eps[i] for i in ido]
 
             corr.append(tmp)
-            
+                        
             #######################
             # SAVING
             #######################
