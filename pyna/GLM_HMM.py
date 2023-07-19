@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-07-18 16:11:57
+# @Last Modified by:   gviejo
+# @Last Modified time: 2023-07-18 22:44:01
 import numpy as np
 import os, sys
 from scipy.optimize import minimize
@@ -91,9 +91,13 @@ def optimize_transition(args):
         print(np.sum(np.log(scaling)))
         score.append(np.sum(np.log(scaling)))
 
+        if i > 2:
+            if np.abs(score[-2]-score[-1]) < 1e-10:
+                break        
+
     Z = np.argmax(G, 1)
 
-    return A, Z, score
+    return A, Z, np.array(score)
 
 def optimize_observation(args):
     K, T, W, X, Y = args
@@ -217,44 +221,42 @@ class GLM_HMM(object):
         As = []
         Zs = []
 
-        args = [(self.K, self.T, self.O) for i in range(10)]
-        with Pool(len(args)) as pool:
-            for result in pool.map(optimize_transition, args):
-                As.append(result[0])
-                Zs.append(result[1])
-                self.scores.append(result[2])
+        # args = [(self.K, self.T, self.O) for i in range(10)]
+        # with Pool(len(args)) as pool:
+        #     for result in pool.map(optimize_transition, args):
+        #         As.append(result[0])
+        #         Zs.append(result[1])
+        #         self.scores.append(result[2])
 
 
-        # for _ in range(3):
-        #     A, Z, score = optimize_transition((self.K, self.T, self.O))
+        for _ in range(1):
+            A, Z, score = optimize_transition((self.K, self.T, self.O))
 
-        #     self.scores.append(score)
-        #     As.append(A)
-        #     Zs.append(Z)
+            self.scores.append(score)
+            As.append(A)
+            Zs.append(Z)
 
 
-        self.scores = np.array(self.scores).T
+        # self.scores = np.array(self.scores).T
+        self.max_L = np.array([score.max() for score in self.scores])
         As = np.array(As)
         # Bs = np.array(Bs)
 
-        self.A = As[np.argmax(self.scores[-1])]
+        self.A = As[np.argmax(self.max_L)]
         # B = Bs[np.argmax(scores[-1])]        
 
         self.Z = nap.Tsd(t = self.time_idx, 
-            d = Zs[np.argmax(self.scores[-1])], 
+            d = Zs[np.argmax(self.max_L)],
             time_support = ep)
-
-        # for i in range(self.K):
-        #     self.glms[i].W = Ws[np.argmax(self.max_L)][i]        
 
         eps = []
         for i in range(self.K):
             ep = self.Z.threshold(i-0.5).threshold(i+0.5, "below").time_support
+            ep = ep.drop_short_intervals(0.05)
             eps.append(ep)
 
         self.eps = eps
-
-        self.W = np.array([self.glms[i].W for i in range(self.K)])        
+        self.W = np.array([self.glms[i].W for i in range(self.K)])
 
 
     def fit_observation(self, spikes, ep, bin_size):        
@@ -303,21 +305,21 @@ class GLM_HMM(object):
         Zs = []
         Ws = []
 
-        args = [(self.K, self.T, self.initial_W, self.X, self.Y) for i in range(5)]
-        with Pool(len(args)) as pool:
-            for result in pool.map(optimize_observation, args):
-                As.append(result[0])
-                Zs.append(result[1])
-                Ws.append(result[2])
-                self.scores.append(result[3])
+        # args = [(self.K, self.T, self.initial_W, self.X, self.Y) for i in range(1)]
+        # with Pool(len(args)) as pool:
+        #     for result in pool.map(optimize_observation, args):
+        #         As.append(result[0])
+        #         Zs.append(result[1])
+        #         Ws.append(result[2])
+        #         self.scores.append(result[3])
 
-        # for _ in range(1):
-        #     args = (self.K, self.T, self.initial_W, self.X, self.Y)
-        #     A, Z, W, score = optimize_observation(args)
-        #     self.scores.append(score)
-        #     As.append(A)
-        #     Zs.append(Z)
-        #     Ws.append(W)
+        for _ in range(1):
+            args = (self.K, self.T, self.initial_W, self.X, self.Y)
+            A, Z, W, score = optimize_observation(args)
+            self.scores.append(score)
+            As.append(A)
+            Zs.append(Z)
+            Ws.append(W)
 
 
         # self.scores = np.array(self.scores).T
