@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
-# @Last Modified by:   gviejo
-# @Last Modified time: 2023-07-19 21:36:19
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2023-07-20 18:04:51
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -118,8 +118,8 @@ for s in datasets:
             # HMM GLM
             ###############################################################################################
             
-            bin_size = 0.01
-            window_size = bin_size*30.0
+            bin_size = 0.05
+            window_size = bin_size*100.0
 
             ############################################
             # glms = []
@@ -136,12 +136,11 @@ for s in datasets:
             ############################################
             glm = ConvolvedGLM(spikes, bin_size, window_size, newwake_ep)
             glm.fit_scipy()
-
-            # sys.exit()
-            # spikes2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(newwake_ep))            
-            spikes2 = nap.randomize.resample_timestamps(spikes.restrict(sws_ep))
+            
+            spikes2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(newwake_ep))
+            # spikes2 = nap.randomize.resample_timestamps(spikes.restrict(sws_ep))
             spikes2.set_info(maxch = spikes._metadata["maxch"], group = spikes._metadata["group"])
-            rglm = ConvolvedGLM(spikes2, bin_size, window_size, sws_ep)
+            rglm = ConvolvedGLM(spikes2, bin_size, window_size, newwake_ep)
             rglm.fit_scipy()
 
             glm0 = ConvolvedGLM(spikes, bin_size, window_size, newwake_ep)
@@ -155,10 +154,21 @@ for s in datasets:
             # ax = subplot(311)
             # plot(hmm.Z)            
             # subplot(312, sharex=ax)
-            # plot(spikes.restrict(sws_ep).to_tsd("order"), '|', markersize=20)
+            # plot(spikes.restrict(sws_ep).to_tsd("peaks"), '|', markersize=20)
             # subplot(313, sharex=ax)
             # plot(hmm.time_idx, hmm.O[:,1:])
             # show()
+
+            # figure()
+            # for i in range(len(spikes)):
+            #     w = glm.W[:,i]
+            #     a = peaks.values[list(set(np.arange(len(spikes))) - set([i]))]
+            #     tmp = pd.DataFrame(index=a, data=w.reshape(int(w.shape[0]/glm.B.shape[1]), glm.B.shape[1]))
+            #     tmp = tmp.sort_index()
+            #     subplot(3, 4, i+1)
+            #     plot(tmp, 'o-')
+            #     plot([peaks.values[i], peaks.values[i]], [0, w.max()])
+            # show()            
             
             # sys.exit()
             ############################################################################################### 
@@ -181,7 +191,7 @@ for s in datasets:
             ###############################################################################################        
             rates = {}            
 
-            for e, ep, bin_size, std in zip(['wak', 'sws'], [newwake_ep, sws_ep], [0.3, 0.01], [1, 1]):
+            for e, ep, bin_size, std in zip(['wak', 'sws'], [newwake_ep, sws_ep], [0.3, 0.03], [1, 1]):
                 count = spikes.count(bin_size, ep)
                 rate = count/bin_size
                 rate = rate.as_dataframe()
@@ -204,13 +214,13 @@ for s in datasets:
                 if len(tmp):
                     r[ep] = tmp[np.triu_indices(tmp.shape[0], 1)]
 
-            # to_keep = []
-            # for p in r.index:
-            #     tmp = spikes._metadata.loc[np.array(p.split("_")[1].split("-"), dtype=np.int32), ['group', 'maxch']]
-            #     if tmp['group'].iloc[0] == tmp['group'].iloc[1]:
-            #         if tmp['maxch'].iloc[0] != tmp['maxch'].iloc[1]:
-            #             to_keep.append(p)
-            # r = r.loc[to_keep]
+            to_keep = []
+            for p in r.index:
+                tmp = spikes._metadata.loc[np.array(p.split("_")[1].split("-"), dtype=np.int32), ['group', 'maxch']]
+                if tmp['group'].iloc[0] == tmp['group'].iloc[1]:
+                    if tmp['maxch'].iloc[0] != tmp['maxch'].iloc[1]:
+                        to_keep.append(p)
+            r = r.loc[to_keep]
             
             #######################
             # Session correlation

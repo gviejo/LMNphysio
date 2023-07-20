@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
-# @Last Modified by:   gviejo
-# @Last Modified time: 2023-07-19 21:36:01
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2023-07-20 10:24:18
 import numpy as np
 import pynapple as nap
 import os, sys
@@ -131,21 +131,21 @@ class ConvolvedGLM(object):
         nt = int(windowsize/binsize)
         if nt%2==0: nt += 1
 
-        n_basis_funcs = 2
+        n_basis_funcs = 3
         # V1
-        # x = np.logspace(np.log10(np.pi * (n_basis_funcs - 1)), -1, nt) - .1
-        # shifted_x = x[None, :] - (np.pi * np.arange(n_basis_funcs))[:, None]
-        # B = .5 * (np.cos(np.clip(shifted_x, -np.pi, np.pi)) + 1)        
-        # B = B.T[::-1]
-        # self.B = np.vstack((B[::-1], np.zeros((B.shape[0]-1, B.shape[1]))))
+        x = np.logspace(np.log10(np.pi * (n_basis_funcs - 1)), -1, nt) - .1
+        shifted_x = x[None, :] - (np.pi * np.arange(n_basis_funcs))[:, None]
+        B = .5 * (np.cos(np.clip(shifted_x, -np.pi, np.pi)) + 1)        
+        B = B.T#[::-1]
+        self.B = np.vstack((np.zeros((B.shape[0]-1, B.shape[1])),B))
         # V2
-        x = np.arange(0, nt, 1)
-        B = []
-        for i in range(2, n_basis_funcs+2):
-            B.append(gamma.pdf(x, a=i, scale=2))
-        B = np.array(B).T
-        B = B/B.sum(0)
-        self.B = np.vstack((B[::-1], np.zeros((B.shape[0]-1, B.shape[1]))))
+        # x = np.arange(0, nt, 1)
+        # B = []
+        # for i in range(2, n_basis_funcs+2):
+        #     B.append(gamma.pdf(x, a=i, scale=2))
+        # B = np.array(B).T
+        # B = B/B.sum(0)
+        # self.B = np.vstack((B[::-1], np.zeros((B.shape[0]-1, B.shape[1]))))
         # V3
         # x = np.arange(-nt//2+1, nt//2+1, 1)
         # B = []

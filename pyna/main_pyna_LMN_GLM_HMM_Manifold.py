@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-07-19 17:03:08
+# @Last Modified time: 2023-07-20 18:04:17
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -151,26 +151,26 @@ for s in ['LMN-ADN/A5043/A5043-230301A']:
             hmm = GLM_HMM((glm0, glm, rglm))
             hmm.fit_transition(spikes, sws_ep, bin_size)
 
-            # sys.exit()
-            figure()
-            for i in range(len(spikes)):
-                w = glm.W[:,i]
-                a = peaks.values[list(set(np.arange(len(spikes))) - set([i]))]
-                tmp = pd.Series(index=a, data=w)
-                tmp = tmp.sort_index()
-                subplot(3, 4, i+1)
-                plot(tmp, 'o-')
-                plot([peaks.values[i], peaks.values[i]], [0, w.max()])
-            show()
+            # # sys.exit()
+            # figure()
+            # for i in range(len(spikes)):
+            #     w = glm.W[:,i]
+            #     a = peaks.values[list(set(np.arange(len(spikes))) - set([i]))]
+            #     tmp = pd.Series(index=a, data=w)
+            #     tmp = tmp.sort_index()
+            #     subplot(3, 4, i+1)
+            #     plot(tmp, 'o-')
+            #     plot([peaks.values[i], peaks.values[i]], [0, w.max()])
+            # show()
 
-            figure()
-            ax = subplot(311)
-            plot(hmm.Z)            
-            subplot(312, sharex=ax)
-            plot(spikes.restrict(sws_ep).to_tsd("order"), '|', markersize=20)
-            subplot(313, sharex=ax)
-            plot(hmm.time_idx, hmm.O[:,1:])
-            show()
+            # figure()
+            # ax = subplot(311)
+            # plot(hmm.Z)            
+            # subplot(312, sharex=ax)
+            # plot(spikes.restrict(sws_ep).to_tsd("order"), '|', markersize=20)
+            # subplot(313, sharex=ax)
+            # plot(hmm.time_idx, hmm.O[:,1:])
+            # show()
             
             ##########################################################################################
             # Manifold

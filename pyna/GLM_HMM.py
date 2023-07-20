@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
-# @Last Modified by:   gviejo
-# @Last Modified time: 2023-07-19 21:53:18
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2023-07-20 18:03:16
 import numpy as np
 import os, sys
 from scipy.optimize import minimize
@@ -53,6 +53,7 @@ def compute_observation(W, X, Y, K):
         p = np.clip(p, 1e-15, 1.0)
         O.append(p.prod(1))
     O = np.array(O).T
+
     return O
 
 def loss_all(W, X, Y):
@@ -146,6 +147,8 @@ def optimize_observation(args):
 
         W = W0
         O = compute_observation(W, X, Y, K)
+
+        O = gaussian_filter1d(O, 2, axis=0)
 
         print(i, np.sum(np.log(scaling)))
         score.append(np.sum(np.log(scaling)))
