@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
 # @Last Modified by:   gviejo
-# @Last Modified time: 2023-07-18 21:12:14
+# @Last Modified time: 2023-07-19 21:36:01
 import numpy as np
 import pynapple as nap
 import os, sys
@@ -131,7 +131,7 @@ class ConvolvedGLM(object):
         nt = int(windowsize/binsize)
         if nt%2==0: nt += 1
 
-        n_basis_funcs = 3
+        n_basis_funcs = 2
         # V1
         # x = np.logspace(np.log10(np.pi * (n_basis_funcs - 1)), -1, nt) - .1
         # shifted_x = x[None, :] - (np.pi * np.arange(n_basis_funcs))[:, None]
@@ -164,7 +164,7 @@ class ConvolvedGLM(object):
         for i in range(self.N):
             tmp = self.C[:,list(set(list(np.arange(self.N))) - set([i])),:]
             # apply mask
-            tmp[:,self.mask[i]==0,:] = 0
+            # tmp[:,self.mask[i]==0,:] = 0
             tmp = tmp.reshape(tmp.shape[0], tmp.shape[1]*tmp.shape[2])
             tmp = StandardScaler().fit_transform(tmp)
             self.X.append(tmp)

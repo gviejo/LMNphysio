@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
 # @Last Modified by:   gviejo
-# @Last Modified time: 2023-07-18 22:44:01
+# @Last Modified time: 2023-07-19 21:53:18
 import numpy as np
 import os, sys
 from scipy.optimize import minimize
@@ -46,7 +46,7 @@ def backward(A, T, K, O, scaling):
 def compute_observation(W, X, Y, K):
     O = []
     for k in range(K):
-        mu = np.exp(np.einsum('tnk,kn->tn', X, W[k]))
+        mu = np.exp(np.einsum('tnk,kn->tn', X, W[k]))        
         if k == 0:
             mu*=0.0
         p = poisson.pmf(k=Y, mu=mu)
@@ -151,7 +151,7 @@ def optimize_observation(args):
         score.append(np.sum(np.log(scaling)))
 
         if i > 2:
-            if np.abs(score[-2]-score[-1]) < 1e-10:
+            if np.abs(score[-2]-score[-1]) < 1e-15:
                 break
 
     Z = np.argmax(G, 1)
@@ -192,7 +192,7 @@ class GLM_HMM(object):
         for i in range(self.N):
             tmp = self.C[:,list(set(list(np.arange(self.N))) - set([i])),:]
             # apply mask
-            tmp[:,self.mask[i]==0,:] = 0            
+            # tmp[:,self.mask[i]==0,:] = 0            
             tmp = tmp.reshape(tmp.shape[0], tmp.shape[1]*tmp.shape[2])
             tmp = StandardScaler().fit_transform(tmp)
             self.X.append(tmp)
@@ -229,7 +229,7 @@ class GLM_HMM(object):
         #         self.scores.append(result[2])
 
 
-        for _ in range(1):
+        for _ in range(3):
             A, Z, score = optimize_transition((self.K, self.T, self.O))
 
             self.scores.append(score)
@@ -284,7 +284,7 @@ class GLM_HMM(object):
         for i in range(self.N):
             tmp = self.C[:,list(set(list(np.arange(self.N))) - set([i])),:]
             # apply mask
-            tmp[:,self.mask[i]==0,:] = 0            
+            # tmp[:,self.mask[i]==0,:] = 0            
             tmp = tmp.reshape(tmp.shape[0], tmp.shape[1]*tmp.shape[2])
             tmp = StandardScaler().fit_transform(tmp)
             self.X.append(tmp)

@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
 # @Last Modified by:   gviejo
-# @Last Modified time: 2023-07-19 08:25:02
+# @Last Modified time: 2023-07-19 21:36:19
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -118,38 +118,38 @@ for s in datasets:
             # HMM GLM
             ###############################################################################################
             
-            bin_size = 0.04
-            window_size = bin_size*50.0
+            bin_size = 0.01
+            window_size = bin_size*30.0
 
             ############################################
-            glms = []
-            for _ in range(3):
-                glm = ConvolvedGLM(spikes, bin_size, window_size, newwake_ep)
-                # glm.fit_scipy()
-                glm.W = np.zeros((glm.X.shape[-1], glm.N))
-                glms.append(glm)
-            hmm = GLM_HMM(tuple(glms))
-            hmm.fit_observation(spikes, sws_ep, bin_size)
+            # glms = []
+            # for _ in range(3):
+            #     glm = ConvolvedGLM(spikes, bin_size, window_size, newwake_ep)
+            #     # glm.fit_scipy()
+            #     glm.W = np.zeros((glm.X.shape[-1], glm.N))
+            #     glms.append(glm)
+            # hmm = GLM_HMM(tuple(glms))
+            # hmm.fit_observation(spikes, sws_ep, bin_size)
 
 
 
             ############################################
-            # glm = ConvolvedGLM(spikes, bin_size, window_size, newwake_ep)
-            # glm.fit_scipy()
+            glm = ConvolvedGLM(spikes, bin_size, window_size, newwake_ep)
+            glm.fit_scipy()
 
-            # # sys.exit()
-            # spikes2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(sws_ep))
-            # # spikes2 = nap.randomize.resample_timestamps(spikes.restrict(sws_ep))
-            # spikes2.set_info(maxch = spikes._metadata["maxch"], group = spikes._metadata["group"])
-            # rglm = ConvolvedGLM(spikes2, bin_size, window_size, sws_ep)
-            # rglm.fit_scipy()
+            # sys.exit()
+            # spikes2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(newwake_ep))            
+            spikes2 = nap.randomize.resample_timestamps(spikes.restrict(sws_ep))
+            spikes2.set_info(maxch = spikes._metadata["maxch"], group = spikes._metadata["group"])
+            rglm = ConvolvedGLM(spikes2, bin_size, window_size, sws_ep)
+            rglm.fit_scipy()
 
-            # glm0 = ConvolvedGLM(spikes, bin_size, window_size, newwake_ep)
-            # glm0.W = np.zeros_like(glm.W)
+            glm0 = ConvolvedGLM(spikes, bin_size, window_size, newwake_ep)
+            glm0.W = np.zeros_like(glm.W)
 
-            # hmm = GLM_HMM((glm0, glm, rglm))
+            hmm = GLM_HMM((glm0, glm, rglm))
             
-            # hmm.fit_transition(spikes, sws_ep, bin_size)
+            hmm.fit_transition(spikes, sws_ep, bin_size)
             
             # figure()
             # ax = subplot(311)
@@ -181,7 +181,7 @@ for s in datasets:
             ###############################################################################################        
             rates = {}            
 
-            for e, ep, bin_size, std in zip(['wak', 'sws'], [newwake_ep, sws_ep], [0.3, 0.03], [1, 1]):
+            for e, ep, bin_size, std in zip(['wak', 'sws'], [newwake_ep, sws_ep], [0.3, 0.01], [1, 1]):
                 count = spikes.count(bin_size, ep)
                 rate = count/bin_size
                 rate = rate.as_dataframe()
@@ -204,13 +204,13 @@ for s in datasets:
                 if len(tmp):
                     r[ep] = tmp[np.triu_indices(tmp.shape[0], 1)]
 
-            to_keep = []
-            for p in r.index:
-                tmp = spikes._metadata.loc[np.array(p.split("_")[1].split("-"), dtype=np.int32), ['group', 'maxch']]
-                if tmp['group'].iloc[0] == tmp['group'].iloc[1]:
-                    if tmp['maxch'].iloc[0] != tmp['maxch'].iloc[1]:
-                        to_keep.append(p)
-            r = r.loc[to_keep]
+            # to_keep = []
+            # for p in r.index:
+            #     tmp = spikes._metadata.loc[np.array(p.split("_")[1].split("-"), dtype=np.int32), ['group', 'maxch']]
+            #     if tmp['group'].iloc[0] == tmp['group'].iloc[1]:
+            #         if tmp['maxch'].iloc[0] != tmp['maxch'].iloc[1]:
+            #             to_keep.append(p)
+            # r = r.loc[to_keep]
             
             #######################
             # Session correlation
@@ -221,15 +221,15 @@ for s in datasets:
                 tmp.loc[data.basename,'ep'+str(i)] = scipy.stats.pearsonr(r['wak'], r['ep'+str(i)])[0]
             
 
-            # flippinge eps
-            # if tmp.iloc[0, 1]>tmp.iloc[0,0]:
-            ido = np.hstack(([0], np.argsort(tmp[['ep1', 'ep2']].values[0])+1))
-            if np.any(ido != np.arange(len(eps))):
-                r.columns = pd.Index(['wak', 'sws'] + ['ep'+str(i) for i in ido])
-                r = r[['wak', 'sws']+['ep'+str(i) for i in range(len(eps))]]
-                tmp.columns = pd.Index(['sws'] + ['ep'+str(i) for i in ido])
-                tmp = tmp[['sws'] + ['ep'+str(i) for i in range(len(eps))]]
-                eps = [eps[i] for i in ido]
+            # # flippinge eps
+            # # if tmp.iloc[0, 1]>tmp.iloc[0,0]:
+            # ido = np.hstack(([0], np.argsort(tmp[['ep1', 'ep2']].values[0])+1))
+            # if np.any(ido != np.arange(len(eps))):
+            #     r.columns = pd.Index(['wak', 'sws'] + ['ep'+str(i) for i in ido])
+            #     r = r[['wak', 'sws']+['ep'+str(i) for i in range(len(eps))]]
+            #     tmp.columns = pd.Index(['sws'] + ['ep'+str(i) for i in ido])
+            #     tmp = tmp[['sws'] + ['ep'+str(i) for i in range(len(eps))]]
+            #     eps = [eps[i] for i in ido]
 
             corr.append(tmp)
                         
