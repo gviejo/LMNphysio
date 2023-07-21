@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-07-20 18:04:51
+# @Last Modified by:   gviejo
+# @Last Modified time: 2023-07-20 22:39:05
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -53,9 +53,9 @@ durations = []
 spkcounts = []
 corr = []
 
-for s in datasets:
+# for s in datasets:
 # for s in ['LMN-ADN/A5002/A5002-200304A']:
-# for s in ['LMN-PSB/A3010/A3010-210324A']:
+for s in ['LMN-PSB/A3010/A3010-210324A']:
     print(s)
     ############################################################################################### 
     # LOADING DATA
@@ -150,14 +150,22 @@ for s in datasets:
             
             hmm.fit_transition(spikes, sws_ep, bin_size)
             
-            # figure()
-            # ax = subplot(311)
-            # plot(hmm.Z)            
-            # subplot(312, sharex=ax)
-            # plot(spikes.restrict(sws_ep).to_tsd("peaks"), '|', markersize=20)
-            # subplot(313, sharex=ax)
-            # plot(hmm.time_idx, hmm.O[:,1:])
-            # show()
+            figure()
+            ax = subplot(411)
+            plot(hmm.Z)            
+            subplot(412, sharex=ax)
+            plot(spikes.restrict(sws_ep).to_tsd("peaks"), '|', markersize=20)
+            subplot(413, sharex=ax)
+            plot(hmm.time_idx, hmm.O[:,1:])
+            subplot(414, sharex=ax)
+            ep = nap.IntervalSet(start=[1216], end = [1225])
+            X = nap.TsdFrame(t=hmm.time_idx, d=hmm.X[:,4,:])
+            X = X.restrict(ep)
+            # plot(X)
+            imshow(X.values.T, extent = (1216, 1225, 0, len(spikes)), aspect='auto')
+            show()
+
+
 
             # figure()
             # for i in range(len(spikes)):
