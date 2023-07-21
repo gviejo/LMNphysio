@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-07-20 10:24:18
+# @Last Modified time: 2023-07-21 10:43:50
 import numpy as np
 import pynapple as nap
 import os, sys
@@ -158,11 +158,23 @@ class ConvolvedGLM(object):
         self.C = np.zeros((self.T, self.N, n_basis_funcs))
         for i in range(self.N):
             for j in range(n_basis_funcs):
-                self.C[:,i,j] = np.convolve(self.Y[:,i], self.B[:,j][::-1], mode='same')        
+                self.C[:,i,j] = np.convolve(self.Y[:,i], self.B[:,j][::-1], mode='same')
+
+        # Convolving without the 0 bin
+        B0 = np.copy(self.B)
+        B0[len(B0)//2] = 0
+        C0 = np.zeros((self.T, self.N, n_basis_funcs))
+        for i in range(self.N):
+            for j in range(n_basis_funcs):
+                C0[:,i,j] = np.convolve(self.Y[:,i], B0[:,j][::-1], mode='same')
+
 
         self.X = []
         for i in range(self.N):
-            tmp = self.C[:,list(set(list(np.arange(self.N))) - set([i])),:]
+            tmp = np.zeros((self.T, self.N, n_basis_funcs))
+            tmp[:,0:-1,:] = self.C[:,list(set(list(np.arange(self.N))) - set([i])),:]
+            # adding self 
+            tmp[:,-1,:] = C0[:,i,:]
             # apply mask
             # tmp[:,self.mask[i]==0,:] = 0
             tmp = tmp.reshape(tmp.shape[0], tmp.shape[1]*tmp.shape[2])

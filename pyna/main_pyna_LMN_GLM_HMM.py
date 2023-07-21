@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
-# @Last Modified by:   gviejo
-# @Last Modified time: 2023-07-20 22:39:05
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2023-07-21 15:17:38
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -11,7 +11,7 @@ from functions import *
 import sys
 from pycircstat.descriptive import mean as circmean
 import _pickle as cPickle
-from matplotlib.gridspec import GridSpec
+from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 from itertools import combinations
 from scipy.stats import zscore
 from scipy.ndimage import gaussian_filter1d
@@ -19,6 +19,8 @@ from sklearn.linear_model import PoissonRegressor
 from GLM_HMM import GLM_HMM
 from GLM import HankelGLM, ConvolvedGLM, CorrelationGLM
 from sklearn.preprocessing import StandardScaler
+from scipy.stats import poisson
+
 
 
 ############################################################################################### 
@@ -118,7 +120,7 @@ for s in ['LMN-PSB/A3010/A3010-210324A']:
             # HMM GLM
             ###############################################################################################
             
-            bin_size = 0.05
+            bin_size = 0.03
             window_size = bin_size*100.0
 
             ############################################
@@ -134,38 +136,56 @@ for s in ['LMN-PSB/A3010/A3010-210324A']:
 
 
             ############################################
-            glm = ConvolvedGLM(spikes, bin_size, window_size, newwake_ep)
+            glm = ConvolvedGLM(spikes, bin_size, window_size, wake_ep)
             glm.fit_scipy()
             
-            spikes2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(newwake_ep))
+
+            spikes2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(wake_ep))
             # spikes2 = nap.randomize.resample_timestamps(spikes.restrict(sws_ep))
             spikes2.set_info(maxch = spikes._metadata["maxch"], group = spikes._metadata["group"])
-            rglm = ConvolvedGLM(spikes2, bin_size, window_size, newwake_ep)
+            rglm = ConvolvedGLM(spikes2, bin_size, window_size, wake_ep)
             rglm.fit_scipy()
 
-            glm0 = ConvolvedGLM(spikes, bin_size, window_size, newwake_ep)
+            glm0 = ConvolvedGLM(spikes, bin_size, window_size, wake_ep)
             glm0.W = np.zeros_like(glm.W)
 
             hmm = GLM_HMM((glm0, glm, rglm))
             
             hmm.fit_transition(spikes, sws_ep, bin_size)
-            
+
             figure()
-            ax = subplot(411)
+            gs = GridSpec(4,1)
+            ax = subplot(gs[0,0])
             plot(hmm.Z)            
-            subplot(412, sharex=ax)
+            subplot(gs[1,0], sharex=ax)
             plot(spikes.restrict(sws_ep).to_tsd("peaks"), '|', markersize=20)
-            subplot(413, sharex=ax)
+            subplot(gs[2,0], sharex=ax)
             plot(hmm.time_idx, hmm.O[:,1:])
-            subplot(414, sharex=ax)
-            ep = nap.IntervalSet(start=[1216], end = [1225])
-            X = nap.TsdFrame(t=hmm.time_idx, d=hmm.X[:,4,:])
-            X = X.restrict(ep)
-            # plot(X)
-            imshow(X.values.T, extent = (1216, 1225, 0, len(spikes)), aspect='auto')
+            # subplot(gs[3,0], sharex=ax)
+            gs2 = GridSpecFromSubplotSpec(3,1,gs[3,0])
+            sg1 = subplot(gs2[0,0], sharex =ax)
+            sg2 = subplot(gs2[1,0], sharex =ax)
+            sg3 = subplot(gs2[2,0], sharex =ax)
+            for i in range(1, 3):
+                ep = nap.IntervalSet(start=[1216], end = [1225])
+                mu = hmm.glms[i].predict(hmm.X)
+                # mu /= 100.
+                p = poisson.pmf(k=hmm.Y, mu=mu)
+                p = p[:,order]
+                p = nap.TsdFrame(t=hmm.time_idx, d=p)
+                p = p.restrict(ep)
+                mu = mu[:,order]
+                mu = nap.TsdFrame(t=hmm.time_idx, d=mu)
+                mu = mu.restrict(ep)
+                sg1.plot(p[0])
+                sg2.plot(mu[0])
+            y = hmm.Y[:,order]
+            y = nap.TsdFrame(t=hmm.time_idx, d=y)
+            y = y.restrict(ep)
+            sg3.plot(y[0], color='green')
+
             show()
-
-
+            
 
             # figure()
             # for i in range(len(spikes)):
@@ -178,7 +198,7 @@ for s in ['LMN-PSB/A3010/A3010-210324A']:
             #     plot([peaks.values[i], peaks.values[i]], [0, w.max()])
             # show()            
             
-            # sys.exit()
+            sys.exit()
             ############################################################################################### 
             # GLM CORRELATION
             ############################################################################################### 
