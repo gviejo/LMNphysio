@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
-# @Last Modified by:   gviejo
-# @Last Modified time: 2023-07-22 12:02:31
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2023-07-22 14:45:01
 import numpy as np
 import pandas as pd
 import pynapple as nap
