@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-07-21 10:43:50
+# @Last Modified by:   gviejo
+# @Last Modified time: 2023-07-21 21:53:19
 import numpy as np
 import pynapple as nap
 import os, sys
@@ -133,11 +133,11 @@ class ConvolvedGLM(object):
 
         n_basis_funcs = 3
         # V1
-        x = np.logspace(np.log10(np.pi * (n_basis_funcs - 1)), -1, nt) - .1
-        shifted_x = x[None, :] - (np.pi * np.arange(n_basis_funcs))[:, None]
-        B = .5 * (np.cos(np.clip(shifted_x, -np.pi, np.pi)) + 1)        
-        B = B.T#[::-1]
-        self.B = np.vstack((np.zeros((B.shape[0]-1, B.shape[1])),B))
+        # x = np.logspace(np.log10(np.pi * (n_basis_funcs - 1)), -1, nt) - .1
+        # shifted_x = x[None, :] - (np.pi * np.arange(n_basis_funcs))[:, None]
+        # B = .5 * (np.cos(np.clip(shifted_x, -np.pi, np.pi)) + 1)        
+        # B = B.T#[::-1]
+        # self.B = np.vstack((np.zeros((B.shape[0]-1, B.shape[1])),B))
         # V2
         # x = np.arange(0, nt, 1)
         # B = []
@@ -147,39 +147,42 @@ class ConvolvedGLM(object):
         # B = B/B.sum(0)
         # self.B = np.vstack((B[::-1], np.zeros((B.shape[0]-1, B.shape[1]))))
         # V3
-        # x = np.arange(-nt//2+1, nt//2+1, 1)
-        # B = []
-        # for i in range(1, n_basis_funcs+1):
-        #     B.append(norm.pdf(x, 0, i))
-        # B = np.array(B).T
-        # B = B/B.sum(0)
-        # self.B = B
+        x = np.arange(-nt//2+1, nt//2+1, 1)
+        B = []
+        for i in range(1, n_basis_funcs+1):
+            B.append(norm.pdf(x, 0, i))
+        B = np.array(B).T
+        B = B/B.sum(0)
+        self.B = B
 
         self.C = np.zeros((self.T, self.N, n_basis_funcs))
         for i in range(self.N):
             for j in range(n_basis_funcs):
                 self.C[:,i,j] = np.convolve(self.Y[:,i], self.B[:,j][::-1], mode='same')
 
-        # Convolving without the 0 bin
-        B0 = np.copy(self.B)
-        B0[len(B0)//2] = 0
-        C0 = np.zeros((self.T, self.N, n_basis_funcs))
-        for i in range(self.N):
-            for j in range(n_basis_funcs):
-                C0[:,i,j] = np.convolve(self.Y[:,i], B0[:,j][::-1], mode='same')
+        # # Convolving without the 0 bin
+        # B0 = np.copy(self.B)
+        # B0[len(B0)//2] = 0
+        # C0 = np.zeros((self.T, self.N, n_basis_funcs))
+        # for i in range(self.N):
+        #     for j in range(n_basis_funcs):
+        #         C0[:,i,j] = np.convolve(self.Y[:,i], B0[:,j][::-1], mode='same')
 
 
         self.X = []
         for i in range(self.N):
-            tmp = np.zeros((self.T, self.N, n_basis_funcs))
-            tmp[:,0:-1,:] = self.C[:,list(set(list(np.arange(self.N))) - set([i])),:]
-            # adding self 
-            tmp[:,-1,:] = C0[:,i,:]
+            # tmp = np.ones((self.T, self.N, n_basis_funcs))
+            # tmp[:,0:-1,:] = self.C[:,list(set(list(np.arange(self.N))) - set([i])),:]
+            # adding self
+            # tmp[:,-1,:] = C0[:,i,:]
+            tmp = self.C[:,list(set(list(np.arange(self.N))) - set([i])),:]
             # apply mask
             # tmp[:,self.mask[i]==0,:] = 0
             tmp = tmp.reshape(tmp.shape[0], tmp.shape[1]*tmp.shape[2])
-            tmp = StandardScaler().fit_transform(tmp)
+            # tmp = StandardScaler().fit_transform(tmp)
+            tmp = np.hstack((tmp, np.ones((len(tmp), 1))))
             self.X.append(tmp)
+            
         self.X = np.array(self.X)
 
         self.X = np.transpose(self.X, (1, 0, 2))
@@ -189,7 +192,7 @@ class ConvolvedGLM(object):
 
     def fit_scipy(self):
 
-        W0 = np.zeros((self.X.shape[-1], self.N))
+        W0 = np.zeros((self.X.shape[-1], self.N))        
 
         #######################################                        
         def loss_all(W, X, Y):

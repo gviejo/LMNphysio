@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-07-21 10:54:58
+# @Last Modified by:   gviejo
+# @Last Modified time: 2023-07-22 10:00:52
 import numpy as np
 import os, sys
 from scipy.optimize import minimize
@@ -48,7 +48,7 @@ def compute_observation(W, X, Y, K):
     for k in range(K):
         mu = np.exp(np.einsum('tnk,kn->tn', X, W[k]))        
         if k == 0:
-            mu*=0.0
+            mu*=1e-2
         p = poisson.pmf(k=Y, mu=mu)
         p = np.clip(p, 1e-15, 1.0)
         O.append(p.prod(1))
@@ -64,6 +64,16 @@ def loss_all(W, X, Y):
     l2 = 0.5*Y.shape[0]*np.sum(np.power(b, 2), 0)            
     grad = np.einsum('tnk,tn->kn', X, exp_Xb - Y) + Y.shape[0]*b
     return np.sum(loss + l2), grad.flatten()
+
+def loss_bias(b, X, Y, W):
+    # b = W.reshape(X.shape[2], X.shape[1])
+    B = np.vstack((W, b))
+    Xb = np.einsum('tnk,kn->tn', X, B)
+    exp_Xb = np.exp(Xb)
+    loss = np.sum(exp_Xb, 0) - np.sum(Y*Xb, 0)
+    l2 = 0.5*Y.shape[0]*np.sum(np.power(b, 2), 0)            
+    # grad = np.einsum('tnk,tn->kn', X, exp_Xb - Y) + Y.shape[0]*b
+    return np.sum(loss + l2)#, grad.flatten()
 
 def optimize_transition(args):
     K, T, O = args
@@ -99,6 +109,59 @@ def optimize_transition(args):
     Z = np.argmax(G, 1)
 
     return A, Z, np.array(score)
+
+def optimize_transition2(args):
+    K, T, W, X, Y = args
+    score = []
+    init = np.random.rand(K)
+    init = init/init.sum()
+    A = np.eye(K) + np.random.rand(K, K)*0.1
+    A = A/A.sum(1)[:,None]
+
+    # Computing the observation
+    O = compute_observation(W, X, Y, K)
+    
+    for i in range(100):
+
+        # Forward/backward
+        alpha, scaling = forward(A, T, K, O, init)                
+        beta = backward(A, T, K, O, scaling)
+        # Expectation
+        E = np.tile(A, (T-1, 1, 1)) * alpha[0:-1,:,None]*beta[1:,None,:]
+        # E = E * np.tile(B[:,Y[1:]].T[:,None,:], (1, K, 1)) # Adding emission    
+        E = E * np.tile(O[1:][:,None,:], (1, K, 1)) # Adding emission    
+        G = np.zeros((T, K))
+        G[0:-1] = E.sum(-1)
+        G[-1] = alpha[-1]
+
+        # Maximisation
+        init = G[0]
+        A = E.sum(0)/(G[0:-1].sum(0)[:,None])        
+
+        # Learning GLM based on best sequence for each state
+        if i %20 == 0:
+            z = np.argmax(G, 1)
+            b0 = np.zeros((W.shape[0], W.shape[2]))
+            for j in range(1, K): # NOt learning the glm 0
+                if np.sum(z == j) > 100:
+                    solver = minimize(loss_bias, b0[j], args = (X[z==j], Y[z==j], W[j,0:-1,:]), jac=False)#, method='L-BFGS-B')
+                    W[j,-1,:] = solver['x'].flatten()
+
+        # W = W0
+        O = compute_observation(W, X, Y, K)
+
+        # O = gaussian_filter1d(O, 2, axis=0)
+
+        print(i, np.sum(np.log(scaling)))
+        score.append(np.sum(np.log(scaling)))
+
+        if i > 2:
+            if np.abs(score[-2]-score[-1]) < 1e-15:
+                break
+
+    Z = np.argmax(G, 1)
+
+    return A, Z, W, np.array(score)
 
 def optimize_observation(args):
     K, T, W, X, Y = args
@@ -191,28 +254,33 @@ class GLM_HMM(object):
             for j in range(self.n_basis):
                 self.C[:,i,j] = np.convolve(self.Y[:,i], self.B[:,j][::-1], mode='same')
 
-        # Convolving without the 0 bin
-        B0 = np.copy(self.B)
-        B0[len(B0)//2] = 0
-        C0 = np.zeros((self.T, self.N, self.n_basis))
-        for i in range(self.N):
-            for j in range(self.n_basis):
-                C0[:,i,j] = np.convolve(self.Y[:,i], B0[:,j][::-1], mode='same')
+        # # Convolving without the 0 bin
+        # B0 = np.copy(self.B)
+        # B0[len(B0)//2] = 0
+        # C0 = np.zeros((self.T, self.N, self.n_basis))
+        # for i in range(self.N):
+        #     for j in range(self.n_basis):
+        #         C0[:,i,j] = np.convolve(self.Y[:,i], B0[:,j][::-1], mode='same')
 
         self.X = []
         for i in range(self.N):
-            tmp = np.zeros((self.T, self.N, self.n_basis))
-            tmp[:,0:-1,:] = self.C[:,list(set(list(np.arange(self.N))) - set([i])),:]
-            # adding self 
-            tmp[:,-1,:] = C0[:,i,:]
+            # tmp = np.zeros((self.T, self.N, self.n_basis))
+            # tmp[:,0:-1,:] = self.C[:,list(set(list(np.arange(self.N))) - set([i])),:]
+            # # adding self 
+            # tmp[:,-1,:] = C0[:,i,:]
             # apply mask
             # tmp[:,self.mask[i]==0,:] = 0            
+            tmp = self.C[:,list(set(list(np.arange(self.N))) - set([i])),:]
             tmp = tmp.reshape(tmp.shape[0], tmp.shape[1]*tmp.shape[2])
-            tmp = StandardScaler().fit_transform(tmp)
+            # tmp = StandardScaler().fit_transform(tmp)
+            tmp = np.hstack((tmp, np.ones((len(tmp), 1))))
             self.X.append(tmp)
+
         self.X = np.array(self.X)
 
         self.X = np.transpose(self.X, (1, 0, 2))
+
+        self.initial_W = np.array([self.glms[i].W for i in range(self.K)])
 
         ############################################
         # FITTING THE HMM
@@ -223,7 +291,7 @@ class GLM_HMM(object):
         for k in range(self.K):
             mu = self.glms[k].predict(self.X)
             if k == 0:
-                mu*=0.0            
+                mu*=1e-2
             p = poisson.pmf(k=self.Y, mu=mu)
             p = np.clip(p, 1e-10, 1.0)
             O.append(p.prod(1))
@@ -243,8 +311,9 @@ class GLM_HMM(object):
         #         self.scores.append(result[2])
 
 
-        for _ in range(3):
-            A, Z, score = optimize_transition((self.K, self.T, self.O))
+        for _ in range(1):
+            # A, Z, score = optimize_transition((self.K, self.T, self.O))
+            A, Z, W, score = optimize_transition2((self.K, self.T, self.initial_W, self.X, self.Y))
 
             self.scores.append(score)
             As.append(A)

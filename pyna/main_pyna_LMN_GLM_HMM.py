@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-07-21 15:17:38
+# @Last Modified by:   gviejo
+# @Last Modified time: 2023-07-22 12:02:31
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -55,9 +55,9 @@ durations = []
 spkcounts = []
 corr = []
 
-# for s in datasets:
+for s in datasets:
 # for s in ['LMN-ADN/A5002/A5002-200304A']:
-for s in ['LMN-PSB/A3010/A3010-210324A']:
+# for s in ['LMN-PSB/A3010/A3010-210324A']:
     print(s)
     ############################################################################################### 
     # LOADING DATA
@@ -149,42 +149,44 @@ for s in ['LMN-PSB/A3010/A3010-210324A']:
             glm0 = ConvolvedGLM(spikes, bin_size, window_size, wake_ep)
             glm0.W = np.zeros_like(glm.W)
 
+            # sys.exit()
+
             hmm = GLM_HMM((glm0, glm, rglm))
             
             hmm.fit_transition(spikes, sws_ep, bin_size)
 
-            figure()
-            gs = GridSpec(4,1)
-            ax = subplot(gs[0,0])
-            plot(hmm.Z)            
-            subplot(gs[1,0], sharex=ax)
-            plot(spikes.restrict(sws_ep).to_tsd("peaks"), '|', markersize=20)
-            subplot(gs[2,0], sharex=ax)
-            plot(hmm.time_idx, hmm.O[:,1:])
-            # subplot(gs[3,0], sharex=ax)
-            gs2 = GridSpecFromSubplotSpec(3,1,gs[3,0])
-            sg1 = subplot(gs2[0,0], sharex =ax)
-            sg2 = subplot(gs2[1,0], sharex =ax)
-            sg3 = subplot(gs2[2,0], sharex =ax)
-            for i in range(1, 3):
-                ep = nap.IntervalSet(start=[1216], end = [1225])
-                mu = hmm.glms[i].predict(hmm.X)
-                # mu /= 100.
-                p = poisson.pmf(k=hmm.Y, mu=mu)
-                p = p[:,order]
-                p = nap.TsdFrame(t=hmm.time_idx, d=p)
-                p = p.restrict(ep)
-                mu = mu[:,order]
-                mu = nap.TsdFrame(t=hmm.time_idx, d=mu)
-                mu = mu.restrict(ep)
-                sg1.plot(p[0])
-                sg2.plot(mu[0])
-            y = hmm.Y[:,order]
-            y = nap.TsdFrame(t=hmm.time_idx, d=y)
-            y = y.restrict(ep)
-            sg3.plot(y[0], color='green')
+            # figure()
+            # gs = GridSpec(4,1)
+            # ax = subplot(gs[0,0])
+            # plot(hmm.Z)            
+            # subplot(gs[1,0], sharex=ax)
+            # plot(spikes.restrict(sws_ep).to_tsd("peaks"), '|', markersize=20)
+            # subplot(gs[2,0], sharex=ax)
+            # plot(hmm.time_idx, hmm.O[:,1:])
+            # # subplot(gs[3,0], sharex=ax)
+            # gs2 = GridSpecFromSubplotSpec(3,1,gs[3,0])
+            # sg1 = subplot(gs2[0,0], sharex =ax)
+            # sg2 = subplot(gs2[1,0], sharex =ax)
+            # sg3 = subplot(gs2[2,0], sharex =ax)
+            # for i in range(1, 3):
+            #     ep = nap.IntervalSet(start=[1216], end = [1225])
+            #     mu = hmm.glms[i].predict(hmm.X)
+            #     # mu /= 100.
+            #     p = poisson.pmf(k=hmm.Y, mu=mu)
+            #     p = p[:,order]
+            #     p = nap.TsdFrame(t=hmm.time_idx, d=p)
+            #     p = p.restrict(ep)
+            #     mu = mu[:,order]
+            #     mu = nap.TsdFrame(t=hmm.time_idx, d=mu)
+            #     mu = mu.restrict(ep)
+            #     sg1.plot(p[0])
+            #     sg2.plot(mu[0])
+            # y = hmm.Y[:,order]
+            # y = nap.TsdFrame(t=hmm.time_idx, d=y)
+            # y = y.restrict(ep)
+            # sg3.plot(y[0], color='green')
 
-            show()
+            # show()
             
 
             # figure()
@@ -198,7 +200,7 @@ for s in ['LMN-PSB/A3010/A3010-210324A']:
             #     plot([peaks.values[i], peaks.values[i]], [0, w.max()])
             # show()            
             
-            sys.exit()
+            # sys.exit()
             ############################################################################################### 
             # GLM CORRELATION
             ############################################################################################### 
@@ -214,75 +216,77 @@ for s in ['LMN-PSB/A3010/A3010-210324A']:
             # for e in cc_glm.keys():
             #     rglm[e] = cc_glm[e].loc[0]
 
-            ############################################################################################### 
-            # PEARSON CORRELATION
-            ###############################################################################################        
-            rates = {}            
+            if all([len(ep)>1 for ep in hmm.eps]):
+                ############################################################################################### 
+                # PEARSON CORRELATION
+                ###############################################################################################        
+                rates = {}            
 
-            for e, ep, bin_size, std in zip(['wak', 'sws'], [newwake_ep, sws_ep], [0.3, 0.03], [1, 1]):
-                count = spikes.count(bin_size, ep)
-                rate = count/bin_size
-                rate = rate.as_dataframe()
-                rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=std)       
-                rate = rate.apply(zscore)                    
-                rates[e] = nap.TsdFrame(rate)
-            
-            eps = hmm.eps            
-            for i in range(len(eps)):
-                rates['ep'+str(i)] = rates['sws'].restrict(eps[i])
+                for e, ep, bin_size, std in zip(['wak', 'sws'], [newwake_ep, sws_ep], [0.3, 0.03], [1, 1]):
+                    count = spikes.count(bin_size, ep)
+                    rate = count/bin_size
+                    rate = rate.as_dataframe()
+                    rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=std)       
+                    rate = rate.apply(zscore)                    
+                    rates[e] = nap.TsdFrame(rate)
+                
+                eps = hmm.eps            
+                for i in range(len(eps)):
+                    rates['ep'+str(i)] = rates['sws'].restrict(eps[i])
 
-            # _ = rates.pop("sws")
+                # _ = rates.pop("sws")
 
-            # pairs = list(product(groups['adn'].astype(str), groups['lmn'].astype(str)))
-            pairs = [data.basename+"_"+i+"-"+j for i,j in list(combinations(np.array(spikes.keys()).astype(str), 2))]
-            r = pd.DataFrame(index = pairs, columns = rates.keys(), dtype = np.float32)
+                # pairs = list(product(groups['adn'].astype(str), groups['lmn'].astype(str)))
+                pairs = [data.basename+"_"+i+"-"+j for i,j in list(combinations(np.array(spikes.keys()).astype(str), 2))]
+                r = pd.DataFrame(index = pairs, columns = rates.keys(), dtype = np.float32)
 
-            for ep in rates.keys():
-                tmp = np.corrcoef(rates[ep].values.T)
-                if len(tmp):
-                    r[ep] = tmp[np.triu_indices(tmp.shape[0], 1)]
+                for ep in rates.keys():
+                    tmp = np.corrcoef(rates[ep].values.T)
+                    if len(tmp):
+                        r[ep] = tmp[np.triu_indices(tmp.shape[0], 1)]
 
-            to_keep = []
-            for p in r.index:
-                tmp = spikes._metadata.loc[np.array(p.split("_")[1].split("-"), dtype=np.int32), ['group', 'maxch']]
-                if tmp['group'].iloc[0] == tmp['group'].iloc[1]:
-                    if tmp['maxch'].iloc[0] != tmp['maxch'].iloc[1]:
-                        to_keep.append(p)
-            r = r.loc[to_keep]
-            
-            #######################
-            # Session correlation
-            #######################
-            tmp = pd.DataFrame(index=[data.basename])
-            tmp['sws'] = scipy.stats.pearsonr(r['wak'], r['sws'])[0]
-            for i in range(hmm.K):
-                tmp.loc[data.basename,'ep'+str(i)] = scipy.stats.pearsonr(r['wak'], r['ep'+str(i)])[0]
-            
+                to_keep = []
+                for p in r.index:
+                    tmp = spikes._metadata.loc[np.array(p.split("_")[1].split("-"), dtype=np.int32), ['group', 'maxch']]
+                    if tmp['group'].iloc[0] == tmp['group'].iloc[1]:
+                        if tmp['maxch'].iloc[0] != tmp['maxch'].iloc[1]:
+                            to_keep.append(p)
+                r = r.loc[to_keep]
+                
+                #######################
+                # Session correlation
+                #######################
 
-            # # flippinge eps
-            # # if tmp.iloc[0, 1]>tmp.iloc[0,0]:
-            # ido = np.hstack(([0], np.argsort(tmp[['ep1', 'ep2']].values[0])+1))
-            # if np.any(ido != np.arange(len(eps))):
-            #     r.columns = pd.Index(['wak', 'sws'] + ['ep'+str(i) for i in ido])
-            #     r = r[['wak', 'sws']+['ep'+str(i) for i in range(len(eps))]]
-            #     tmp.columns = pd.Index(['sws'] + ['ep'+str(i) for i in ido])
-            #     tmp = tmp[['sws'] + ['ep'+str(i) for i in range(len(eps))]]
-            #     eps = [eps[i] for i in ido]
+                tmp = pd.DataFrame(index=[data.basename])
+                tmp['sws'] = scipy.stats.pearsonr(r['wak'], r['sws'])[0]
+                for i in range(hmm.K):
+                    tmp.loc[data.basename,'ep'+str(i)] = scipy.stats.pearsonr(r['wak'], r['ep'+str(i)])[0]
+                
 
-            corr.append(tmp)
-                        
-            #######################
-            # SAVING
-            #######################
-            allr.append(r)
-            # allr_glm.append(rglm)
-            durations.append(pd.DataFrame(data=[e.tot_length('s') for e in eps], columns=[data.basename]).T)
-            
-            spkcounts.append(
-                pd.DataFrame(data = [[len(spikes.restrict(eps[i]).to_tsd()) for i in range(len(eps))]],
-                    columns = np.arange(len(eps)),
-                    index = [data.basename])
-                )
+                # # flippinge eps
+                # # if tmp.iloc[0, 1]>tmp.iloc[0,0]:
+                # ido = np.hstack(([0], np.argsort(tmp[['ep1', 'ep2']].values[0])+1))
+                # if np.any(ido != np.arange(len(eps))):
+                #     r.columns = pd.Index(['wak', 'sws'] + ['ep'+str(i) for i in ido])
+                #     r = r[['wak', 'sws']+['ep'+str(i) for i in range(len(eps))]]
+                #     tmp.columns = pd.Index(['sws'] + ['ep'+str(i) for i in ido])
+                #     tmp = tmp[['sws'] + ['ep'+str(i) for i in range(len(eps))]]
+                #     eps = [eps[i] for i in ido]
+
+                corr.append(tmp)
+                            
+                #######################
+                # SAVING
+                #######################
+                allr.append(r)
+                # allr_glm.append(rglm)
+                durations.append(pd.DataFrame(data=[e.tot_length('s') for e in eps], columns=[data.basename]).T)
+                
+                spkcounts.append(
+                    pd.DataFrame(data = [[len(spikes.restrict(eps[i]).to_tsd()) for i in range(len(eps))]],
+                        columns = np.arange(len(eps)),
+                        index = [data.basename])
+                    )
 
 
             
