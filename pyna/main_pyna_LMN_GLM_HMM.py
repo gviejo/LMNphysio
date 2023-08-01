@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-07-22 14:45:01
+# @Last Modified by:   gviejo
+# @Last Modified time: 2023-07-27 14:39:55
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -26,7 +26,9 @@ from scipy.stats import poisson
 ############################################################################################### 
 # GENERAL infos
 ###############################################################################################
-if os.path.exists('/mnt/DataRAID2/'):    
+if os.path.exists("/mnt/Data/Data/"):
+    data_directory = "/mnt/Data/Data"
+elif os.path.exists('/mnt/DataRAID2/'):    
     data_directory = '/mnt/DataRAID2/'
 elif os.path.exists('/mnt/ceph/users/gviejo'):    
     data_directory = '/mnt/ceph/users/gviejo'
@@ -38,7 +40,7 @@ elif os.path.exists('/media/guillaume/Raid2'):
 
 datasets = np.hstack([
     np.genfromtxt(os.path.join(data_directory,'datasets_LMN.list'), delimiter = '\n', dtype = str, comments = '#'),
-    np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#'),
+    # np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#'),
     # np.genfromtxt(os.path.join(data_directory,'datasets_LMN_PSB.list'), delimiter = '\n', dtype = str, comments = '#'),
     ])
 
@@ -55,8 +57,8 @@ durations = []
 spkcounts = []
 corr = []
 
-for s in datasets:
-# for s in ['LMN-ADN/A5002/A5002-200304A']:
+# for s in datasets:
+for s in ['LMN-ADN/A5002/A5002-200304A']:
 # for s in ['LMN-PSB/A3010/A3010-210324A']:
     print(s)
     ############################################################################################### 
@@ -107,11 +109,11 @@ for s in datasets:
 
         if len(tokeep) > 6:
             
-            # figure()
-            # for i in range(len(tokeep)):
-            #     subplot(4, 4, i+1, projection='polar')
-            #     plot(tcurves[tokeep[i]])
-            # show()
+            figure()
+            for i in range(len(tokeep)):
+                subplot(4, 4, i+1, projection='polar')
+                plot(tcurves[tokeep[i]])
+            
             
             velocity = computeAngularVelocity(position['ry'], position.time_support.loc[[0]], 0.2)
             newwake_ep = velocity.threshold(0.07).time_support.drop_short_intervals(1).merge_close_intervals(1)
@@ -136,39 +138,45 @@ for s in datasets:
 
 
             ############################################
-            glm = ConvolvedGLM(spikes, bin_size, window_size, wake_ep)
+            print("fitting GLM")
+            glm = ConvolvedGLM(spikes, bin_size*10.0, window_size*10, newwake_ep)
             glm.fit_scipy()
             
 
-            spikes2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(wake_ep))
+            # spikes2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(newwake_ep))
             # spikes2 = nap.randomize.resample_timestamps(spikes.restrict(sws_ep))
-            spikes2.set_info(maxch = spikes._metadata["maxch"], group = spikes._metadata["group"])
-            rglm = ConvolvedGLM(spikes2, bin_size, window_size, wake_ep)
+            # spikes2.set_info(maxch = spikes._metadata["maxch"], group = spikes._metadata["group"])
+            rglm = ConvolvedGLM(spikes, bin_size, window_size, sws_ep)
             rglm.fit_scipy()
 
-            glm0 = ConvolvedGLM(spikes, bin_size, window_size, wake_ep)
+            glm0 = ConvolvedGLM(spikes, bin_size, window_size, newwake_ep)
             glm0.W = np.zeros_like(glm.W)
 
             # sys.exit()
 
             hmm = GLM_HMM((glm0, glm, rglm))
+            # hmm = GLM_HMM((glm, rglm))
             
             hmm.fit_transition(spikes, sws_ep, bin_size)
 
             # figure()
-            # gs = GridSpec(4,1)
+            # gs = GridSpec(3,1)
             # ax = subplot(gs[0,0])
-            # plot(hmm.Z)            
+            # plot(hmm.Z)       
+            # ylabel("state")     
             # subplot(gs[1,0], sharex=ax)
-            # plot(spikes.restrict(sws_ep).to_tsd("peaks"), '|', markersize=20)
+            # plot(spikes.restrict(sws_ep).to_tsd("order"), '|', markersize=20)
+            # ylabel("Spikes")
             # subplot(gs[2,0], sharex=ax)
-            # plot(hmm.time_idx, hmm.O[:,1:])
-            # # subplot(gs[3,0], sharex=ax)
+            # plot(hmm.time_idx, hmm.O[:,0:])
+            # ylabel("P(O)")
+
             # gs2 = GridSpecFromSubplotSpec(3,1,gs[3,0])
             # sg1 = subplot(gs2[0,0], sharex =ax)
             # sg2 = subplot(gs2[1,0], sharex =ax)
             # sg3 = subplot(gs2[2,0], sharex =ax)
-            # for i in range(1, 3):
+            # # for i in range(1, 3):
+            # for i in range(hmm.K):
             #     ep = nap.IntervalSet(start=[1216], end = [1225])
             #     mu = hmm.glms[i].predict(hmm.X)
             #     # mu /= 100.
@@ -186,7 +194,7 @@ for s in datasets:
             # y = y.restrict(ep)
             # sg3.plot(y[0], color='green')
 
-            # show()
+            
             
 
             # figure()
@@ -200,7 +208,7 @@ for s in datasets:
             #     plot([peaks.values[i], peaks.values[i]], [0, w.max()])
             # show()            
             
-            # sys.exit()
+            
             ############################################################################################### 
             # GLM CORRELATION
             ############################################################################################### 

@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
 # @Last Modified by:   gviejo
-# @Last Modified time: 2023-07-21 21:53:19
+# @Last Modified time: 2023-07-27 09:11:41
 import numpy as np
 import pynapple as nap
 import os, sys
@@ -139,21 +139,23 @@ class ConvolvedGLM(object):
         # B = B.T#[::-1]
         # self.B = np.vstack((np.zeros((B.shape[0]-1, B.shape[1])),B))
         # V2
-        # x = np.arange(0, nt, 1)
-        # B = []
-        # for i in range(2, n_basis_funcs+2):
-        #     B.append(gamma.pdf(x, a=i, scale=2))
-        # B = np.array(B).T
-        # B = B/B.sum(0)
-        # self.B = np.vstack((B[::-1], np.zeros((B.shape[0]-1, B.shape[1]))))
-        # V3
-        x = np.arange(-nt//2+1, nt//2+1, 1)
+        x = np.arange(0, nt, 1)
         B = []
-        for i in range(1, n_basis_funcs+1):
-            B.append(norm.pdf(x, 0, i))
+        for i in range(2, n_basis_funcs+2):
+            B.append(gamma.pdf(x, a=i, scale=2))
         B = np.array(B).T
         B = B/B.sum(0)
-        self.B = B
+        self.B = np.vstack((B[::-1], np.zeros((B.shape[0]-1, B.shape[1]))))
+        # V3
+        # x = np.arange(-nt//2+1, nt//2+1, 1)
+        # B = []
+        # for i in range(1, n_basis_funcs+1):
+        #     B.append(norm.pdf(x, 0, i))
+        # B = np.array(B).T
+        # B = B/B.sum(0)
+        # self.B = B
+
+
 
         self.C = np.zeros((self.T, self.N, n_basis_funcs))
         for i in range(self.N):
@@ -182,7 +184,7 @@ class ConvolvedGLM(object):
             # tmp = StandardScaler().fit_transform(tmp)
             tmp = np.hstack((tmp, np.ones((len(tmp), 1))))
             self.X.append(tmp)
-            
+
         self.X = np.array(self.X)
 
         self.X = np.transpose(self.X, (1, 0, 2))

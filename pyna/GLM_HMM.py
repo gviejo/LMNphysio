@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-07-22 14:47:28
+# @Last Modified by:   gviejo
+# @Last Modified time: 2023-07-25 13:43:08
 import numpy as np
 import os, sys
 from scipy.optimize import minimize
@@ -121,7 +121,7 @@ def optimize_transition2(args):
     # Computing the observation
     O = compute_observation(W, X, Y, K)
     
-    for i in range(100):
+    for i in range(200):
 
         # Forward/backward
         alpha, scaling = forward(A, T, K, O, init)                
@@ -139,7 +139,7 @@ def optimize_transition2(args):
         A = E.sum(0)/(G[0:-1].sum(0)[:,None])        
 
         # Learning GLM based on best sequence for each state
-        if i %20 == 0:
+        if i %5 == 0:
             z = np.argmax(G, 1)
             b0 = np.zeros((W.shape[0], W.shape[2]))
             for j in range(1, K): # NOt learning the glm 0
@@ -290,8 +290,8 @@ class GLM_HMM(object):
         O = []
         for k in range(self.K):
             mu = self.glms[k].predict(self.X)
-            if k == 0:
-                mu*=1e-2
+            # if k == 0:
+            #     mu*=1e-2
             p = poisson.pmf(k=self.Y, mu=mu)
             p = np.clip(p, 1e-15, 1.0)
             O.append(p.prod(1))
@@ -304,22 +304,22 @@ class GLM_HMM(object):
         Zs = []
         Ws = []
 
-        args = [(self.K, self.T, self.initial_W, self.X, self.Y) for i in range(5)]
-        with Pool(len(args)) as pool:
-            for result in pool.map(optimize_transition2, args):
-                As.append(result[0])
-                Zs.append(result[1])
-                Ws.append(result[2])
-                self.scores.append(result[3])
+        # args = [(self.K, self.T, self.initial_W, self.X, self.Y) for i in range(5)]
+        # with Pool(len(args)) as pool:
+        #     for result in pool.map(optimize_transition2, args):
+        #         As.append(result[0])
+        #         Zs.append(result[1])
+        #         Ws.append(result[2])
+        #         self.scores.append(result[3])
 
 
-        # for _ in range(1):
-        #     # A, Z, score = optimize_transition((self.K, self.T, self.O))
-        #     A, Z, W, score = optimize_transition2((self.K, self.T, self.initial_W, self.X, self.Y))
+        for _ in range(1):
+            # A, Z, score = optimize_transition((self.K, self.T, self.O))
+            A, Z, W, score = optimize_transition2((self.K, self.T, self.initial_W, self.X, self.Y))
 
-        #     self.scores.append(score)
-        #     As.append(A)
-        #     Zs.append(Z)
+            self.scores.append(score)
+            As.append(A)
+            Zs.append(Z)
 
 
         # self.scores = np.array(self.scores).T
