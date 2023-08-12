@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
-# @Last Modified by:   gviejo
-# @Last Modified time: 2023-07-27 14:39:55
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2023-08-12 17:51:58
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -40,14 +40,14 @@ elif os.path.exists('/media/guillaume/Raid2'):
 
 datasets = np.hstack([
     np.genfromtxt(os.path.join(data_directory,'datasets_LMN.list'), delimiter = '\n', dtype = str, comments = '#'),
-    # np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#'),
-    # np.genfromtxt(os.path.join(data_directory,'datasets_LMN_PSB.list'), delimiter = '\n', dtype = str, comments = '#'),
+    np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#'),
+    np.genfromtxt(os.path.join(data_directory,'datasets_LMN_PSB.list'), delimiter = '\n', dtype = str, comments = '#'),
     ])
 
 
 SI_thr = {
     'adn':0.5, 
-    'lmn':0.1,
+    'lmn':0.2,
     'psb':1.5
     }
 
@@ -57,8 +57,10 @@ durations = []
 spkcounts = []
 corr = []
 
-# for s in datasets:
-for s in ['LMN-ADN/A5002/A5002-200304A']:
+for s in datasets:
+# for s in ["LMN-ADN/A5011/A5011-201010A"]:
+# for s in ["LMN/A6701/A6701-201208A"]:
+# for s in ['LMN-ADN/A5002/A5002-200303B']:
 # for s in ['LMN-PSB/A3010/A3010-210324A']:
     print(s)
     ############################################################################################### 
@@ -116,14 +118,14 @@ for s in ['LMN-ADN/A5002/A5002-200304A']:
             
             
             velocity = computeAngularVelocity(position['ry'], position.time_support.loc[[0]], 0.2)
-            newwake_ep = velocity.threshold(0.07).time_support.drop_short_intervals(1).merge_close_intervals(1)
+            newwake_ep = velocity.threshold(0.05).time_support.drop_short_intervals(1).merge_close_intervals(1)
 
             ############################################################################################### 
             # HMM GLM
             ###############################################################################################
             
-            bin_size = 0.03
-            window_size = bin_size*100.0
+            bin_size = 0.02
+            window_size = bin_size*50.0
 
             ############################################
             # glms = []
@@ -139,14 +141,14 @@ for s in ['LMN-ADN/A5002/A5002-200304A']:
 
             ############################################
             print("fitting GLM")
-            glm = ConvolvedGLM(spikes, bin_size*10.0, window_size*10, newwake_ep)
+            glm = ConvolvedGLM(spikes, bin_size, window_size, newwake_ep)
             glm.fit_scipy()
             
 
-            # spikes2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(newwake_ep))
+            spikes2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(newwake_ep))
             # spikes2 = nap.randomize.resample_timestamps(spikes.restrict(sws_ep))
-            # spikes2.set_info(maxch = spikes._metadata["maxch"], group = spikes._metadata["group"])
-            rglm = ConvolvedGLM(spikes, bin_size, window_size, sws_ep)
+            spikes2.set_info(maxch = spikes._metadata["maxch"], group = spikes._metadata["group"])
+            rglm = ConvolvedGLM(spikes2, bin_size, window_size, newwake_ep)
             rglm.fit_scipy()
 
             glm0 = ConvolvedGLM(spikes, bin_size, window_size, newwake_ep)
@@ -154,8 +156,8 @@ for s in ['LMN-ADN/A5002/A5002-200304A']:
 
             # sys.exit()
 
-            hmm = GLM_HMM((glm0, glm, rglm))
-            # hmm = GLM_HMM((glm, rglm))
+            # hmm = GLM_HMM((glm0, glm, rglm))
+            hmm = GLM_HMM((glm, rglm))
             
             hmm.fit_transition(spikes, sws_ep, bin_size)
 
@@ -165,8 +167,9 @@ for s in ['LMN-ADN/A5002/A5002-200304A']:
             # plot(hmm.Z)       
             # ylabel("state")     
             # subplot(gs[1,0], sharex=ax)
-            # plot(spikes.restrict(sws_ep).to_tsd("order"), '|', markersize=20)
+            # plot(spikes.restrict(sws_ep).to_tsd("peaks"), '|', markersize=20)
             # ylabel("Spikes")
+            # ylim(0, 2*np.pi)
             # subplot(gs[2,0], sharex=ax)
             # plot(hmm.time_idx, hmm.O[:,0:])
             # ylabel("P(O)")
@@ -194,20 +197,22 @@ for s in ['LMN-ADN/A5002/A5002-200304A']:
             # y = y.restrict(ep)
             # sg3.plot(y[0], color='green')
 
-            
+            # sys.exit()
             
 
             # figure()
             # for i in range(len(spikes)):
             #     w = glm.W[:,i]
+            #     w = w[0:-1]
             #     a = peaks.values[list(set(np.arange(len(spikes))) - set([i]))]
             #     tmp = pd.DataFrame(index=a, data=w.reshape(int(w.shape[0]/glm.B.shape[1]), glm.B.shape[1]))
             #     tmp = tmp.sort_index()
-            #     subplot(3, 4, i+1)
+            #     subplot(3, 5, i+1)
             #     plot(tmp, 'o-')
             #     plot([peaks.values[i], peaks.values[i]], [0, w.max()])
             # show()            
-            
+
+            # sys.exit()            
             
             ############################################################################################### 
             # GLM CORRELATION
@@ -224,7 +229,7 @@ for s in ['LMN-ADN/A5002/A5002-200304A']:
             # for e in cc_glm.keys():
             #     rglm[e] = cc_glm[e].loc[0]
 
-            if all([len(ep)>1 for ep in hmm.eps]):
+            if all([len(ep)>1 for ep in hmm.eps.values()]):
                 ############################################################################################### 
                 # PEARSON CORRELATION
                 ###############################################################################################        
@@ -238,8 +243,8 @@ for s in ['LMN-ADN/A5002/A5002-200304A']:
                     rate = rate.apply(zscore)                    
                     rates[e] = nap.TsdFrame(rate)
                 
-                eps = hmm.eps            
-                for i in range(len(eps)):
+                eps = hmm.eps
+                for i in eps.keys():
                     rates['ep'+str(i)] = rates['sws'].restrict(eps[i])
 
                 # _ = rates.pop("sws")
@@ -288,7 +293,7 @@ for s in ['LMN-ADN/A5002/A5002-200304A']:
                 #######################
                 allr.append(r)
                 # allr_glm.append(rglm)
-                durations.append(pd.DataFrame(data=[e.tot_length('s') for e in eps], columns=[data.basename]).T)
+                durations.append(pd.DataFrame(data=[e.tot_length('s') for e in eps.values()], columns=[data.basename]).T)
                 
                 spkcounts.append(
                     pd.DataFrame(data = [[len(spikes.restrict(eps[i]).to_tsd()) for i in range(len(eps))]],

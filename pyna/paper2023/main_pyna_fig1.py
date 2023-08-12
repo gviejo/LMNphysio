@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-04-11 19:57:19
+# @Last Modified time: 2023-08-12 17:51:00
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -106,11 +106,9 @@ colors = {
 ############################################################################################### 
 # LOADING DATA
 ###############################################################################################
-path2 = os.path.expanduser("~")+'/Dropbox/LMNphysio/data'
+dropbox_path = os.path.expanduser("~")+'/Dropbox/LMNphysio/data'
 
-session = '/mnt/DataRAID2/LMN-ADN/A5043/A5043-230301A'
-
-data = cPickle.load(open(path2+'/DATA_FIG_2_LMN_ADN_A5043_MS5.pickle', 'rb'))
+data = cPickle.load(open(dropbox_path+'/DATA_FIG_1_LMN_ADN_A5043_MS5.pickle', 'rb'))
 decoding = {
     'wak':nap.Tsd(t=data['wak'].index.values, d=data['wak'].values, time_units = 's'),
     'sws':nap.Tsd(t=data['sws'].index.values, d=data['sws'].values, time_units = 's'),
@@ -332,9 +330,9 @@ gscor = gridspec.GridSpecFromSubplotSpec(2,4, subplot_spec = gs2[0,0],
 allaxis = []
 
 
-paths = [path2+'/All_correlation_ADN.pickle',
-    #path2+'/All_correlation_ADN_LMN.pickle',
-    path2+'/All_correlation_LMN.pickle'
+paths = [dropbox_path+'/All_correlation_ADN.pickle',
+    #dropbox_path+'/All_correlation_ADN_LMN.pickle',
+    dropbox_path+'/All_correlation_LMN.pickle'
 ]
 #names = ['ADN', 'ADN/LMN', 'LMN']
 #clrs = ['lightgray', 'darkgray', 'gray']
