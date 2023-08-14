@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-08-12 17:29:06
+# @Last Modified time: 2023-08-14 12:51:57
 import numpy as np
 import os, sys
 from scipy.optimize import minimize
@@ -47,7 +47,7 @@ def compute_observation(W, X, Y, K):
     O = []
     for k in range(K):
         mu = np.exp(np.einsum('tnk,kn->tn', X, W[k]))        
-        if k == 0:
+        if k == 0 and K>2:
             mu*=1e-2
         p = poisson.pmf(k=Y, mu=mu)
         p = np.clip(p, 1e-15, 1.0)
@@ -71,7 +71,7 @@ def loss_bias(b, X, Y, W):
     Xb = np.einsum('tnk,kn->tn', X, B)
     exp_Xb = np.exp(Xb)
     loss = np.sum(exp_Xb, 0) - np.sum(Y*Xb, 0)
-    l2 = 0.5*Y.shape[0]*np.sum(np.power(b, 2), 0)            
+    l2 = 0.1*Y.shape[0]*np.sum(np.power(b, 2), 0)            
     # grad = np.einsum('tnk,tn->kn', X, exp_Xb - Y) + Y.shape[0]*b
     return np.sum(loss + l2)#, grad.flatten()
 
@@ -139,7 +139,7 @@ def optimize_transition2(args):
         A = E.sum(0)/(G[0:-1].sum(0)[:,None])        
 
         # Learning GLM based on best sequence for each state
-        if i %20 == 0:
+        if i %10 == 0:
             z = np.argmax(G, 1)
             b0 = np.zeros((W.shape[0], W.shape[2]))
             for j in range(1, K): # NOt learning the glm 0
@@ -313,9 +313,9 @@ class GLM_HMM(object):
         #         self.scores.append(result[3])
 
 
-        for _ in range(1):
-            A, Z, score = optimize_transition((self.K, self.T, self.O))
-            # A, Z, W, score = optimize_transition2((self.K, self.T, self.initial_W, self.X, self.Y))
+        for _ in range(5):
+            # A, Z, score = optimize_transition((self.K, self.T, self.O))
+            A, Z, W, score = optimize_transition2((self.K, self.T, self.initial_W, self.X, self.Y))
 
             self.scores.append(score)
             As.append(A)

@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-08-12 17:51:58
+# @Last Modified time: 2023-08-12 19:17:57
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -111,20 +111,20 @@ for s in datasets:
 
         if len(tokeep) > 6:
             
-            figure()
-            for i in range(len(tokeep)):
-                subplot(4, 4, i+1, projection='polar')
-                plot(tcurves[tokeep[i]])
+            # figure()
+            # for i in range(len(tokeep)):
+            #     subplot(4, 4, i+1, projection='polar')
+            #     plot(tcurves[tokeep[i]])
             
             
             velocity = computeAngularVelocity(position['ry'], position.time_support.loc[[0]], 0.2)
-            newwake_ep = velocity.threshold(0.05).time_support.drop_short_intervals(1).merge_close_intervals(1)
+            newwake_ep = velocity.threshold(0.07).time_support.drop_short_intervals(1).merge_close_intervals(1)
 
             ############################################################################################### 
             # HMM GLM
             ###############################################################################################
             
-            bin_size = 0.02
+            bin_size = 0.015
             window_size = bin_size*50.0
 
             ############################################

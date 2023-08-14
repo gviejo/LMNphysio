@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-08-10 17:16:25
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-03-07 21:43:56
+# @Last Modified time: 2023-08-14 16:30:18
 import scipy.io
 import sys, os
 import numpy as np
@@ -16,12 +16,12 @@ from matplotlib.pyplot import *
 
 
 # path = '/mnt/DataRAID2/LMN-ADN/A5043/A5043-230301A'
-path = '/mnt/ceph/users/gviejo/LMN-ADN/A5043/A5043-230301A'
+path = '/mnt/ceph/users/gviejo/LMN-ADN/A5043/A5043-230228A'
 
 
 data = nap.load_session(path, 'neurosuite')
 
-spikes = data.spikes.getby_threshold('rate', 0.5)
+spikes = data.spikes.getby_threshold('rate', 1)
 angle = data.position['ry']
 position = data.position
 
@@ -47,7 +47,7 @@ r = correlate_TC_half_epochs(spikes, angle, 120, (0, 2*np.pi))
 spikes.set_info(halfr = r)
 
 
-adn = spikes.getby_category("location")['adn'].getby_threshold('SI', 0.4).getby_threshold('halfr', 0.5).index
+adn = spikes.getby_category("location")['adn'].getby_threshold('SI', 0.2).getby_threshold('halfr', 0.5).index
 lmn = spikes.getby_category("location")['lmn'].getby_threshold('SI', 0.2).getby_threshold('halfr', 0.5).index
 
 tokeep = list(adn) + list(lmn)
@@ -92,7 +92,7 @@ angle_wak, proba_angle_wak = nap.decode_1d(tuning_curves[tokeep], spikes2, wake_
 
 angle_sws, proba_sws = nap.decode_1d(tuning_curves[tokeep], spikes2, sws_ep, 0.04)
 
-angle_rem, _ = nap.decode_1d(tuning_curves[tokeep], spikes2, rem_ep, 0.3)
+angle_rem, proba_rem = nap.decode_1d(tuning_curves[tokeep], spikes2, rem_ep, 0.3)
 
 
 #############################
@@ -118,6 +118,9 @@ datatosave = { 'wak':angle_wak,
               'spikes':spikes,
               'adn':adn,
               'lmn':lmn,
+              'p_rem':proba_rem,
+              'p_sws':proba_sws,
+              'p_wak':proba_angle_wak,
               # 'up_ep':up_ep,
               # 'down_ep':down_ep,
               'tokeep':tokeep,
@@ -126,18 +129,21 @@ datatosave = { 'wak':angle_wak,
                 end = 12700.38
                 ),
               'ex_rem':nap.IntervalSet(
-                start = 3616.38,
-                end = 3640.37
+                start = 8801.38,
+                end = 8842.37
                 ),
               'ex_wak':nap.IntervalSet(
-                start = 7968.0,
-                end = 8007.14
+                start = 5441.0,
+                end = 5489.14
                 )
           }
 
 import _pickle as cPickle
 # cPickle.dump(datatosave, open('../figures/figures_adrien_2022/fig_1_decoding.pickle', 'wb'))
-filepath = os.path.join(os.path.expanduser("~"), 'Dropbox/LMNphysio/data/DATA_FIG_2_LMN_ADN_A5043_MS5.pickle')
+# filepath = os.path.join(os.path.expanduser("~"), 'Dropbox/LMNphysio/data/DATA_FIG_2_LMN_ADN_A5043_MS5.pickle')
+
+filepath = os.path.join(os.path.expanduser("~"), 'Dropbox/LMNphysio/data/DATA_FIG_LMN_ADN_{}.pickle'.format(os.path.basename(path)))
+
 cPickle.dump(datatosave, open(filepath, 'wb'))
 
 sws2_ep = sws_ep.loc[[(sws_ep["end"] - sws_ep["start"]).sort_values().index[-1]]]
@@ -181,3 +187,4 @@ for i,n in enumerate(lmn):
     plot(spikes[n].restrict(rem_ep).fillna(i), '|', markersize = 10)
 
 show()
+
