@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-08-12 17:29:52
+# @Last Modified time: 2023-08-16 17:21:49
 import numpy as np
 import pynapple as nap
 import os, sys
@@ -131,7 +131,7 @@ class ConvolvedGLM(object):
         nt = int(windowsize/binsize)
         if nt%2==0: nt += 1
 
-        n_basis_funcs = 5
+        n_basis_funcs = 3
         # V1
         # x = np.logspace(np.log10(np.pi * (n_basis_funcs - 1)), -1, nt) - .1
         # shifted_x = x[None, :] - (np.pi * np.arange(n_basis_funcs))[:, None]

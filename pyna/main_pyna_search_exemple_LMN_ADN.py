@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-08-10 17:16:25
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-08-14 16:30:18
+# @Last Modified time: 2023-08-16 18:29:19
 import scipy.io
 import sys, os
 import numpy as np
@@ -16,7 +16,7 @@ from matplotlib.pyplot import *
 
 
 # path = '/mnt/DataRAID2/LMN-ADN/A5043/A5043-230301A'
-path = '/mnt/ceph/users/gviejo/LMN-ADN/A5043/A5043-230228A'
+path = '/mnt/ceph/users/gviejo/LMN-ADN/A5043/A5043-230302A'
 
 
 data = nap.load_session(path, 'neurosuite')
@@ -47,8 +47,8 @@ r = correlate_TC_half_epochs(spikes, angle, 120, (0, 2*np.pi))
 spikes.set_info(halfr = r)
 
 
-adn = spikes.getby_category("location")['adn'].getby_threshold('SI', 0.2).getby_threshold('halfr', 0.5).index
-lmn = spikes.getby_category("location")['lmn'].getby_threshold('SI', 0.2).getby_threshold('halfr', 0.5).index
+adn = spikes.getby_category("location")['adn'].getby_threshold('SI', 0.5).getby_threshold('halfr', 0.5).index
+lmn = spikes.getby_category("location")['lmn'].getby_threshold('SI', 0.1).getby_threshold('halfr', 0.5).index
 
 tokeep = list(adn) + list(lmn)
 
@@ -65,6 +65,7 @@ for l,j in enumerate(np.unique(shank)):
     for k,i in enumerate(neurons):      
         subplot(int(np.sqrt(len(spikes)))+1,int(np.sqrt(len(spikes)))+1,count, projection = 'polar')    
         plot(tuning_curves[i], label = str(np.round(SI.loc[i].values[0], 4)), color = colors[l])
+        title(i)
         legend()
         count+=1
         gca().set_xticklabels([])
@@ -84,15 +85,15 @@ show()
 
 #spikes = spikes[tokeep]
 
-tcurves = tuning_curves[tokeep]
+tcurves = tuning_curves
 
 wake_ep = wake_ep.loc[[0]]
 
-angle_wak, proba_angle_wak = nap.decode_1d(tuning_curves[tokeep], spikes2, wake_ep, 0.3, feature = angle.restrict(wake_ep.loc[[0]]))
+angle_wak, proba_angle_wak = nap.decode_1d(tuning_curves[lmn], spikes2[lmn], wake_ep, 0.3, feature = angle.restrict(wake_ep.loc[[0]]))
 
-angle_sws, proba_sws = nap.decode_1d(tuning_curves[tokeep], spikes2, sws_ep, 0.04)
+angle_sws, proba_sws = nap.decode_1d(tuning_curves[lmn], spikes2[lmn], sws_ep, 0.02)
 
-angle_rem, proba_rem = nap.decode_1d(tuning_curves[tokeep], spikes2, rem_ep, 0.3)
+angle_rem, proba_rem = nap.decode_1d(tuning_curves[lmn], spikes2[lmn], rem_ep, 0.3)
 
 
 #############################
@@ -125,16 +126,16 @@ datatosave = { 'wak':angle_wak,
               # 'down_ep':down_ep,
               'tokeep':tokeep,
               'ex_sws':nap.IntervalSet(
-                start = 12693.73,
-                end = 12700.38
+                start = 12560.73,
+                end = 12566.38
                 ),
               'ex_rem':nap.IntervalSet(
-                start = 8801.38,
-                end = 8842.37
+                start = 758.38,
+                end = 791.37
                 ),
               'ex_wak':nap.IntervalSet(
-                start = 5441.0,
-                end = 5489.14
+                start = 7349.50,
+                end = 7410.00
                 )
           }
 
@@ -146,33 +147,33 @@ filepath = os.path.join(os.path.expanduser("~"), 'Dropbox/LMNphysio/data/DATA_FI
 
 cPickle.dump(datatosave, open(filepath, 'wb'))
 
-sws2_ep = sws_ep.loc[[(sws_ep["end"] - sws_ep["start"]).sort_values().index[-1]]]
+sws2_ep = sws_ep.loc[[(sws_ep["end"] - sws_ep["start"]).sort_values().index[-2]]]
 
 # wake
 figure()
-ax = subplot(311)
+ax = subplot(313)
 plot(angle)
 title("wwake")
 # plot(angle_wak, '--')
-subplot(312, sharex = ax)
+subplot(311, sharex = ax)
 for i,n in enumerate(adn):
     plot(spikes[n].restrict(wake_ep).fillna(i), '|', markersize = 10)
-subplot(313, sharex = ax)
+subplot(312, sharex = ax)
 for i,n in enumerate(lmn):
     plot(spikes[n].restrict(wake_ep).fillna(i), '|', markersize = 10)
 
 # sws
 figure()
-ax = subplot(311)
-plot(angle_sws.restrict(sws2_ep), '--')
+ax = subplot(313)
+plot(angle_sws.restrict(sws_ep), '--')
 title("sws")
-subplot(312, sharex = ax)
+subplot(311, sharex = ax)
 for i,n in enumerate(adn):
-    plot(spikes[n].restrict(sws2_ep).fillna(i), '|', markersize = 10)
-subplot(313, sharex = ax)
+    plot(spikes[n].restrict(sws_ep).fillna(i), '|', markersize = 15, markeredgewidth=5)
+subplot(312, sharex = ax)
 for i,n in enumerate(lmn):
-    plot(spikes[n].restrict(sws2_ep).fillna(i), '|', markersize = 10)
-
+    plot(spikes[n].restrict(sws_ep).fillna(i), '|', markersize = 15, markeredgewidth=5)
+show()
 
 # rem
 figure()

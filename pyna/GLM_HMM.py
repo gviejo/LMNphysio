@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-08-14 12:51:57
+# @Last Modified time: 2023-08-16 18:43:45
 import numpy as np
 import os, sys
 from scipy.optimize import minimize
@@ -139,10 +139,15 @@ def optimize_transition2(args):
         A = E.sum(0)/(G[0:-1].sum(0)[:,None])        
 
         # Learning GLM based on best sequence for each state
-        if i %10 == 0:
+        if i %50 == 0 and i>1:
+            print("Fitting GLM 1")
             z = np.argmax(G, 1)
             b0 = np.zeros((W.shape[0], W.shape[2]))
-            for j in range(1, K): # NOt learning the glm 0
+            if K>2:
+                rnge = range(1, K)
+            else:
+                rnge = range(0, K)
+            for j in rnge: 
                 if np.sum(z == j) > 100:
                     solver = minimize(loss_bias, b0[j], args = (X[z==j], Y[z==j], W[j,0:-1,:]), jac=False)#, method='L-BFGS-B')
                     W[j,-1,:] = solver['x'].flatten()
@@ -287,16 +292,7 @@ class GLM_HMM(object):
         ############################################
 
         # Computing the observation
-        O = []
-        for k in range(self.K):
-            mu = self.glms[k].predict(self.X)
-            if k == 0 and self.K>2:
-                mu*=1e-2
-            p = poisson.pmf(k=self.Y, mu=mu)
-            p = np.clip(p, 1e-15, 1.0)
-            O.append(p.prod(1))
-        self.O = np.array(O).T
-
+        self.O = compute_observation(self.initial_W, self.X, self.Y, self.K)        
         # self.O = gaussian_filter(self.O, (1, 0))
 
         self.scores = []
@@ -314,13 +310,17 @@ class GLM_HMM(object):
 
 
         for _ in range(5):
-            # A, Z, score = optimize_transition((self.K, self.T, self.O))
-            A, Z, W, score = optimize_transition2((self.K, self.T, self.initial_W, self.X, self.Y))
+            A, Z, score = optimize_transition((self.K, self.T, self.O))
+            # A, Z, W, score = optimize_transition2((self.K, self.T, self.initial_W, self.X, self.Y))
 
             self.scores.append(score)
             As.append(A)
             Zs.append(Z)
 
+        try:
+            self.O = compute_observation(W, self.X, self.Y, self.K)
+        except:
+            pass
 
         # self.scores = np.array(self.scores).T
         self.max_L = np.array([score.max() for score in self.scores])

@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-07-15 16:28:30
+# @Last Modified time: 2023-08-16 18:50:03
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -32,7 +32,7 @@ datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), d
 
 SI_thr = {
     'adn':0.5, 
-    'lmn':0.1,
+    'lmn':0.2,
     'psb':1.5
     }
 
@@ -41,7 +41,8 @@ allr_glm = {'adn':[], 'lmn':[]}
 durations = []
 corr = {'adn':[], 'lmn':[]}
 
-for s in datasets:
+# for s in datasets:
+for s in ["LMN-ADN/A5043/A5043-230302A"]:
 # for s in ['LMN-ADN/A5043/A5043-230301A']:
 # # for s in ['LMN/A1413/A1413-200918A']:
 # for s in ['LMN/A1414/A1414-200929A']:
@@ -80,10 +81,10 @@ for s in datasets:
         SI = nap.compute_1d_mutual_info(tcurves, position['ry'], position.time_support.loc[[0]], (0, 2*np.pi))
         spikes.set_info(SI)
         spikes.set_info(max_fr = tcurves.max())
-
-        groups = {}
+        
+        groups = spikes.getby_category("location")
         for k in ['adn', 'lmn']:
-            group = spikes.getby_threshold("SI", SI_thr[k])
+            group = groups[k].getby_threshold("SI", SI_thr[k])
             group = group.getby_threshold("rate", 1.0)
             group = group.getby_threshold("max_fr", 3.0)            
             tokeep = group.index
@@ -95,6 +96,8 @@ for s in datasets:
 
         spikes = groups['lmn']
 
+
+
         if len(groups['lmn']) > 5 and len(groups['adn']) > 3:
             
             # figure()
@@ -104,146 +107,152 @@ for s in datasets:
             # show()
             
             velocity = computeAngularVelocity(position['ry'], position.time_support.loc[[0]], 0.2)
-            newwake_ep = velocity.threshold(0.07).time_support.drop_short_intervals(1).merge_close_intervals(1)
+            newwake_ep = velocity.threshold(0.05).time_support.drop_short_intervals(1).merge_close_intervals(1)
 
             ############################################################################################### 
             # HMM GLM
             ###############################################################################################
             
             bin_size = 0.03
-            window_size = bin_size*100.0
+            window_size = bin_size*50.0
             
-            glm = ConvolvedGLM(spikes, bin_size, window_size, newwake_ep)            
+            ############################################
+            print("fitting GLM")
+            glm = ConvolvedGLM(spikes, bin_size*10, window_size*10, newwake_ep)
             glm.fit_scipy()
-            glm.W = np.zeros_like(glm.W)
+            
 
-            # spikes2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(sws_ep))
-            # # spikes2 = nap.randomize.resample_timestamps(spikes.restrict(sws_ep))
+            # spikes2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(newwake_ep))
+            # spikes2 = nap.randomize.resample_timestamps(spikes.restrict(sws_ep))
             # spikes2.set_info(maxch = spikes._metadata["maxch"], group = spikes._metadata["group"])
-            # glms = ConvolvedGLM(spikes2, bin_size, window_size, sws_ep)
-            # glms.fit_scipy()
+            # rglm = ConvolvedGLM(spikes2, bin_size, window_size, newwake_ep)
+            rglm = ConvolvedGLM(spikes, bin_size, window_size, sws_ep)
+            rglm.fit_scipy()
 
-            # glm0 = ConvolvedGLM(spikes, bin_size, 1.0, newwake_ep)
+            # glm0 = ConvolvedGLM(spikes, bin_size, window_size, newwake_ep)
             # glm0.W = np.zeros_like(glm.W)
 
-            # hmm = GLM_HMM((glm, glms))
-            hmm = GLM_HMM((glm, glm))
+            # sys.exit()
 
-            # hmm.fit_transition(spikes, sws_ep, bin_size)
-
-            hmm.fit_observation(spikes, sws_ep, bin_size)
-
-            # figure()
-            # ax = subplot(311)        
-            # plot(hmm.Z)            
-            # subplot(312, sharex=ax)
-            # plot(spikes.restrict(sws_ep).to_tsd("order"), '|', markersize=20)
-            # subplot(313, sharex=ax)
-            # plot(hmm.time_idx, hmm.O)
-            # show()
+            # hmm = GLM_HMM((glm0, glm, rglm))
+            hmm = GLM_HMM((glm, rglm))
             
-            ############################################################################################### 
-            # GLM CORRELATION
-            ############################################################################################### 
-            # corrglm = CorrelationGLM(spikes, data.basename)
-
-            # cc_glm = {'wak':corrglm.fit(newwake_ep, 0.3, 3.0)[0]}
-
-            # eps = hmm.eps            
-            # for i in range(len(eps)):
-            #     cc_glm['ep'+str(i)] = corrglm.fit(eps[i], 0.01, 0.5)[0]
-
-            # rglm = pd.DataFrame(index = cc_glm['wak'].columns, columns = cc_glm.keys())
-            # for e in cc_glm.keys():
-            #     rglm[e] = cc_glm[e].loc[0]
-
-            eps = hmm.eps
-            durations.append(pd.DataFrame(data=[e.tot_length('s') for e in eps], columns=[data.basename]).T)
+            hmm.fit_transition(spikes, sws_ep, bin_size)
             
+            figure()
+            gs = GridSpec(4,1, hspace = 0)
+            ax = subplot(gs[0,0])
+            plot(hmm.Z)
+            ylabel("state")     
+            xlim(12558, 12566)
+            subplot(gs[1,0], sharex=ax)
+            plot(groups["adn"].restrict(sws_ep).to_tsd("peaks"), '|', markersize=10, mew=3)
+            ylabel("ADN")
+            subplot(gs[2,0], sharex=ax)
+            plot(groups["lmn"].restrict(sws_ep).to_tsd("peaks"), '|', markersize=10, mew=3)
+            ylabel("LMN")
+            ylim(0, 2*np.pi)
+            subplot(gs[3,0], sharex=ax)
+            plot(hmm.time_idx, hmm.O[:,0:])
+            ylabel("P(O)")            
 
-            for k in ['adn', 'lmn']:
-                spikes = groups[k]
+            if all([len(ep)>1 for ep in hmm.eps.values()]):
+                            
+                for k in ['adn', 'lmn']:
+                    spikes = groups[k]
 
-                ############################################################################################### 
-                # PEARSON CORRELATION
-                ###############################################################################################
-                rates = {}
-                for e, ep, bin_size, std in zip(['wak', 'sws'], [newwake_ep, sws_ep], [0.3, 0.03], [1, 1]):
-                    count = spikes.count(bin_size, ep)
-                    rate = count/bin_size
-                    rate = rate.as_dataframe()
-                    rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=std)       
-                    rate = rate.apply(zscore)                    
-                    rates[e] = nap.TsdFrame(rate)
-                
-                
-                for i in range(len(eps)):
-                    rates['ep'+str(i)] = rates['sws'].restrict(eps[i])
+                    ############################################################################################### 
+                    # PEARSON CORRELATION
+                    ###############################################################################################
+                    rates = {}
+                    for e, ep, bin_size, std in zip(['wak', 'sws'], [newwake_ep, sws_ep], [0.3, 0.03], [1, 1]):
+                        count = spikes.count(bin_size, ep)
+                        rate = count/bin_size
+                        rate = rate.as_dataframe()
+                        rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=std)       
+                        rate = rate.apply(zscore)                    
+                        rates[e] = nap.TsdFrame(rate)
+                    
+                    eps = hmm.eps
+                    for i in range(len(eps)):
+                        rates['ep'+str(i)] = rates['sws'].restrict(eps[i])
 
-                _ = rates.pop("sws")
+                    # _ = rates.pop("sws")
 
-                # pairs = list(product(groups['adn'].astype(str), groups['lmn'].astype(str)))
-                pairs = [data.basename+"_"+i+"-"+j for i,j in list(combinations(np.array(spikes.keys()).astype(str), 2))]
-                r = pd.DataFrame(index = pairs, columns = rates.keys(), dtype = np.float32)
+                    # pairs = list(product(groups['adn'].astype(str), groups['lmn'].astype(str)))
+                    pairs = [data.basename+"_"+i+"-"+j for i,j in list(combinations(np.array(spikes.keys()).astype(str), 2))]
+                    r = pd.DataFrame(index = pairs, columns = rates.keys(), dtype = np.float32)
 
-                for ep in rates.keys():
-                    tmp = np.corrcoef(rates[ep].values.T)
-                    if len(tmp):
-                        r[ep] = tmp[np.triu_indices(tmp.shape[0], 1)]
+                    for ep in rates.keys():
+                        tmp = np.corrcoef(rates[ep].values.T)
+                        if len(tmp):
+                            r[ep] = tmp[np.triu_indices(tmp.shape[0], 1)]
 
-                #######################
-                # SAVING
-                #######################
-                allr[k].append(r)
-                # allr_glm.append(rglm)                
+                    to_keep = []
+                    for p in r.index:
+                        tmp = spikes._metadata.loc[np.array(p.split("_")[1].split("-"), dtype=np.int32), ['group', 'maxch']]
+                        if tmp['group'].iloc[0] == tmp['group'].iloc[1]:
+                            if tmp['maxch'].iloc[0] != tmp['maxch'].iloc[1]:
+                                to_keep.append(p)
+                    r = r.loc[to_keep]
 
-                #######################
-                # Session correlation
-                #######################
-                tmp = pd.DataFrame(index=[data.basename], columns=range(hmm.K))
-                for i in range(hmm.K):
-                    tmp.loc[data.basename,i] = scipy.stats.pearsonr(r['wak'], r['ep'+str(i)])[0]
-                corr[k].append(tmp)
-                
+
+                    #######################
+                    # Session correlation
+                    #######################
+                    tmp = pd.DataFrame(index=[data.basename], columns=range(hmm.K))
+                    for i in range(hmm.K):
+                        tmp.loc[data.basename,i] = scipy.stats.pearsonr(r['wak'], r['ep'+str(i)])[0]
+                    corr[k].append(tmp)
+                    
+                    #######################
+                    # SAVING
+                    #######################
+                    allr[k].append(r)
+                    # allr_glm.append(rglm)                                 
+
+                durations.append(pd.DataFrame(data=[e.tot_length('s') for e in eps.values()], columns=[data.basename]).T)
     
-durations = pd.concat(durations, 0)
+durations = pd.concat(durations)
 
 for k in ['adn', 'lmn']:
-    allr[k] = pd.concat(allr[k], 0)
+    allr[k] = pd.concat(allr[k])
     # allr_glm = pd.concat(allr_glm, 0)    
-    corr[k] = pd.concat(corr[k], 0)
+    corr[k] = pd.concat(corr[k])
 
 # print(scipy.stats.wilcoxon(corr[0], corr[1]))
 
 
 figure()
-gs = GridSpec(2, len(eps))
+epochs = ['sws'] + ['ep'+str(i) for i in range(len(eps))]
+gs = GridSpec(3, len(epochs))
 for j, k in enumerate(allr.keys()):
-    for i in range(len(eps)):
+    for i, e in enumerate(epochs):
         subplot(gs[j,i])
-        plot(allr[k]['wak'], allr[k]['ep'+str(i)], 'o', color = 'red', alpha = 0.5)
-        m, b = np.polyfit(allr[k]['wak'].values, allr[k]['ep'+str(i)].values, 1)
+        plot(allr[k]['wak'], allr[k][e], 'o', color = 'red', alpha = 0.5)
+        m, b = np.polyfit(allr[k]['wak'].values, allr[k][e].values, 1)
         x = np.linspace(allr[k]['wak'].min(), allr[k]['wak'].max(),5)
         plot(x, x*m + b)
         xlabel('wak')
-        ylabel('ep'+str(i))
+        ylabel(e)
         xlim(allr[k]['wak'].min(), allr[k]['wak'].max())
         ylim(allr[k].iloc[:,1:].min().min(), allr[k].iloc[:,1:].max().max())
-        r, p = scipy.stats.pearsonr(allr[k]['wak'], allr[k]['ep'+str(i)])
+        r, p = scipy.stats.pearsonr(allr[k]['wak'], allr[k][e])
         title('r = '+str(np.round(r, 3)))
 
-
-figure()    
-gs = GridSpec(1, len(eps)+1)
-subplot(gs[0,0])
+subplot(gs[2,0])
 tmp = durations.values
 tmp = tmp/tmp.sum(1)[:,None]
 plot(tmp.T, 'o', color = 'grey')
 plot(tmp.mean(0), 'o-', markersize=20)
+ylim(0, 1)
+title("Durations")
 
+subplot(gs[2,1])
 for i, k in enumerate(corr.keys()):
-    subplot(gs[0,i+1])
-    plot(corr[k].values.T, 'o-', color='grey')
-    ylim(0, 1)
-    print(k, scipy.stats.wilcoxon(corr[k][0], corr[k][1]))
+    for j, e in enumerate(corr[k].columns):
+        plot(np.random.randn(len(corr[k]))*0.1+np.ones(len(corr[k]))*j, corr[k][e], 'o')
+ylim(0, 1)
+# xticks(np.arange(corr.shape[1]), corr.columns)
+
 show()

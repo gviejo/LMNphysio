@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-08-14 16:40:09
+# @Last Modified time: 2023-08-16 18:20:42
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -25,6 +25,8 @@ import hsluv
 
 import os
 import sys
+
+from scipy.ndimage import gaussian_filter
 
 sys.path.append("../")
 from functions import *
@@ -109,7 +111,7 @@ colors = {"adn": "#EA9E8D", "lmn": "#8BA6A9", "psb": "#CACC90"}
 ###############################################################################################
 dropbox_path = os.path.expanduser("~") + "/Dropbox/LMNphysio/data"
 
-data = cPickle.load(open(dropbox_path + "/DATA_FIG_LMN_ADN_A5043-230228A.pickle", "rb"))
+data = cPickle.load(open(dropbox_path + "/DATA_FIG_LMN_ADN_A5043-230302A.pickle", "rb"))
 decoding = {
     "wak": nap.Tsd(t=data["wak"].index.values, d=data["wak"].values, time_units="s"),
     "sws": nap.Tsd(t=data["sws"].index.values, d=data["sws"].values, time_units="s"),
@@ -137,11 +139,11 @@ markers = ["d", "o", "v"]
 
 fig = figure(figsize=figsize(2))
 
-outergs = GridSpec(2, 1, figure=fig, height_ratios=[0.4, 0.6], hspace=0.45)
+outergs = GridSpec(3, 1, figure=fig, height_ratios=[0.2, 0.2, 0.3], hspace=0.45)
 
 #####################################
 gs1 = gridspec.GridSpecFromSubplotSpec(
-    1, 3, subplot_spec=outergs[0, 0], width_ratios=[0.3, 0.3, 0.6], wspace=0.15
+    1, 3, subplot_spec=outergs[0, 0], width_ratios=[0.3, 0.3, 0.6], wspace=0.4
 )
 
 names = ["ADN", "LMN"]
@@ -181,63 +183,55 @@ yticks([])
 # TUNING CURVes
 #########################
 gs_tc = gridspec.GridSpecFromSubplotSpec(
-    3, 1, subplot_spec=gs1[0, 1], height_ratios=[0.5, 0.5, 0.25]
+    3, 2, subplot_spec=gs1[0, 1], height_ratios=[0.5, 0.5, 0.25]
 )
 
 for i, (st, name) in enumerate(zip([adn, lmn], ["adn", "lmn"])):
-    # subplot(gs_tc[i+1, 0])
-    # order = peaks[st].sort_values().index.values[::-1]
-    # tmp = tcurves[order].values.T
-    # tmp = tmp/tmp.max(0)
-    # imshow(tmp, aspect='auto')
-    gs_tc2 = gridspec.GridSpecFromSubplotSpec(
-        2, 5, subplot_spec=gs_tc[i, 0], hspace=0.4
-    )
-    xy = np.array([0, 0])
-    for j, n in enumerate(peaks[st].sort_values().index.values):
-        subplot(gs_tc2[xy[0], xy[1]], projection="polar")
-        gca().spines["polar"].set_visible(False)
-        plot([0, np.pi], [1, 1], color=COLOR, linewidth=0.2, zorder=1)
-        plot([np.pi / 2, 3 * np.pi / 2], [1, 1], color=COLOR, linewidth=0.2, zorder=1)
-        xy[1] += 1
-        if xy[1] == gs_tc2.ncols:
-            xy = np.array([1, 0])
-        tmp = tcurves[n]
-        tmp = tmp / tmp.max()
-        fill_between(
-            tmp.index.values,
-            np.zeros_like(tmp.index.values),
-            tmp.values,
-            color=colors[name],
-            zorder=2,
-        )
 
-        # xticks([0, np.pi/2, np.pi, 3*np.pi/2], ["", "", "", ""])
-        xticks([])
-        yticks([])
+    
+    # Tunning curves centerered
+    subplot(gs_tc[i, 0])
+    simpleaxis(gca())
+    tc = centerTuningCurves(tcurves[st])    
+    tc = tc/tc.loc[0]
+    plot(tc, linewidth=0.1, color = colors[name], alpha=0.4)
+    plot(tc.mean(1), linewidth=0.5, color = colors[name])
+    xticks([])
+    if i == 1:
+        xticks([-np.pi, 0, np.pi], [-180, 0, 180])
+        xlabel("Centered HD")
 
-        # xlim(0, 2 * np.pi)
-        # ylim(0, 1.3)
-        # if j == (len(st) // 2) + 2:
-        #     ylabel(names[i], labelpad=15, rotation=0)
-        # if j == 1:
-        #     ylabel(str(len(st)), rotation=0, labelpad=5)
+    # All directions as arrows
+    subplot(gs_tc[i, 1], aspect="equal")
+    gca().spines["left"].set_position(("data", 0))
+    gca().spines["bottom"].set_position(("data", 0))
+    gca().spines["top"].set_visible(False)
+    gca().spines["right"].set_visible(False)
+    
+    theta = peaks[st].values
+    radius = np.sqrt(tcurves[st].max(0).values)
+    for t, r in zip(theta, radius):
+        arrow(0, 0, np.cos(t), np.sin(t), linewidth=0.05, color = colors[name], width=0.01)
 
-    # if i == 1:
-    #     xticks([0, 2 * np.pi], [0, 360])
-    #     xlabel("HD (deg.)", labelpad=-5)
+    xticks([-1, 1], ["-pi", "pi"])
+    # xlim(-1, 1)
+    # ylim(-1, 1)
+
+    xticks([])
+    yticks([])
+
 
 
 #########################
 # RASTER PLOTS
 #########################
 gs_raster = gridspec.GridSpecFromSubplotSpec(
-    3, 2, subplot_spec=gs1[0, 2], hspace=0.2, height_ratios=[0.5, 0.5, 0.25]
+    3, 2, subplot_spec=gs1[0, 2], hspace=0.2, height_ratios=[0.5, 0.5, 0.4], wspace=0.1
 )
 
-mks = 2
+mks = 1.1
 alp = 1
-medw = 0.8
+medw = 0.08
 
 epochs = ["Wake", "REM sleep", "nREM sleep"]
 
@@ -245,7 +239,7 @@ epochs = ["Wake", "REM sleep", "nREM sleep"]
 for i, ep in enumerate(["wak", "rem"]):
     for j, (st, name) in enumerate(zip([adn, lmn], ["adn", "lmn"])):
         subplot(gs_raster[j, i])
-        simpleaxis(gca())
+        simpleaxis(gca())        
         gca().spines["bottom"].set_visible(False)
         if i > 0:
             gca().spines["left"].set_visible(False)
@@ -255,10 +249,7 @@ for i, ep in enumerate(["wak", "rem"]):
         for k, n in enumerate(order):
             spk = spikes[n].restrict(exs[ep]).index.values
             if len(spk):
-                # clr = hsluv.hsluv_to_rgb([tcurves[n].idxmax()*180/np.pi,90,65])
                 clr = colors[name]
-                # clr = hsv_to_rgb([tcurves[n].idxmax()/(2*np.pi),0.6,0.7])
-                # plot(spk, np.ones_like(spk)*tcurves[n].idxmax(), '|', color = clr, markersize = mks, markeredgewidth = medw, alpha = 0.5)
                 plot(
                     spk,
                     np.ones_like(spk) * k,
@@ -266,7 +257,7 @@ for i, ep in enumerate(["wak", "rem"]):
                     color=clr,
                     markersize=mks,
                     markeredgewidth=medw,
-                    alpha=0.5,
+                    alpha=alp,
                 )
         if j == 0:
             title(epochs[i], pad=5)
@@ -274,104 +265,109 @@ for i, ep in enumerate(["wak", "rem"]):
         xlim(exs[ep].loc[0, "start"], exs[ep].loc[0, "end"])
         xticks([])
         yticks([])
+        if i == 0:
+            yticks([len(st)], [len(st)+1])
         gca().spines["bottom"].set_visible(False)
 
-        if i == 0 and j == 1:
-            plot(
-                np.array([exs[ep].end[0] - 1, exs[ep].end[0]]),
-                [0, 0],
-                linewidth=1,
-                color="black",
-            )
-            xlabel("1s", horizontalalignment="right", x=1.0)
-        if i == 1 and j == 1:
-            plot(
-                np.array([exs[ep].end[0] - 1, exs[ep].end[0]]),
-                [0, 0],
-                linewidth=1,
-                color="black",
-            )
-            xlabel("1s", horizontalalignment="right", x=1.0)
-        if i == 2 and j == 1:
-            plot(
-                np.array([exs[ep].end[0] - 0.2, exs[ep].end[0]]),
-                [0, 0],
-                linewidth=1,
-                color="black",
-            )
-            xlabel("0.2s", horizontalalignment="right", x=1.0)
+        if i == 0:
+            ylabel(name.upper(), rotation=0, labelpad=10)
 
+    #########################
+    # ANGLE
+    #########################
     subplot(gs_raster[-1, i])
     simpleaxis(gca())
+    
+    gca().spines['bottom'].set_bounds(exs[ep].end[0] - 5, exs[ep].end[0])
 
+    xticks([exs[ep].end[0] - 2.5], ["5 s"])
+
+    if i > 0:
+        gca().spines["left"].set_visible(False)    
+    
+    if i==0: 
+        yticks([0, 2*np.pi], [0, 360])
+    else:
+        yticks([])
+    p = data["p_" + ep].restrict(exs[ep]).values.T
+    p[np.isnan(p)] = 0.0
+    startend = exs[ep].values[0]    
     imshow(
-        data["p_" + ep].restrict(exs[ep]).values.T,
+        gaussian_filter(p, 3),
         origin="lower",
         aspect="auto",
         cmap="Greys",
-        # extent = (exs[ep].starts[0])
+        extent = (startend[0], startend[1], 0, 2*np.pi)
     )
+    if i == 0:
+        plot(angle.restrict(exs[ep]), linewidth=0.25, color = "seagreen", alpha=1)
+        ylabel("HD", rotation=0, labelpad=10)
 
-    # if ep == "wak":
-    # #     subplot(gs_raster[-1, 0])
-    # #     simpleaxis(gca())
-    # #     gca().spines["bottom"].set_visible(False)
-    #     tmp = angle.restrict(exs[ep])
-    #     tmp = (
-    #         tmp.as_series()
-    #         .rolling(window=40, win_type="gaussian", center=True, min_periods=1)
-    #         .mean(std=4.0)
-    #     )
-    #     plot(tmp, linewidth=1, color=(0.4, 0.4, 0.4), label="HD")
-    #     tmp2 = decoding["wak"]
-    #     tmp2 = nap.Tsd(tmp2)  # , time_support = wake_ep)
-    #     tmp2 = smoothAngle(tmp2, 1)
-    #     tmp2 = tmp2.restrict(exs[ep])
-    #     plot(tmp2, "--", linewidth=1, color="gray", alpha=alp, label="Decoded HD")
-    #     # title(epochs[0], pad=1)
-    #     xticks([])
-    #     yticks([0, 2 * np.pi], ["0", "360"])
-    #     # if j == 1:
-    #     # legend(frameon=False, handlelength=1.5, bbox_to_anchor=(-0.1, 1.25))
 
-    # if ep == "rem":
-    #     subplot(gs_raster[-1, 1])
-    #     simpleaxis(gca())
-    #     gca().spines["bottom"].set_visible(False)
-    #     gca().spines["left"].set_visible(False)
-    #     tmp2 = decoding["rem"].restrict(exs[ep])
-    #     plot(tmp2, "--", linewidth=1, color="gray", alpha=alp)
-    #     # title(epochs[1], pad=1)
-    #     yticks([])
-    #     xticks([])
+###############################
+# GLM - HMM SWS
+###############################
+gs22 = gridspec.GridSpecFromSubplotSpec(
+    1, 3, subplot_spec=outergs[1, 0], width_ratios=[0.2, 0.2, 0.2], wspace=0.15
+)  # , hspace = 0.5)
 
-    # if ep == "sws":
-    #     subplot(gs_raster[-1, 2])
-    #     simpleaxis(gca())
-    #     gca().spines["bottom"].set_visible(False)
-    #     gca().spines["left"].set_visible(False)
-    #     tmp2 = decoding["sws"]
-    #     tmp3 = (
-    #         pd.Series(index=tmp2.index, data=np.unwrap(tmp2.values))
-    #         .rolling(window=40, win_type="gaussian", center=True, min_periods=1)
-    #         .mean(std=2.0)
-    #     )
-    #     tmp3 = tmp3 % (2 * np.pi)
-    #     tmp2 = nap.Tsd(tmp3).restrict(exs[ep])
-    #     plot(tmp2.loc[: tmp2.idxmax()], "--", linewidth=1, color="gray", alpha=alp)
-    #     plot(
-    #         tmp2.loc[tmp2.idxmax() + 0.03 :], "--", linewidth=1, color="gray", alpha=alp
-    #     )
-    #     title(epochs[2], pad=1)
-    #     yticks([])
-    #     xticks([])
+gs_raster = gridspec.GridSpecFromSubplotSpec(
+    3, 1, subplot_spec=gs22[0, 1], hspace=0.2, height_ratios=[0.5, 0.5, 0.4], wspace=0.1
+)
+
+ep = "sws"
+for j, (st, name) in enumerate(zip([adn, lmn], ["adn", "lmn"])):
+    subplot(gs_raster[j, 0])
+    simpleaxis(gca())        
+    gca().spines["bottom"].set_visible(False)
+    gca().spines["left"].set_visible(False)
+
+    order = tcurves[st].idxmax().sort_values().index.values
+
+    for k, n in enumerate(order):
+        spk = spikes[n].restrict(exs[ep]).index.values
+        if len(spk):
+            clr = colors[name]
+            plot(
+                spk,
+                np.ones_like(spk) * k,
+                "|",
+                color=clr,
+                markersize=mks,
+                markeredgewidth=medw*2,
+                alpha=alp,
+            )
+    if j == 0:
+        title(epochs[i], pad=5)
+    # ylim(0, 2*np.pi)
+    xlim(exs[ep].loc[0, "start"], exs[ep].loc[0, "end"])
+    xticks([])    
+    yticks([len(st)], [len(st)+1])
+    gca().spines["bottom"].set_visible(False)
+    ylabel(name.upper(), rotation=0, labelpad=10)
+
+subplot(gs_raster[-1, 0])
+simpleaxis(gca())
+gca().spines['bottom'].set_bounds(exs[ep].end[0] - 5, exs[ep].end[0])
+xticks([exs[ep].end[0] - 2.5], ["5 s"])
+yticks([0, 2*np.pi], [0, 360])
+p = data["p_" + ep].restrict(exs[ep]).values.T
+p[np.isnan(p)] = 0.0
+startend = exs[ep].values[0]    
+imshow(
+    gaussian_filter(p, 3),
+    origin="lower",
+    aspect="auto",
+    cmap="Greys",
+    extent = (startend[0], startend[1], 0, 2*np.pi)
+)
 
 
 ###############################
 # Correlation
 ###############################
 gs2 = gridspec.GridSpecFromSubplotSpec(
-    1, 2, subplot_spec=outergs[1, 0], width_ratios=[0.3, 0.25], wspace=0.15
+    1, 2, subplot_spec=outergs[2, 0], width_ratios=[0.3, 0.25], wspace=0.15
 )  # , hspace = 0.5)
 
 gscor = gridspec.GridSpecFromSubplotSpec(
