@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-08-16 18:20:42
+# @Last Modified time: 2023-08-18 12:39:15
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -310,6 +310,33 @@ for i, ep in enumerate(["wak", "rem"]):
 gs22 = gridspec.GridSpecFromSubplotSpec(
     1, 3, subplot_spec=outergs[1, 0], width_ratios=[0.2, 0.2, 0.2], wspace=0.15
 )  # , hspace = 0.5)
+
+datahmm= cPickle.load(open(os.path.join(dropbox_path, 'GLM_HMM_A5043-230302A_18-08-2023.pickle'), "rb"))
+
+
+#############################
+# MAnifolds
+gs_manifold = gridspec.GridSpecFromSubplotSpec(
+    2, 1, subplot_spec=gs22[0, 0])
+
+
+xy, _, _ = np.histogram2d(datahmm["imap"][:,0], datahmm["imap"][:,1], 20)
+subplot(gs_manifold[0,0])
+noaxis(gca())
+imshow(xy, cmap="Greys")
+
+
+
+xy, _, _ = np.histogram2d(datahmm["imapr"][:,0], datahmm["imapr"][:,1], 20)
+subplot(gs_manifold[1,0])
+noaxis(gca())
+imshow(xy, cmap="Greys")
+
+
+#############################
+# Weights
+
+
 
 gs_raster = gridspec.GridSpecFromSubplotSpec(
     3, 1, subplot_spec=gs22[0, 1], hspace=0.2, height_ratios=[0.5, 0.5, 0.4], wspace=0.1

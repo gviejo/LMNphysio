@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-08-12 19:17:57
+# @Last Modified time: 2023-08-18 15:11:45
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -41,7 +41,7 @@ elif os.path.exists('/media/guillaume/Raid2'):
 datasets = np.hstack([
     np.genfromtxt(os.path.join(data_directory,'datasets_LMN.list'), delimiter = '\n', dtype = str, comments = '#'),
     np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#'),
-    np.genfromtxt(os.path.join(data_directory,'datasets_LMN_PSB.list'), delimiter = '\n', dtype = str, comments = '#'),
+    # np.genfromtxt(os.path.join(data_directory,'datasets_LMN_PSB.list'), delimiter = '\n', dtype = str, comments = '#'),
     ])
 
 
@@ -118,24 +118,14 @@ for s in datasets:
             
             
             velocity = computeAngularVelocity(position['ry'], position.time_support.loc[[0]], 0.2)
-            newwake_ep = velocity.threshold(0.07).time_support.drop_short_intervals(1).merge_close_intervals(1)
+            newwake_ep = velocity.threshold(0.05).time_support.drop_short_intervals(1).merge_close_intervals(1)
 
             ############################################################################################### 
             # HMM GLM
             ###############################################################################################
             
-            bin_size = 0.015
+            bin_size = 0.025
             window_size = bin_size*50.0
-
-            ############################################
-            # glms = []
-            # for _ in range(3):
-            #     glm = ConvolvedGLM(spikes, bin_size, window_size, newwake_ep)
-            #     # glm.fit_scipy()
-            #     glm.W = np.zeros((glm.X.shape[-1], glm.N))
-            #     glms.append(glm)
-            # hmm = GLM_HMM(tuple(glms))
-            # hmm.fit_observation(spikes, sws_ep, bin_size)
 
 
 
@@ -143,16 +133,17 @@ for s in datasets:
             print("fitting GLM")
             glm = ConvolvedGLM(spikes, bin_size, window_size, newwake_ep)
             glm.fit_scipy()
+            # glm.fit_sklearn()
             
 
-            spikes2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(newwake_ep))
-            # spikes2 = nap.randomize.resample_timestamps(spikes.restrict(sws_ep))
+            spikes2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(newwake_ep))            
             spikes2.set_info(maxch = spikes._metadata["maxch"], group = spikes._metadata["group"])
-            rglm = ConvolvedGLM(spikes2, bin_size, window_size, newwake_ep)
+            rglm = ConvolvedGLM(spikes2, bin_size, window_size, newwake_ep)            
             rglm.fit_scipy()
+            # rglm.fit_sklearn()
 
-            glm0 = ConvolvedGLM(spikes, bin_size, window_size, newwake_ep)
-            glm0.W = np.zeros_like(glm.W)
+            # glm0 = ConvolvedGLM(spikes, bin_size, window_size, newwake_ep)
+            # glm0.W = np.zeros_like(glm.W)
 
             # sys.exit()
 

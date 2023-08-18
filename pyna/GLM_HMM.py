@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-08-16 18:43:45
+# @Last Modified time: 2023-08-18 11:21:49
 import numpy as np
 import os, sys
 from scipy.optimize import minimize
@@ -71,7 +71,7 @@ def loss_bias(b, X, Y, W):
     Xb = np.einsum('tnk,kn->tn', X, B)
     exp_Xb = np.exp(Xb)
     loss = np.sum(exp_Xb, 0) - np.sum(Y*Xb, 0)
-    l2 = 0.1*Y.shape[0]*np.sum(np.power(b, 2), 0)            
+    l2 = 0.0*Y.shape[0]*np.sum(np.power(b, 2), 0)            
     # grad = np.einsum('tnk,tn->kn', X, exp_Xb - Y) + Y.shape[0]*b
     return np.sum(loss + l2)#, grad.flatten()
 
@@ -112,61 +112,56 @@ def optimize_transition(args):
 
 def optimize_transition2(args):
     K, T, W, X, Y = args
-    score = []
+    scores = []    
     init = np.random.rand(K)
     init = init/init.sum()
     A = np.eye(K) + np.random.rand(K, K)*0.1
     A = A/A.sum(1)[:,None]
 
-    # Computing the observation
-    O = compute_observation(W, X, Y, K)
     
-    for i in range(100):
+    for i in range(2):
 
-        # Forward/backward
-        alpha, scaling = forward(A, T, K, O, init)                
-        beta = backward(A, T, K, O, scaling)
-        # Expectation
-        E = np.tile(A, (T-1, 1, 1)) * alpha[0:-1,:,None]*beta[1:,None,:]
-        # E = E * np.tile(B[:,Y[1:]].T[:,None,:], (1, K, 1)) # Adding emission    
-        E = E * np.tile(O[1:][:,None,:], (1, K, 1)) # Adding emission    
-        G = np.zeros((T, K))
-        G[0:-1] = E.sum(-1)
-        G[-1] = alpha[-1]
+        # Computing the observation
+        O = compute_observation(W, X, Y, K)
+        score = [0, 1]
 
-        # Maximisation
-        init = G[0]
-        A = E.sum(0)/(G[0:-1].sum(0)[:,None])        
+        while np.abs(score[-2]-score[-1]) > 1e-15:
+            # Forward/backward
+            alpha, scaling = forward(A, T, K, O, init)                
+            beta = backward(A, T, K, O, scaling)
+            # Expectation
+            E = np.tile(A, (T-1, 1, 1)) * alpha[0:-1,:,None]*beta[1:,None,:]
+            # E = E * np.tile(B[:,Y[1:]].T[:,None,:], (1, K, 1)) # Adding emission    
+            E = E * np.tile(O[1:][:,None,:], (1, K, 1)) # Adding emission    
+            G = np.zeros((T, K))
+            G[0:-1] = E.sum(-1)
+            G[-1] = alpha[-1]
+
+            # Maximisation
+            init = G[0]
+            A = E.sum(0)/(G[0:-1].sum(0)[:,None])        
+            print(i, np.sum(np.log(scaling)))
+            score.append(np.sum(np.log(scaling)))
+
+        scores.append(np.array(score[2:]))
 
         # Learning GLM based on best sequence for each state
-        if i %50 == 0 and i>1:
-            print("Fitting GLM 1")
-            z = np.argmax(G, 1)
-            b0 = np.zeros((W.shape[0], W.shape[2]))
-            if K>2:
-                rnge = range(1, K)
-            else:
-                rnge = range(0, K)
-            for j in rnge: 
-                if np.sum(z == j) > 100:
-                    solver = minimize(loss_bias, b0[j], args = (X[z==j], Y[z==j], W[j,0:-1,:]), jac=False)#, method='L-BFGS-B')
-                    W[j,-1,:] = solver['x'].flatten()
+        print("Fitting GLM 1")
+        z = np.argmax(G, 1)
+        b0 = np.zeros((W.shape[0], W.shape[2]))
+        if K>2:
+            rnge = range(1, K)
+        else:
+            rnge = range(0, K)
+        for j in rnge: 
+            if np.sum(z == j) > 100:
+                solver = minimize(loss_bias, b0[j], args = (X[z==j], Y[z==j], W[j,0:-1,:]), jac=False, method='L-BFGS-B')
+                W[j,-1,:] = solver['x'].flatten()
 
-        # W = W0
-        O = compute_observation(W, X, Y, K)
-
-        # O = gaussian_filter1d(O, 2, axis=0)
-
-        print(i, np.sum(np.log(scaling)))
-        score.append(np.sum(np.log(scaling)))
-
-        if i > 2:
-            if np.abs(score[-2]-score[-1]) < 1e-15:
-                break
 
     Z = np.argmax(G, 1)
 
-    return A, Z, W, np.array(score)
+    return A, Z, W, np.hstack(scores)
 
 def optimize_observation(args):
     K, T, W, X, Y = args
@@ -309,9 +304,9 @@ class GLM_HMM(object):
         #         self.scores.append(result[3])
 
 
-        for _ in range(5):
-            A, Z, score = optimize_transition((self.K, self.T, self.O))
-            # A, Z, W, score = optimize_transition2((self.K, self.T, self.initial_W, self.X, self.Y))
+        for _ in range(2):
+            # A, Z, score = optimize_transition((self.K, self.T, self.O))
+            A, Z, W, score = optimize_transition2((self.K, self.T, self.initial_W, self.X, self.Y))
 
             self.scores.append(score)
             As.append(A)
@@ -337,7 +332,7 @@ class GLM_HMM(object):
         eps = {}
         for i in range(self.K):
             ep = self.Z.threshold(i-0.5).threshold(i+0.5, "below").time_support
-            ep = ep.drop_short_intervals(0.05)
+            # ep = ep.drop_short_intervals(0.01)
             eps[i] = ep
 
         self.eps = eps

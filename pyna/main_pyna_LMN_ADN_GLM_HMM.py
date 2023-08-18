@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-08-16 18:50:03
+# @Last Modified time: 2023-08-18 15:27:58
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -113,21 +113,21 @@ for s in ["LMN-ADN/A5043/A5043-230302A"]:
             # HMM GLM
             ###############################################################################################
             
-            bin_size = 0.03
+            bin_size = 0.025
             window_size = bin_size*50.0
             
             ############################################
             print("fitting GLM")
-            glm = ConvolvedGLM(spikes, bin_size*10, window_size*10, newwake_ep)
+            glm = ConvolvedGLM(spikes, bin_size, window_size, newwake_ep)
             glm.fit_scipy()
+            # glm.fit_sklearn()
             
 
-            # spikes2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(newwake_ep))
-            # spikes2 = nap.randomize.resample_timestamps(spikes.restrict(sws_ep))
-            # spikes2.set_info(maxch = spikes._metadata["maxch"], group = spikes._metadata["group"])
-            # rglm = ConvolvedGLM(spikes2, bin_size, window_size, newwake_ep)
-            rglm = ConvolvedGLM(spikes, bin_size, window_size, sws_ep)
+            spikes2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(newwake_ep))            
+            spikes2.set_info(maxch = spikes._metadata["maxch"], group = spikes._metadata["group"])
+            rglm = ConvolvedGLM(spikes2, bin_size*10, window_size*10, newwake_ep)            
             rglm.fit_scipy()
+            # rglm.fit_sklearn()
 
             # glm0 = ConvolvedGLM(spikes, bin_size, window_size, newwake_ep)
             # glm0.W = np.zeros_like(glm.W)
@@ -255,4 +255,59 @@ for i, k in enumerate(corr.keys()):
 ylim(0, 1)
 # xticks(np.arange(corr.shape[1]), corr.columns)
 
-show()
+
+figure()
+for i in range(len(spikes)):
+    w = glm.W[:,i]
+    w = w[0:-1]
+    a = peaks.values[list(set(np.arange(len(spikes))) - set([i]))]
+    tmp = pd.DataFrame(index=a, data=w.reshape(int(w.shape[0]/glm.B.shape[1]), glm.B.shape[1]))
+    tmp = tmp.sort_index()
+    subplot(3, 5, i+1)
+    plot(tmp, 'o-')
+    plot([peaks.values[i], peaks.values[i]], [0, w.max()])
+show()            
+
+
+
+
+
+##################################################################
+# FOR FIGURE 1
+##################################################################
+
+Y = StandardScaler().fit_transform(glm.Y.astype(np.float32))
+Yr = StandardScaler().fit_transform(rglm.Y.astype(np.float32))
+
+from sklearn.decomposition import KernelPCA
+imap = KernelPCA(n_components=2, kernel="cosine").fit_transform(Y)
+imapr = KernelPCA(n_components=2, kernel="cosine").fit_transform(Yr)
+
+
+
+tmp = glm.W[0:-1].reshape(glm.B.shape[1], glm.N-1, glm.N).mean(0)
+tmp = tmp - tmp.mean(0)
+tmp = tmp / tmp.std(0)
+tmp = tmp.T
+tmp = tmp[order]
+
+
+
+
+datatosave = {
+    "imap":imap,
+    "imapr":imapr,
+    # "hmm":hmm,
+    "glm":glm,
+    "glmr":rglm
+}
+
+
+dropbox_path = os.path.expanduser("~/Dropbox/LMNphysio/data")
+today = datetime.date.today()
+file_name = "GLM_HMM_"+os.path.basename(s)+"_"+ today.strftime("%d-%m-%Y") + ".pickle"
+
+import _pickle as cPickle
+
+with open(os.path.join(dropbox_path, file_name), "wb") as f:
+    cPickle.dump(datatosave, f)
