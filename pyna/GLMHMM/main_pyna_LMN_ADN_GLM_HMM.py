@@ -1,14 +1,15 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-08-18 15:27:58
+# @Last Modified by:   gviejo
+# @Last Modified time: 2023-08-28 22:23:07
 import numpy as np
 import pandas as pd
 import pynapple as nap
 from pylab import *
+import sys, os
+sys.path.append("..")
 from functions import *
-import sys
 from pycircstat.descriptive import mean as circmean
 import _pickle as cPickle
 from matplotlib.gridspec import GridSpec
@@ -24,9 +25,17 @@ from sklearn.preprocessing import StandardScaler
 ############################################################################################### 
 # GENERAL infos
 ###############################################################################################
-# data_directory = '/mnt/DataRAID2/'
-data_directory = '/mnt/ceph/users/gviejo'
-# data_directory = '/media/guillaume/LaCie'
+if os.path.exists("/mnt/Data/Data/"):
+    data_directory = "/mnt/Data/Data"
+elif os.path.exists('/mnt/DataRAID2/'):    
+    data_directory = '/mnt/DataRAID2/'
+elif os.path.exists('/mnt/ceph/users/gviejo'):    
+    data_directory = '/mnt/ceph/users/gviejo'
+elif os.path.exists('/media/guillaume/Raid2'):
+    data_directory = '/media/guillaume/Raid2'
+
+
+
 datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#')
 
 
@@ -42,8 +51,8 @@ durations = []
 corr = {'adn':[], 'lmn':[]}
 
 # for s in datasets:
-for s in ["LMN-ADN/A5043/A5043-230302A"]:
-# for s in ['LMN-ADN/A5043/A5043-230301A']:
+# for s in ["LMN-ADN/A5043/A5043-230302A"]:
+for s in ['LMN-ADN/A5043/A5043-230301A']:
 # # for s in ['LMN/A1413/A1413-200918A']:
 # for s in ['LMN/A1414/A1414-200929A']:
     print(s)
@@ -113,7 +122,7 @@ for s in ["LMN-ADN/A5043/A5043-230302A"]:
             # HMM GLM
             ###############################################################################################
             
-            bin_size = 0.025
+            bin_size = 0.03
             window_size = bin_size*50.0
             
             ############################################
@@ -125,18 +134,19 @@ for s in ["LMN-ADN/A5043/A5043-230302A"]:
 
             spikes2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(newwake_ep))            
             spikes2.set_info(maxch = spikes._metadata["maxch"], group = spikes._metadata["group"])
-            rglm = ConvolvedGLM(spikes2, bin_size*10, window_size*10, newwake_ep)            
+            rglm = ConvolvedGLM(spikes2, bin_size, window_size, newwake_ep)            
             rglm.fit_scipy()
             # rglm.fit_sklearn()
 
             # glm0 = ConvolvedGLM(spikes, bin_size, window_size, newwake_ep)
             # glm0.W = np.zeros_like(glm.W)
 
-            # sys.exit()
 
             # hmm = GLM_HMM((glm0, glm, rglm))
             hmm = GLM_HMM((glm, rglm))
             
+            sws_ep = sws_ep.drop_short_intervals(600)
+
             hmm.fit_transition(spikes, sws_ep, bin_size)
             
             figure()
@@ -144,7 +154,7 @@ for s in ["LMN-ADN/A5043/A5043-230302A"]:
             ax = subplot(gs[0,0])
             plot(hmm.Z)
             ylabel("state")     
-            xlim(12558, 12566)
+            # xlim(12558, 12566)
             subplot(gs[1,0], sharex=ax)
             plot(groups["adn"].restrict(sws_ep).to_tsd("peaks"), '|', markersize=10, mew=3)
             ylabel("ADN")
@@ -154,7 +164,7 @@ for s in ["LMN-ADN/A5043/A5043-230302A"]:
             ylim(0, 2*np.pi)
             subplot(gs[3,0], sharex=ax)
             plot(hmm.time_idx, hmm.O[:,0:])
-            ylabel("P(O)")            
+            ylabel("P(O)")                        
 
             if all([len(ep)>1 for ep in hmm.eps.values()]):
                             
@@ -188,13 +198,13 @@ for s in ["LMN-ADN/A5043/A5043-230302A"]:
                         if len(tmp):
                             r[ep] = tmp[np.triu_indices(tmp.shape[0], 1)]
 
-                    to_keep = []
-                    for p in r.index:
-                        tmp = spikes._metadata.loc[np.array(p.split("_")[1].split("-"), dtype=np.int32), ['group', 'maxch']]
-                        if tmp['group'].iloc[0] == tmp['group'].iloc[1]:
-                            if tmp['maxch'].iloc[0] != tmp['maxch'].iloc[1]:
-                                to_keep.append(p)
-                    r = r.loc[to_keep]
+                    # to_keep = []
+                    # for p in r.index:
+                    #     tmp = spikes._metadata.loc[np.array(p.split("_")[1].split("-"), dtype=np.int32), ['group', 'maxch']]
+                    #     if tmp['group'].iloc[0] == tmp['group'].iloc[1]:
+                    #         if tmp['maxch'].iloc[0] != tmp['maxch'].iloc[1]:
+                    #             to_keep.append(p)
+                    # r = r.loc[to_keep]
 
 
                     #######################
@@ -256,21 +266,21 @@ ylim(0, 1)
 # xticks(np.arange(corr.shape[1]), corr.columns)
 
 
-figure()
-for i in range(len(spikes)):
-    w = glm.W[:,i]
-    w = w[0:-1]
-    a = peaks.values[list(set(np.arange(len(spikes))) - set([i]))]
-    tmp = pd.DataFrame(index=a, data=w.reshape(int(w.shape[0]/glm.B.shape[1]), glm.B.shape[1]))
-    tmp = tmp.sort_index()
-    subplot(3, 5, i+1)
-    plot(tmp, 'o-')
-    plot([peaks.values[i], peaks.values[i]], [0, w.max()])
-show()            
+# figure()
+# for i in range(len(spikes)):
+#     w = glm.W[:,i]
+#     w = w[0:-1]
+#     a = peaks.values[list(set(np.arange(len(spikes))) - set([i]))]
+#     tmp = pd.DataFrame(index=a, data=w.reshape(int(w.shape[0]/glm.B.shape[1]), glm.B.shape[1]))
+#     tmp = tmp.sort_index()
+#     subplot(3, 5, i+1)
+#     plot(tmp, 'o-')
+#     plot([peaks.values[i], peaks.values[i]], [0, w.max()])
+# show()            
 
+show()
 
-
-
+sys.exit()
 
 ##################################################################
 # FOR FIGURE 1

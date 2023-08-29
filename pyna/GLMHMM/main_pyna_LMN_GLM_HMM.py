@@ -1,14 +1,15 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-08-18 15:11:45
+# @Last Modified by:   gviejo
+# @Last Modified time: 2023-08-28 12:10:22
 import numpy as np
 import pandas as pd
 import pynapple as nap
 from pylab import *
+import sys, os
+sys.path.append("..")
 from functions import *
-import sys
 from pycircstat.descriptive import mean as circmean
 import _pickle as cPickle
 from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
@@ -40,7 +41,7 @@ elif os.path.exists('/media/guillaume/Raid2'):
 
 datasets = np.hstack([
     np.genfromtxt(os.path.join(data_directory,'datasets_LMN.list'), delimiter = '\n', dtype = str, comments = '#'),
-    np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#'),
+    # np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#'),
     # np.genfromtxt(os.path.join(data_directory,'datasets_LMN_PSB.list'), delimiter = '\n', dtype = str, comments = '#'),
     ])
 
@@ -77,6 +78,7 @@ for s in datasets:
         rem_ep = data.read_neuroscope_intervals('rem')
         # down_ep = data.read_neuroscope_intervals('down')
 
+
         idx = spikes._metadata[spikes._metadata["location"].str.contains("lmn")].index.values
         spikes = spikes[idx]
           
@@ -109,7 +111,7 @@ for s in datasets:
 
         spikes.set_info(maxch = maxch[tokeep])
 
-        if len(tokeep) > 6:
+        if len(tokeep) > 5:
             
             # figure()
             # for i in range(len(tokeep)):
@@ -124,7 +126,7 @@ for s in datasets:
             # HMM GLM
             ###############################################################################################
             
-            bin_size = 0.025
+            bin_size = 0.005
             window_size = bin_size*50.0
 
 
@@ -133,12 +135,11 @@ for s in datasets:
             print("fitting GLM")
             glm = ConvolvedGLM(spikes, bin_size, window_size, newwake_ep)
             glm.fit_scipy()
-            # glm.fit_sklearn()
-            
+            # glm.fit_sklearn()            
 
             spikes2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(newwake_ep))            
             spikes2.set_info(maxch = spikes._metadata["maxch"], group = spikes._metadata["group"])
-            rglm = ConvolvedGLM(spikes2, bin_size, window_size, newwake_ep)            
+            rglm = ConvolvedGLM(spikes2, bin_size, window_size, newwake_ep)
             rglm.fit_scipy()
             # rglm.fit_sklearn()
 
@@ -151,6 +152,7 @@ for s in datasets:
             hmm = GLM_HMM((glm, rglm))
             
             hmm.fit_transition(spikes, sws_ep, bin_size)
+
 
             # figure()
             # gs = GridSpec(3,1)
@@ -222,15 +224,21 @@ for s in datasets:
 
             if all([len(ep)>1 for ep in hmm.eps.values()]):
                 ############################################################################################### 
+                # SAVING HMM EPOCHS
+                ###############################################################################################        
+                for i in hmm.eps.keys():
+                    hmm.eps[i].save(os.path.join(path, os.path.basename(s)+"_HMM_ep{}".format(i)))
+
+                ############################################################################################### 
                 # PEARSON CORRELATION
                 ###############################################################################################        
-                rates = {}            
+                rates = {}
 
                 for e, ep, bin_size, std in zip(['wak', 'sws'], [newwake_ep, sws_ep], [0.3, 0.03], [1, 1]):
                     count = spikes.count(bin_size, ep)
                     rate = count/bin_size
                     rate = rate.as_dataframe()
-                    rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=std)       
+                    rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=std)
                     rate = rate.apply(zscore)                    
                     rates[e] = nap.TsdFrame(rate)
                 
@@ -342,3 +350,25 @@ plot(tmp, 'o-')
 show()
 
 
+##################################################################
+# FOR FIGURE 1
+##################################################################
+
+datatosave = {
+    "corr":corr,
+    "allr":allr,
+    "durations":durations,
+    "hmm":hmm,
+    "glm":glm,
+    "glmr":rglm
+}
+
+
+dropbox_path = os.path.expanduser("~/Dropbox/LMNphysio/data")
+today = datetime.date.today()
+file_name = "GLM_HMM_LMN_"+ today.strftime("%d-%m-%Y") + ".pickle"
+
+import _pickle as cPickle
+
+with open(os.path.join(dropbox_path, file_name), "wb") as f:
+    cPickle.dump(datatosave, f)

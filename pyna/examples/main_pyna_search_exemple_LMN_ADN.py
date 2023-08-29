@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-08-10 17:16:25
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-08-16 18:29:19
+# @Last Modified by:   gviejo
+# @Last Modified time: 2023-08-24 12:08:42
 import scipy.io
 import sys, os
 import numpy as np
@@ -14,9 +14,17 @@ from itertools import combinations, product
 from matplotlib.pyplot import *
 
 
+if os.path.exists("/mnt/Data/Data/"):
+    data_directory = "/mnt/Data/Data"
+elif os.path.exists('/mnt/DataRAID2/'):    
+    data_directory = '/mnt/DataRAID2/'
+elif os.path.exists('/mnt/ceph/users/gviejo'):    
+    data_directory = '/mnt/ceph/users/gviejo'
+elif os.path.exists('/media/guillaume/Raid2'):
+    data_directory = '/media/guillaume/Raid2'
 
 # path = '/mnt/DataRAID2/LMN-ADN/A5043/A5043-230301A'
-path = '/mnt/ceph/users/gviejo/LMN-ADN/A5043/A5043-230302A'
+path = os.path.join(data_directory, 'LMN-ADN/A5043/A5043-230303A')
 
 
 data = nap.load_session(path, 'neurosuite')
@@ -105,7 +113,7 @@ peaks = pd.Series(index=tcurves.columns,data = np.array([circmean(tcurves.index.
 adn = peaks[adn].sort_values().index.values
 lmn = peaks[lmn].sort_values().index.values
 
-# sys.exit()
+sys.exit()
 
 ###########################################################################
 #SAVING

@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-08-18 11:21:49
+# @Last Modified by:   gviejo
+# @Last Modified time: 2023-08-24 23:03:57
 import numpy as np
 import os, sys
 from scipy.optimize import minimize
@@ -71,7 +71,7 @@ def loss_bias(b, X, Y, W):
     Xb = np.einsum('tnk,kn->tn', X, B)
     exp_Xb = np.exp(Xb)
     loss = np.sum(exp_Xb, 0) - np.sum(Y*Xb, 0)
-    l2 = 0.0*Y.shape[0]*np.sum(np.power(b, 2), 0)            
+    l2 = 0.5*Y.shape[0]*np.sum(np.power(b, 2), 0)            
     # grad = np.einsum('tnk,tn->kn', X, exp_Xb - Y) + Y.shape[0]*b
     return np.sum(loss + l2)#, grad.flatten()
 
@@ -103,7 +103,7 @@ def optimize_transition(args):
         score.append(np.sum(np.log(scaling)))
 
         if i > 2:
-            if np.abs(score[-2]-score[-1]) < 1e-15:
+            if np.abs(score[-2]-score[-1]) < 1e-20:
                 break        
 
     Z = np.argmax(G, 1)
@@ -125,7 +125,7 @@ def optimize_transition2(args):
         O = compute_observation(W, X, Y, K)
         score = [0, 1]
 
-        while np.abs(score[-2]-score[-1]) > 1e-15:
+        while np.abs(score[-2]-score[-1]) > 1e-20:
             # Forward/backward
             alpha, scaling = forward(A, T, K, O, init)                
             beta = backward(A, T, K, O, scaling)
@@ -146,7 +146,7 @@ def optimize_transition2(args):
         scores.append(np.array(score[2:]))
 
         # Learning GLM based on best sequence for each state
-        print("Fitting GLM 1")
+        print("ReFitting GLM")
         z = np.argmax(G, 1)
         b0 = np.zeros((W.shape[0], W.shape[2]))
         if K>2:

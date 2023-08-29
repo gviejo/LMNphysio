@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-08-10 17:16:25
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-08-17 16:24:26
+# @Last Modified by:   gviejo
+# @Last Modified time: 2023-08-28 14:40:24
 import scipy.io
 import sys, os
 import numpy as np
@@ -66,7 +66,7 @@ def load_ttl_pulse(
 
 
 # path = '/mnt/DataRAID2/LMN-ADN/A5043/A5043-230301A'
-path = '/mnt/ceph/users/gviejo/LMN-ADN/A5043/A5043-230315A'
+path = '/media/guillaume/My Passport/A5000/A5043-230315A'
         
 
 data = nap.load_session(path, 'neurosuite')
@@ -90,7 +90,7 @@ angle = np.arctan2(xy[:,0], xy[:,1])
 angle = angle+np.pi
 
 # # TTL
-# ttl = load_ttl_pulse(os.path.join(path, "A5043-230315A_auxiliary.dat"), 120)
+ttl = load_ttl_pulse(os.path.join(path, "A5043-230315A_auxiliary.dat"), 120)
 
 t = wake_ep.loc[0,'start']+np.arange(0, len(angle))/120
 
