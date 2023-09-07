@@ -2,7 +2,7 @@
 # @Author: gviejo
 # @Date:   2023-08-29 15:43:45
 # @Last Modified by:   gviejo
-# @Last Modified time: 2023-08-29 16:06:44
+# @Last Modified time: 2023-09-01 17:01:08
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -16,7 +16,7 @@ from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 from itertools import combinations
 from scipy.stats import zscore
 from scipy.ndimage import gaussian_filter1d
-from sklearn.linear_model import PoissonRegressor
+# from sklearn.linear_model import PoissonRegressor
 
 
 
@@ -43,15 +43,14 @@ SI_thr = {
     'psb':1.5
     }
 
-allr = []
-corr = []
 allfr = []
-tcn = []
-tco = []
-allsi = []
+alltcn = []
+alltco = []
+allmeta = []
 
 
-for s in datasets:
+# for s in datasets:
+for s in ["A8000/A8047/A8047-230310B"]:
     print(s)    
     ############################################################################################### 
     # LOADING DATA
@@ -60,7 +59,7 @@ for s in datasets:
     data = nap.load_session(path, 'neurosuite')
     spikes = data.spikes
     position = data.position
-    wake_ep = data.epochs['wake'].loc[[0]]
+    wake_ep = data.epochs['wake']
     sleep_ep = data.epochs["sleep"]
 
 
@@ -87,15 +86,27 @@ for s in datasets:
     order = np.argsort(peaks.values)
     spikes.set_info(order=order, peaks=peaks)
 
+    print(s, len(tokeep))
+
     if len(tokeep):
         ############################################################################################### 
         # LOADING OPTO INFO
         ###############################################################################################    
-        
-        opto_ep = loadOptoEp(path, epoch=1, n_channels = 2, channel = 0)
-
-        if len(opto_ep)==0:
-            opto_ep = loadOptoEp(path, epoch=2, n_channels = 2, channel = 0)
+        try:
+            opto_ep = nap.load_file(os.path.join(path, os.path.basename(path))+"_opto_wake_ep.npz")
+        except:
+            opto_ep = []
+            epoch = 0
+            while len(opto_ep) == 0:
+                try:
+                    opto_ep = loadOptoEp(path, epoch=epoch, n_channels = 2, channel = 0)
+                    opto_ep = opto_ep.intersect(data.epochs["wake"])
+                except:
+                    pass                    
+                epoch += 1
+                if epoch == 10:
+                    sys.exit()
+            opto_ep.save(os.path.join(path, os.path.basename(path))+"_opto_wake_ep")
 
         ############################################################################################### 
         # FIRING RATE MODULATION
@@ -104,133 +115,123 @@ for s in datasets:
 
         # peth = nap.compute_perievent(spikes[tokeep], nap.Ts(opto_ep["start"].values), minmax=(-stim_duration, 2*stim_duration))
         # frates = pd.DataFrame({n:peth[n].count(0.05).sum(1) for n in peth.keys()})
-        frates = nap.compute_eventcorrelogram(spikes[tokeep], nap.Ts(opto_ep["start"].values), 0.5, 20, norm=True)
-
+        frates = nap.compute_eventcorrelogram(spikes[tokeep], nap.Ts(opto_ep["start"].values), stim_duration/20., stim_duration*2, norm=True)
         frates.columns = [data.basename+"_"+str(i) for i in frates.columns]
 
-        print(s, len(tokeep))
+        if int(stim_duration) == 1:
+            sys.exit()
 
         ############################################################################################### 
         # TUNING CURVES modulation
         ###############################################################################################     
-        wake2_ep = wake_ep.loc[[0]].set_diff(opto_ep.merge_close_intervals(10.0))
+        wake2_ep = wake_ep.set_diff(opto_ep.merge_close_intervals(11.0))
 
         tc_opto = nap.compute_1d_tuning_curves(spikes[tokeep], position['ry'], 120, minmax=(0, 2*np.pi), ep = opto_ep)
         tc_opto = smoothAngularTuningCurves(tc_opto, window = 20, deviation = 2.0)
         SI_opto = nap.compute_1d_mutual_info(tc_opto, position['ry'], opto_ep, (0, 2*np.pi))
         tc_opto.columns = [data.basename+"_"+str(i) for i in tc_opto.columns]
-        SI_opto.index = [data.basename+"_"+str(i) for i in tc_opto.columns]
+        SI_opto.index = tc_opto.columns
         
 
         tuning_curves = nap.compute_1d_tuning_curves(spikes, position['ry'], 120, minmax=(0, 2*np.pi), ep = wake2_ep)
         tuning_curves = smoothAngularTuningCurves(tuning_curves, window = 20, deviation = 2.0)
         SI2 = nap.compute_1d_mutual_info(tuning_curves, position['ry'], wake2_ep, (0, 2*np.pi))
         tuning_curves.columns = [data.basename+"_"+str(i) for i in tuning_curves.columns]
-        SI2.index = [data.basename+"_"+str(i) for i in tuning_curves.columns]
+        SI2.index = tuning_curves.columns
         # if len(tokeep) > 2:
 
+        velocity = computeAngularVelocity(position['ry'], wake_ep, 0.1)
+        atiopto = computeLMN_TC(spikes, position['ry'], opto_ep, velocity)
+        atitc = computeLMN_TC(spikes, position['ry'], wake2_ep, velocity)
 
-        #     # figure()
-        #     # for i in range(len(tokeep)):
-        #     #     subplot(4, 4, i+1, projection='polar')
-        #     #     plot(tcurves[tokeep[i]])
-            
-            
-        #     velocity = computeAngularVelocity(position['ry'], position.time_support.loc[[0]], 0.2)
-        #     newwake_ep = velocity.threshold(0.05).time_support.drop_short_intervals(1).merge_close_intervals(1)
+        ctc = {}
+
+        for k in range(3):
+            ctc[k] = {}
+            for ep, ati in zip(['wake', 'opto'], [atitc, atiopto]):
+                new_tcurve = []
+                for n in ati.keys():
+                    y = ati[n][k]
+                    x = y.index.values - y.index[y.index.get_indexer([peaks[n]], method='nearest')[0]]
+                    x[x<-np.pi] += 2*np.pi
+                    x[x>np.pi] -= 2*np.pi
+                    tmp = pd.Series(index = x, 
+                        data = y.values/y.values.max()).sort_index()
+                    
+                    new_tcurve.append(tmp.values)                
+                new_tcurve = pd.DataFrame(
+                    index = np.linspace(-np.pi, np.pi, y.shape[0]+1)[0:-1], 
+                    data = np.array(new_tcurve).T, columns = ati.keys())
+                ctc[k][ep] = new_tcurve
 
 
-        #     ############################################################################################### 
-        #     # PEARSON CORRELATION
-        #     ###############################################################################################        
-        #     rates = {}
-        #     sws2_ep = sws_ep.intersect(sleep_ep.loc[[0]])        
+        figure()
+        gs = GridSpec(3,3)
+        for i,n in enumerate(atitc.keys()):        
+            gs2 = GridSpecFromSubplotSpec(3, 1, gs[i//3, i%3])
+            for k in range(3):
+                subplot(gs2[k,:])
+                plot(atitc[n].iloc[:,k])
+                plot(atiopto[n].iloc[:,k], '--')
 
-        #     for e, ep, bin_size, std in zip(['wak', 'sws', 'opto'], [newwake_ep, sws_ep, opto_ep], [0.3, 0.03, 0.03], [1, 1, 1]):
-        #         count = spikes.count(bin_size, ep)
-        #         rate = count/bin_size
-        #         rate = rate.as_dataframe()
-        #         rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=std)
-        #         rate = rate.apply(zscore)                    
-        #         rates[e] = nap.TsdFrame(rate)
-            
-            
-        #     pairs = [data.basename+"_"+i+"-"+j for i,j in list(combinations(np.array(spikes.keys()).astype(str), 2))]
-        #     r = pd.DataFrame(index = pairs, columns = rates.keys(), dtype = np.float32)
 
-        #     for ep in rates.keys():
-        #         tmp = np.corrcoef(rates[ep].values.T)
-        #         if len(tmp):
-        #             r[ep] = tmp[np.triu_indices(tmp.shape[0], 1)]
+        figure()
+        for k in range(3):
+            subplot(1,3,k+1)
+            plot(ctc[k]['wake'].mean(1), color = 'black')
+            plot(ctc[k]['opto'].mean(1), '--', color = 'red')
 
-        #     # to_keep = []
-        #     # for p in r.index:
-        #     #     tmp = spikes._metadata.loc[np.array(p.split("_")[1].split("-"), dtype=np.int32), ['group', 'maxch']]
-        #     #     if tmp['group'].iloc[0] == tmp['group'].iloc[1]:
-        #     #         if tmp['maxch'].iloc[0] != tmp['maxch'].iloc[1]:
-        #     #             to_keep.append(p)
-        #     # r = r.loc[to_keep]
-            
-        #     #######################
-        #     # Session correlation
-        #     #######################
+        show()
 
-        #     tmp = pd.DataFrame(index=[data.basename])
-        #     tmp['sws'] = scipy.stats.pearsonr(r['wak'], r['sws'])[0]
-        #     tmp['opto'] = scipy.stats.pearsonr(r['wak'], r['opto'])[0]
-            
-        #     corr.append(tmp)
-                        
+
+        sys.exit()
         #######################
         # SAVING
         #######################
-        # allr.append(r)
-        allfr.append(frates)
-        tcn.append(tuning_curves)
-        tco.append(tc_opto)
-        tmp = pd.DataFrame(index = SI2.index, columns=['wake', 'opto'],
-            data = np.hstack((SI2.values, SI_opto.values)))
-        allsi.append(tmp)
+        allfr.append(frates)        
+        alltcn.append(tuning_curves)        
+        alltco.append(tc_opto)
+        metadata = pd.DataFrame.from_dict(
+            {"SI":SI2["SI"],
+            "SIO":SI_opto["SI"]}
+            )
 
-# allr = pd.concat(allr, 0)
-# corr = pd.concat(corr, 0)
+        allmeta.append(metadata)
+        tcurves.columns = frates.columns        
+        
+
 allfr = pd.concat(allfr, 1)
-tcn = pd.concat(tcn ,1)
-tco = pd.concat(tco ,1)
+alltcn = pd.concat(alltcn ,1)
+alltco = pd.concat(alltco ,1)
+allmeta = pd.concat(allmeta, 0)
 
-allsi = pd.concat(allsi, 0)
 
 figure()
 gs = GridSpec(1, 2)
 
 subplot(gs[0,0])
-plot(np.arange(2), allsi.values.T, 'o-')
+plot(np.arange(2), allmeta.values.T, 'o-')
 xticks([0, 1], ['wake', 'opto'])
 
 subplot(gs[0,1])
-plot(allfr.loc[-1:2], alpha = 0.2, color = 'grey')
-plot(allfr.loc[-1:2].mean(1), alpha = 1.0, color = 'red')
+plot(allfr, alpha = 0.2, color = 'grey')
+plot(allfr.mean(1), alpha = 1.0, color = 'red')
 show()
 
 
 ##################################################################
 # FOR FIGURE 1
 ##################################################################
-sys.exit()
-
 datatosave = {
-    "corr":corr,
-    "allr":allr,
-    "durations":durations,
-    "hmm":hmm,
-    "glm":glm,
-    "glmr":rglm
+    "allfr":allfr,
+    "allmeta":allmeta,
+    "alltcn":alltcn,
+    "alltco":alltco
 }
 
 
 dropbox_path = os.path.expanduser("~/Dropbox/LMNphysio/data")
-today = datetime.date.today()
-file_name = "GLM_HMM_LMN_"+ today.strftime("%d-%m-%Y") + ".pickle"
+file_name = "OPTO_LMN_wake.pickle"
 
 import _pickle as cPickle
 

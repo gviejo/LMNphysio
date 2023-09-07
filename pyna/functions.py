@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-02-28 16:16:36
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-04-11 16:38:57
+# @Last Modified by:   gviejo
+# @Last Modified time: 2023-09-01 17:04:57
 import numpy as np
 from numba import jit
 import pandas as pd
@@ -86,17 +86,16 @@ def computeLinearVelocity(pos, ep, bin_size):
 
 def computeAngularVelocity(angle, ep, bin_size):
     """this function only works for single epoch
-    """
-    angle           = angle.restrict(ep)
-    bins = np.arange(ep.as_units('s').start.iloc[0], ep.as_units('s').end.iloc[-1]+bin_size, bin_size)
-    idx = np.digitize(angle.index.values, bins)-1
-    tmp = angle.as_series().groupby(idx).mean()
-    t = bins[0:-1] + np.diff(bins)/2.    
-    tmp = pd.Series(index = t[tmp.index.values], data = np.unwrap(tmp.values))
-    tmp2 = tmp.rolling(window=100,win_type='gaussian',center=True,min_periods=1).mean(std=5.0)  
-    tmp3 = np.diff(tmp2.values)/np.diff(tmp2.index.values)
-    velocity        = nap.Tsd(t=tmp2.index.values[1:], d = np.abs(tmp3))
+    """        
+    tmp = np.unwrap(angle.restrict(ep).values)
+    tmp = pd.Series(index=angle.restrict(ep).index.values, data=tmp)
+    tmp = tmp.rolling(window=100,win_type='gaussian',center=True,min_periods=1).mean(std=2.0)    
+    tmp = nap.Tsd(t = tmp.index.values, d = tmp.values)    
+    tmp = tmp.bin_average(bin_size)
+    t = tmp.index.values[0:-1]+np.diff(tmp.index.values)
+    velocity = nap.Tsd(t=t, d = np.diff(tmp))
     return velocity
+
 
 def getRGB(angle, ep, bin_size):
     tmp = np.unwrap(angle.values)
@@ -437,6 +436,25 @@ def computeLMNAngularTuningCurves(spikes, angle, ep, nb_bins = 180, frequency = 
             tuning_curves[i][k] = spike_count*(1/(bin_size*1e-6))
 
     return tuning_curves, velocity, bins_velocity
+
+def computeLMN_TC(spikes, angle, ep, velocity):
+    atitc = {}
+    bins_velocity   = np.array([velocity.min(), -np.pi/12, np.pi/12, velocity.max()+0.001])
+    # bins_velocity   = np.array([velocity.min(), -0.1, 0.1, velocity.max()+0.001])
+    for n in spikes.index:
+        vel = velocity.restrict(ep)
+        spkvel = spikes[n].restrict(ep).value_from(velocity)
+        idx = np.digitize(spkvel.values, bins_velocity)-1
+        tcvel = {}
+        for k in range(3):
+            spk = nap.TsGroup({0:nap.Tsd(spkvel.as_series().iloc[idx == k], time_support = ep)})
+            tc = nap.compute_1d_tuning_curves(spk, angle, 120, minmax=(0, 2*np.pi), ep = ep)
+            tc = smoothAngularTuningCurves(tc, 50, 2)
+            tcvel[k] = tc[0]
+        tcvel = pd.DataFrame.from_dict(tcvel)
+        atitc[n] = tcvel
+    return atitc
+
 
 def downsample(tsd, up, down):
     import scipy.signal

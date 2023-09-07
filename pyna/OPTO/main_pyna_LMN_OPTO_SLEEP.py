@@ -2,7 +2,7 @@
 # @Author: gviejo
 # @Date:   2023-08-29 13:46:37
 # @Last Modified by:   gviejo
-# @Last Modified time: 2023-08-29 15:46:08
+# @Last Modified time: 2023-08-31 16:09:27
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -16,7 +16,7 @@ from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 from itertools import combinations
 from scipy.stats import zscore
 from scipy.ndimage import gaussian_filter1d
-from sklearn.linear_model import PoissonRegressor
+# from sklearn.linear_model import PoissonRegressor
 
 
 
@@ -46,6 +46,8 @@ SI_thr = {
 allr = []
 corr = []
 allfr = []
+allmeta = []
+alltc = []
 
 for s in datasets:
     print(s)    
@@ -90,9 +92,21 @@ for s in datasets:
     ############################################################################################### 
     # LOADING OPTO INFO
     ###############################################################################################    
-    opto_ep = loadOptoEp(path, epoch=1, n_channels = 2, channel = 0)
-    opto_ep = opto_ep.merge_close_intervals(0.03)
-
+    try:
+        opto_ep = nap.load_file(os.path.join(path, os.path.basename(path))+"_opto_sleep_ep.npz")
+    except:
+        opto_ep = []
+        epoch = 0
+        while len(opto_ep) == 0:
+            try:
+                opto_ep = loadOptoEp(path, epoch=epoch, n_channels = 2, channel = 0)
+                opto_ep = opto_ep.intersect(data.epochs["sleep"])
+            except:
+                pass                    
+            epoch += 1
+            if epoch == 10:
+                sys.exit()
+        opto_ep.save(os.path.join(path, os.path.basename(path))+"_opto_sleep_ep")
 
 
     ############################################################################################### 
@@ -103,11 +117,9 @@ for s in datasets:
     # peth = nap.compute_perievent(spikes[tokeep], nap.Ts(opto_ep["start"].values), minmax=(-stim_duration, 2*stim_duration))
     # frates = pd.DataFrame({n:peth[n].count(0.05).sum(1) for n in peth.keys()})
     frates = nap.compute_eventcorrelogram(spikes[tokeep], nap.Ts(opto_ep["start"].values), 0.05, 2, norm=True)
-
-
-    frates.columns = [data.basename+"_"+str(i) for i in frates.columns]
-
-    print(s, len(tokeep))
+    frates.columns = [data.basename+"_"+str(i) for i in frates.columns]    
+        
+    print(s, len(tokeep), stim_duration)
 
     if len(tokeep) > 2:
 
@@ -168,11 +180,17 @@ for s in datasets:
         #######################
         allr.append(r)
         allfr.append(frates)
+        metadata = spikes._metadata
+        metadata.index = frates.columns
+        allmeta.append(metadata)
+        tcurves.columns = frates.columns
+        alltc.append(tcurves)
 
 
 allr = pd.concat(allr, 0)
 corr = pd.concat(corr, 0)
 allfr = pd.concat(allfr, 1)
+allmeta = pd.concat(allmeta, 0)
 
 
 
@@ -210,21 +228,18 @@ show()
 ##################################################################
 # FOR FIGURE 1
 ##################################################################
-sys.exit()
 
 datatosave = {
     "corr":corr,
     "allr":allr,
-    "durations":durations,
-    "hmm":hmm,
-    "glm":glm,
-    "glmr":rglm
+    "allfr":allfr,
+    "allmeta":allmeta,
+    "alltc":alltc
 }
 
 
 dropbox_path = os.path.expanduser("~/Dropbox/LMNphysio/data")
-today = datetime.date.today()
-file_name = "GLM_HMM_LMN_"+ today.strftime("%d-%m-%Y") + ".pickle"
+file_name = "OPTO_LMN_sleep.pickle"
 
 import _pickle as cPickle
 
