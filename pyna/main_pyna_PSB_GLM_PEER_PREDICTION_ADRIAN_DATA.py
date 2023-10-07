@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-01-23 17:40:32
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-02-24 12:22:13
+# @Last Modified time: 2023-09-09 16:06:10
 
 import numpy as np
 import pandas as pd
@@ -17,7 +17,7 @@ from itertools import combinations, product
 from scipy.stats import zscore
 from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
 from sklearn.preprocessing import StandardScaler
-from xgboost import XGBClassifier
+# from xgboost import XGBClassifier
 from sklearn.decomposition import PCA, FastICA, KernelPCA
 from sklearn.manifold import Isomap
 from sklearn.ensemble import RandomForestClassifier
@@ -45,11 +45,20 @@ def offset_matrix(rate, binsize=0.01, windowsize = 0.1):
 ############################################################################################### 
 # GENERAL infos
 ###############################################################################################
-data_directory = '/mnt/DataRAID2/'
+if os.path.exists("/mnt/Data/Data/"):
+    data_directory = "/mnt/Data/Data"
+elif os.path.exists('/mnt/DataRAID2/'):    
+    data_directory = '/mnt/DataRAID2/'
+elif os.path.exists('/mnt/ceph/users/gviejo'):    
+    data_directory = '/mnt/ceph/users/gviejo'
+elif os.path.exists('/media/guillaume/Raid2'):
+    data_directory = '/media/guillaume/Raid2'
 
-datasets = np.genfromtxt(os.path.join(data_directory,'datasets_PSB.list'), delimiter = '\n', dtype = str, comments = '#')
+
+datasets = np.genfromtxt(os.path.join(data_directory,'datasets_ADRIAN.list'), delimiter = '\n', dtype = str, comments = '#')
 
 datasets = [str(datasets)]
+
 
 
 coefs_mua = {e:[] for e in ['wak', 'sws', 'rem']}
@@ -86,8 +95,8 @@ for s in datasets:
     angvel = computeAngularVelocity(position['ry'], wake_ep, 0.1)    
     angvel2 = angvel.as_series().rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=10)
     angvel2 = nap.Tsd(angvel2)
-    wake_ep = angvel2.threshold(0.25, 'above').time_support
-    wake_ep = wake_ep.drop_short_intervals(0.3)
+    # wake_ep = angvel2.threshold(0.25, 'above').time_support
+    # wake_ep = wake_ep.drop_short_intervals(0.3)
 
     tmp = loadmat(path+'/Analysis/SleepStateEpisodes.states.mat', simplify_cells=True)
 
@@ -300,7 +309,7 @@ for j, k in enumerate(['wak',  'sws']):
 
 
 
-celldepth = scipy.io.loadmat("/mnt/DataRAID2/"+s+"/Analysis/CellDepth.mat")
+celldepth = scipy.io.loadmat(os.path.join(path,"Analysis/CellDepth.mat"))
 
 celldep = celldepth['cellDep'].flatten()
 

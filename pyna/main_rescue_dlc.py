@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-08-10 17:16:25
-# @Last Modified by:   gviejo
-# @Last Modified time: 2023-08-28 14:40:24
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2023-09-13 14:38:59
 import scipy.io
 import sys, os
 import numpy as np
@@ -66,7 +66,8 @@ def load_ttl_pulse(
 
 
 # path = '/mnt/DataRAID2/LMN-ADN/A5043/A5043-230301A'
-path = '/media/guillaume/My Passport/A5000/A5043-230315A'
+# path = '/media/guillaume/My Passport/A5000/A5043-230315A'
+path = '/mnt/ceph/users/gviejo/LMN-ADN/A5043/A5043-230315A'
         
 
 data = nap.load_session(path, 'neurosuite')
@@ -78,26 +79,36 @@ wake_ep = data.epochs['wake']
 
 
 # CSV FILE
-csv_file = os.path.join(path, "A5043-230315A_1DLC_resnet50_A5043-230315AAug16shuffle1_100000.csv")
+csv_file = os.path.join(path, "A5043-230315A_1DLC_resnet152_A5043-230315ASep9shuffle1_100000_filtered.csv")
 
 position = pd.read_csv(csv_file, header=[1, 2], index_col=0)
 position = position[~position.index.duplicated(keep="first")]
 position.columns = list(map(lambda x: "_".join(x), position.columns.values))
 
-xy = np.vstack((position["objectA_x"] - position["bodypart3_x"], position["objectA_y"] - position["bodypart3_y"])).T
+b1 = ("bodypart1_x", "bodypart1_y", "bodypart1_likelihood")
+b3 = ("bodypart3_x", "bodypart3_y", "bodypart3_likelihood")
 
-angle = np.arctan2(xy[:,0], xy[:,1])
+xy = np.vstack((position[b1[0]] - position[b3[0]], position[b1[1]] - position[b3[1]])).T
+
+angle = np.arctan2(xy[:,1], xy[:,0])
 angle = angle+np.pi
 
 # # TTL
-ttl = load_ttl_pulse(os.path.join(path, "A5043-230315A_auxiliary.dat"), 120)
+# ttl = load_ttl_pulse(os.path.join(path, "A5043-230315A_auxiliary.dat"), 120)
 
-t = wake_ep.loc[0,'start']+np.arange(0, len(angle))/120
+t = wake_ep.loc[0,'start']+np.arange(0, len(angle))/120+2
 
 angle = nap.Tsd(t=t, d=angle)
 
 
-ep = nap.IntervalSet(start = wake_ep.loc[0, 'start'], end = wake_ep.loc[0, 'start']+600)
+ll = position[[b1[2], b3[2]]]
+ll = nap.TsdFrame(t=t, d=ll.values)
+
+ep = ll[0].threshold(0.9).time_support.intersect(ll[1].threshold(0.95).time_support)
+
+# ep = nap.IntervalSet(start = wake_ep.loc[0, 'start'], end = wake_ep.loc[0, 'start']+600)
+
+
 
 
 tuning_curves = nap.compute_1d_tuning_curves(spikes, angle, 120, minmax=(0, 2*np.pi), ep = ep)
@@ -106,7 +117,7 @@ tuning_curves = smoothAngularTuningCurves(tuning_curves, window = 20, deviation 
 figure()
 
 for i in range(len(spikes)):
-    subplot(6,6,i+1, projection='polar')
+    subplot(5,10,i+1, projection='polar')
     plot(tuning_curves[i])
 
 show()

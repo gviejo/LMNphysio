@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-02-28 16:16:36
-# @Last Modified by:   gviejo
-# @Last Modified time: 2023-09-01 17:04:57
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2023-09-16 15:18:14
 import numpy as np
 from numba import jit
 import pandas as pd
 import sys, os
 import scipy
-from scipy import signal
+# from scipy import signal
 from itertools import combinations
 from pycircstat.descriptive import mean as circmean
 from pylab import *

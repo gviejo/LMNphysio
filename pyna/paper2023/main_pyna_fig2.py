@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   gviejo
-# @Last Modified time: 2023-09-01 16:21:55
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2023-09-07 20:43:28
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -126,9 +126,10 @@ outergs = GridSpec(3, 1, figure=fig, hspace=0.5)
 # PSB OPTO
 #####################################
 gs1 = gridspec.GridSpecFromSubplotSpec(
-    1, 3, subplot_spec=outergs[0, 0], width_ratios=[0.2, 0.2, 0.1], hspace=0.5,
+    1, 3, subplot_spec=outergs[0, 0], width_ratios=[0.15, 0.2, 0.1], hspace=0.5,
     wspace = 0.3
 )
+
 
 subplot(gs1[0, 0])
 noaxis(gca())
@@ -165,7 +166,7 @@ for i, ep, sl, msl in zip(range(2), ['wake', 'sleep'], [slice(-4,14), slice(-1,2
 # LMN OPTO
 #####################################
 gs2 = gridspec.GridSpecFromSubplotSpec(
-    1, 3, subplot_spec=outergs[1, 0], width_ratios=[0.2, 0.2, 0.1], hspace=0.4,
+    1, 3, subplot_spec=outergs[1, 0], width_ratios=[0.2, 0.2, 0.1], hspace=0.5,
     wspace = 0.3
 )
 

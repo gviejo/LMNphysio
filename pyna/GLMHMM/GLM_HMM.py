@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
-# @Last Modified by:   gviejo
-# @Last Modified time: 2023-08-24 23:03:57
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2023-09-24 16:09:32
 import numpy as np
 import os, sys
 from scipy.optimize import minimize
@@ -224,6 +224,45 @@ def optimize_observation(args):
 
     return A, Z, W, np.array(score)
 
+def optimize_intercept(args):
+    K, T, W, X, Y = args
+    scores = []    
+    init = np.random.rand(K)
+    init = init/init.sum()    
+    A = np.eye(K) + np.random.rand(K, K)*0.1
+    A = A/A.sum(1)[:,None]
+    
+    for i in range(10):
+
+        # Computing the observation
+        O = compute_observation(W, X, Y, K)
+
+        # Forward/backward
+        alpha, scaling = forward(A, T, K, O, init)                
+        beta = backward(A, T, K, O, scaling)
+        # Expectation
+        E = np.tile(A, (T-1, 1, 1)) * alpha[0:-1,:,None]*beta[1:,None,:]
+        E = E * np.tile(O[1:][:,None,:], (1, K, 1)) # Adding emission
+        G = np.zeros((T, K))
+        G[0:-1] = E.sum(-1)
+        G[-1] = alpha[-1]
+
+        print(i, np.sum(np.log(scaling)))
+        scores.append(np.sum(np.log(scaling)))
+
+        # Learning GLM based on best sequence for each state
+        print("ReFitting GLM")
+        z = np.argmax(G, 1)
+        b0 = np.zeros((W.shape[0], W.shape[2]))        
+        for j in range(0, K): 
+            if np.sum(z == j) > 100:
+                solver = minimize(loss_bias, b0[j], args = (X[z==j], Y[z==j], W[j,0:-1,:]), jac=False, method='L-BFGS-B')
+                W[j,-1,:] = solver['x'].flatten()
+
+    Z = np.argmax(G, 1)
+
+    return A, Z, W, np.hstack(scores)    
+
 class GLM_HMM(object):
 
     def __init__(self, glms):
@@ -231,7 +270,7 @@ class GLM_HMM(object):
         self.glms = glms        
         self.B = glms[0].B
         self.n_basis = self.B.shape[1]
-        self.mask = self.glms[0].mask
+        # self.mask = self.glms[0].mask
 
     def fit_transition(self, spikes, ep, bin_size):        
         self.spikes = spikes        
@@ -295,35 +334,48 @@ class GLM_HMM(object):
         Zs = []
         Ws = []
 
-        # args = [(self.K, self.T, self.initial_W, self.X, self.Y) for i in range(5)]
-        # with Pool(len(args)) as pool:
-        #     for result in pool.map(optimize_transition2, args):
+        # args = [(self.K, self.T, self.initial_W, self.X, self.Y) for i in range(15)]
+        # with Pool(5) as pool:
+        #     for result in pool.map(optimize_intercept, args):
         #         As.append(result[0])
         #         Zs.append(result[1])
         #         Ws.append(result[2])
         #         self.scores.append(result[3])
 
-
-        for _ in range(2):
+        for _ in range(3):
             # A, Z, score = optimize_transition((self.K, self.T, self.O))
-            A, Z, W, score = optimize_transition2((self.K, self.T, self.initial_W, self.X, self.Y))
-
+            A, Z, W, score = optimize_intercept((self.K, self.T, self.initial_W, self.X, self.Y))
             self.scores.append(score)
             As.append(A)
             Zs.append(Z)
+            Ws.append(W)
 
-        try:
-            self.O = compute_observation(W, self.X, self.Y, self.K)
-        except:
-            pass
-
+        # n = 100
+        # args = []
+        # ij = []
+        # self.grid_search = np.zeros((n,n))
+        # for i,p0 in enumerate(np.linspace(0.01, 0.99, n)):
+        #     for j,p1 in enumerate(np.linspace(0.01, 0.99, n)):
+        #         print(i,j)
+        #         P = np.array([p0, p1])                
+        #         args.append((self.K, self.T, self.initial_W, self.X, self.Y, P))
+        #         ij.append((i,j))
+        #         # A, Z, W, score = optimize_intercept((self.K, self.T, self.initial_W, self.X, self.Y, P))        
+        # with Pool(3) as pool:
+        #     for result, k in zip(pool.map(optimize_intercept, args), ij):
+        #         As.append(result[0])
+        #         Zs.append(result[1])
+        #         Ws.append(result[2])
+        #         self.scores.append(result[3])
+        #         self.grid_search[k[0], k[1]] = np.max(result[3])
+                        
         # self.scores = np.array(self.scores).T
         self.max_L = np.array([score.max() for score in self.scores])
         As = np.array(As)
         # Bs = np.array(Bs)
 
         self.A = As[np.argmax(self.max_L)]
-        # B = Bs[np.argmax(scores[-1])]        
+        self.best_W = Ws[np.argmax(self.max_L)]
 
         self.Z = nap.Tsd(t = self.time_idx, 
             d = Zs[np.argmax(self.max_L)],
@@ -337,6 +389,7 @@ class GLM_HMM(object):
 
         self.eps = eps
         self.W = np.array([self.glms[i].W for i in range(self.K)])
+        self.O = compute_observation(self.best_W, self.X, self.Y, self.K)
 
 
     def fit_observation(self, spikes, ep, bin_size):        

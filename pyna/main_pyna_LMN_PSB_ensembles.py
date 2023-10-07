@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-11-29 14:59:45
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2022-12-15 16:47:26
+# @Last Modified time: 2023-09-09 17:43:11
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -21,9 +21,18 @@ from sklearn.preprocessing import StandardScaler
 ############################################################################################### 
 # GENERAL infos
 ###############################################################################################
-data_directory = '/mnt/DataRAID2/'
-datasets = np.genfromtxt('/mnt/DataRAID2/datasets_LMN_PSB.list', delimiter = '\n', dtype = str, comments = '#')
-infos = getAllInfos(data_directory, datasets)
+if os.path.exists("/mnt/Data/Data/"):
+    data_directory = "/mnt/Data/Data"
+elif os.path.exists('/mnt/DataRAID2/'):    
+    data_directory = '/mnt/DataRAID2/'
+elif os.path.exists('/mnt/ceph/users/gviejo'):    
+    data_directory = '/mnt/ceph/users/gviejo'
+elif os.path.exists('/media/guillaume/Raid2'):
+    data_directory = '/media/guillaume/Raid2'
+
+
+datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN_PSB.list'), delimiter = '\n', dtype = str, comments = '#')
+
 
 
 

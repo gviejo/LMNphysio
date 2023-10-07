@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
-# @Last Modified by:   gviejo
-# @Last Modified time: 2023-08-28 12:10:22
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2023-09-24 16:31:39
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -41,8 +41,8 @@ elif os.path.exists('/media/guillaume/Raid2'):
 
 datasets = np.hstack([
     np.genfromtxt(os.path.join(data_directory,'datasets_LMN.list'), delimiter = '\n', dtype = str, comments = '#'),
-    # np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#'),
-    # np.genfromtxt(os.path.join(data_directory,'datasets_LMN_PSB.list'), delimiter = '\n', dtype = str, comments = '#'),
+    np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#'),
+    np.genfromtxt(os.path.join(data_directory,'datasets_LMN_PSB.list'), delimiter = '\n', dtype = str, comments = '#'),
     ])
 
 
@@ -111,6 +111,7 @@ for s in datasets:
 
         spikes.set_info(maxch = maxch[tokeep])
 
+
         if len(tokeep) > 5:
             
             # figure()
@@ -126,7 +127,7 @@ for s in datasets:
             # HMM GLM
             ###############################################################################################
             
-            bin_size = 0.005
+            bin_size = 0.015
             window_size = bin_size*50.0
 
 
@@ -143,17 +144,16 @@ for s in datasets:
             rglm.fit_scipy()
             # rglm.fit_sklearn()
 
-            # glm0 = ConvolvedGLM(spikes, bin_size, window_size, newwake_ep)
-            # glm0.W = np.zeros_like(glm.W)
+            # spikes0 = nap.TsGroup({i:nap.Ts(np.array([])) for i in spikes.keys()}, time_support=newwake_ep)
 
-            # sys.exit()
+            # glm0 = ConvolvedGLM(spikes0, bin_size, window_size, newwake_ep)
+            # glm0.fit_scipy()            
 
             # hmm = GLM_HMM((glm0, glm, rglm))
             hmm = GLM_HMM((glm, rglm))
             
             hmm.fit_transition(spikes, sws_ep, bin_size)
-
-
+            
             # figure()
             # gs = GridSpec(3,1)
             # ax = subplot(gs[0,0])
@@ -234,7 +234,7 @@ for s in datasets:
                 ###############################################################################################        
                 rates = {}
 
-                for e, ep, bin_size, std in zip(['wak', 'sws'], [newwake_ep, sws_ep], [0.3, 0.03], [1, 1]):
+                for e, ep, bin_size, std in zip(['wak', 'sws'], [newwake_ep, sws_ep], [0.2, 0.02], [1, 1]):
                     count = spikes.count(bin_size, ep)
                     rate = count/bin_size
                     rate = rate.as_dataframe()
@@ -257,13 +257,14 @@ for s in datasets:
                     if len(tmp):
                         r[ep] = tmp[np.triu_indices(tmp.shape[0], 1)]
 
-                to_keep = []
-                for p in r.index:
-                    tmp = spikes._metadata.loc[np.array(p.split("_")[1].split("-"), dtype=np.int32), ['group', 'maxch']]
-                    if tmp['group'].iloc[0] == tmp['group'].iloc[1]:
-                        if tmp['maxch'].iloc[0] != tmp['maxch'].iloc[1]:
-                            to_keep.append(p)
-                r = r.loc[to_keep]
+                # Different channels
+                # to_keep = []
+                # for p in r.index:
+                #     tmp = spikes._metadata.loc[np.array(p.split("_")[1].split("-"), dtype=np.int32), ['group', 'maxch']]
+                #     if tmp['group'].iloc[0] == tmp['group'].iloc[1]:
+                #         if tmp['maxch'].iloc[0] != tmp['maxch'].iloc[1]:
+                #             to_keep.append(p)
+                # r = r.loc[to_keep]
                 
                 #######################
                 # Session correlation
