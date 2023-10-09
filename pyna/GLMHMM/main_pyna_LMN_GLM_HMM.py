@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-09-24 16:31:39
+# @Last Modified time: 2023-10-09 12:30:08
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -121,13 +121,13 @@ for s in datasets:
             
             
             velocity = computeAngularVelocity(position['ry'], position.time_support.loc[[0]], 0.2)
-            newwake_ep = velocity.threshold(0.05).time_support.drop_short_intervals(1).merge_close_intervals(1)
+            newwake_ep = np.abs(velocity).threshold(0.02).time_support.drop_short_intervals(1).merge_close_intervals(1)
 
             ############################################################################################### 
             # HMM GLM
             ###############################################################################################
             
-            bin_size = 0.015
+            bin_size = 0.02
             window_size = bin_size*50.0
 
 
@@ -144,13 +144,12 @@ for s in datasets:
             rglm.fit_scipy()
             # rglm.fit_sklearn()
 
-            # spikes0 = nap.TsGroup({i:nap.Ts(np.array([])) for i in spikes.keys()}, time_support=newwake_ep)
-
-            # glm0 = ConvolvedGLM(spikes0, bin_size, window_size, newwake_ep)
-            # glm0.fit_scipy()            
-
-            # hmm = GLM_HMM((glm0, glm, rglm))
-            hmm = GLM_HMM((glm, rglm))
+            spikes0 = nap.TsGroup({i:nap.Ts(np.array([])) for i in spikes.keys()}, time_support=newwake_ep)
+            glm0 = ConvolvedGLM(spikes0, bin_size, window_size, newwake_ep)
+            glm0.fit_scipy()                        
+            
+            hmm = GLM_HMM((glm0, glm, rglm))
+            # hmm = GLM_HMM((glm, rglm))
             
             hmm.fit_transition(spikes, sws_ep, bin_size)
             
@@ -300,8 +299,6 @@ for s in datasets:
                         columns = np.arange(len(eps)),
                         index = [data.basename])
                     )
-
-
             
 
 allr = pd.concat(allr, 0)
@@ -310,6 +307,9 @@ durations = pd.concat(durations, 0)
 corr = pd.concat(corr, 0)
 spkcounts = pd.concat(spkcounts)
 
+
+print(scipy.stats.wilcoxon(corr.iloc[:,0], corr.iloc[:,-2]))
+print(scipy.stats.wilcoxon(corr.iloc[:,0], corr.iloc[:,-1]))
 print(scipy.stats.wilcoxon(corr.iloc[:,-2], corr.iloc[:,-1]))
 
 
@@ -373,3 +373,5 @@ import _pickle as cPickle
 
 with open(os.path.join(dropbox_path, file_name), "wb") as f:
     cPickle.dump(datatosave, f)
+
+

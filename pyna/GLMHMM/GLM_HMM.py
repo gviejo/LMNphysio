@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-09-24 16:09:32
+# @Last Modified time: 2023-10-09 13:58:03
 import numpy as np
 import os, sys
 from scipy.optimize import minimize
@@ -229,10 +229,10 @@ def optimize_intercept(args):
     scores = []    
     init = np.random.rand(K)
     init = init/init.sum()    
-    A = np.eye(K) + np.random.rand(K, K)*0.1
+    A = np.eye(K) + np.random.rand(K, K)*0.05
     A = A/A.sum(1)[:,None]
     
-    for i in range(10):
+    for i in range(20):
 
         # Computing the observation
         O = compute_observation(W, X, Y, K)
@@ -342,7 +342,7 @@ class GLM_HMM(object):
         #         Ws.append(result[2])
         #         self.scores.append(result[3])
 
-        for _ in range(3):
+        for _ in range(20):
             # A, Z, score = optimize_transition((self.K, self.T, self.O))
             A, Z, W, score = optimize_intercept((self.K, self.T, self.initial_W, self.X, self.Y))
             self.scores.append(score)

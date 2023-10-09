@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-01 19:20:07
-# @Last Modified by:   gviejo
-# @Last Modified time: 2023-08-24 10:26:05
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2023-10-09 12:40:56
 
 import numpy as np
 import pandas as pd
@@ -159,7 +159,7 @@ datatosave = {
     'allr':allr,
     'pearsonr':pearson
     }
-cPickle.dump(datatosave, open(os.path.join('/home/guillaume/Dropbox/LMNphysio/data', 'All_correlation_ADN.pickle'), 'wb'))
+# cPickle.dump(datatosave, open(os.path.join('/home/guillaume/Dropbox/LMNphysio/data', 'All_correlation_ADN.pickle'), 'wb'))
 # cPickle.dump(datatosave, open(os.path.join('/home/guillaume/Dropbox/CosyneData', 'A5043_correlation_ADN.pickle'), 'wb'))
 
 # datatosave = {'allr':allr}
