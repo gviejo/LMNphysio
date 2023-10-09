@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-10-09 13:58:03
+# @Last Modified by:   gviejo
+# @Last Modified time: 2023-10-09 17:11:49
 import numpy as np
 import os, sys
 from scipy.optimize import minimize
@@ -342,7 +342,7 @@ class GLM_HMM(object):
         #         Ws.append(result[2])
         #         self.scores.append(result[3])
 
-        for _ in range(20):
+        for _ in range(5):
             # A, Z, score = optimize_transition((self.K, self.T, self.O))
             A, Z, W, score = optimize_intercept((self.K, self.T, self.initial_W, self.X, self.Y))
             self.scores.append(score)
