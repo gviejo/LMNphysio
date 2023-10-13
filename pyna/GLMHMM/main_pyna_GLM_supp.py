@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
 # @Last Modified by:   gviejo
-# @Last Modified time: 2023-10-09 17:19:45
+# @Last Modified time: 2023-10-13 12:22:31
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -160,11 +160,25 @@ for s in datasets:
             
             hmm = GLM_HMM(glms)
 
-
-
             ###################################################################
             # Generating new data
-            ###################################################################                    
+            ###################################################################
+            K = len(glms)            
+            A = np.eye(K) + np.random.rand(K, K)*0.01
+            A = A/A.sum(1)[:,None]
+            
+            nt = int(wake_ep.tot_length("s")//bin_size)
+            states = np.zeros(nt, dtype="int")            
+            for i in range(1, nt):
+                states[i] = np.sum(np.cumsum(A[states[i-1]])<np.random.random())
+
+            states = nap.Tsd(t=np.arange(0, nt)*bin_size + wake_ep.start[0],d=states)
+
+            # states to ep
+            eps = []
+            for i in range(len(glms)):
+
+
             tmp = [0]
             while np.sum(tmp) < wake_ep.tot_length('s'):
                 tmp.append(lognormal(1.0, 0.5))
