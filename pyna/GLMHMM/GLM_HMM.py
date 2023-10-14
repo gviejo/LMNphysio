@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
-# @Last Modified by:   gviejo
-# @Last Modified time: 2023-10-09 17:11:49
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2023-10-14 18:42:36
 import numpy as np
 import os, sys
 from scipy.optimize import minimize
@@ -47,8 +47,8 @@ def compute_observation(W, X, Y, K):
     O = []
     for k in range(K):
         mu = np.exp(np.einsum('tnk,kn->tn', X, W[k]))        
-        if k == 0 and K>2:
-            mu*=1e-2
+        # if k == 0 and K>2:
+        #     mu*=1e-2
         p = poisson.pmf(k=Y, mu=mu)
         p = np.clip(p, 1e-15, 1.0)
         O.append(p.prod(1))
@@ -80,9 +80,10 @@ def optimize_transition(args):
     score = []
     init = np.random.rand(K)
     init = init/init.sum()
-    A = np.eye(K) + np.random.rand(K, K)*0.1
+    # A = np.eye(K) + np.random.rand(K, K)*0.1
+    A = np.random.rand(K, K)
     A = A/A.sum(1)[:,None]
-    for i in range(100):
+    for i in range(30):
         alpha, scaling = forward(A, T, K, O, init)                
         beta = backward(A, T, K, O, scaling)
         # Expectation
@@ -102,9 +103,9 @@ def optimize_transition(args):
         print(np.sum(np.log(scaling)))
         score.append(np.sum(np.log(scaling)))
 
-        if i > 2:
-            if np.abs(score[-2]-score[-1]) < 1e-20:
-                break        
+        # if i > 2:
+        #     if np.abs(score[-2]-score[-1]) < 1e-20:
+        #         break        
 
     Z = np.argmax(G, 1)
 
@@ -229,7 +230,7 @@ def optimize_intercept(args):
     scores = []    
     init = np.random.rand(K)
     init = init/init.sum()    
-    A = np.eye(K) + np.random.rand(K, K)*0.05
+    A = np.eye(K) + np.random.rand(K, K)*0.01
     A = A/A.sum(1)[:,None]
     
     for i in range(20):
@@ -246,6 +247,10 @@ def optimize_intercept(args):
         G = np.zeros((T, K))
         G[0:-1] = E.sum(-1)
         G[-1] = alpha[-1]
+
+        # Maximisation
+        # init = G[0]
+        # A = E.sum(0)/(G[0:-1].sum(0)[:,None])    
 
         print(i, np.sum(np.log(scaling)))
         scores.append(np.sum(np.log(scaling)))
@@ -272,18 +277,24 @@ class GLM_HMM(object):
         self.n_basis = self.B.shape[1]
         # self.mask = self.glms[0].mask
 
-    def fit_transition(self, spikes, ep, bin_size):        
+    def fit_transition(self, spikes, ep=None, bin_size=None):
         self.spikes = spikes        
 
         ############################################
         # BINNING
         ############################################
-        count = spikes.count(bin_size, ep)
-        self.time_idx = count.index.values
-
-        self.N = len(self.spikes)
-        self.Y = count.values
-        self.T = len(self.Y)
+        if isinstance(spikes, nap.TsGroup):
+            self.N = len(self.spikes)
+            count = self.spikes.count(binsize, ep)
+            self.Y = count.values
+            self.T = len(self.Y)
+            self.time_idx = count.index.values
+        else:
+            self.N = spikes.shape[1]
+            self.Y = spikes
+            self.T = spikes.shape[0]
+            self.time_idx = spikes.index.values
+                
 
         ############################################
         # CONVOLVING
@@ -342,32 +353,16 @@ class GLM_HMM(object):
         #         Ws.append(result[2])
         #         self.scores.append(result[3])
 
-        for _ in range(5):
-            # A, Z, score = optimize_transition((self.K, self.T, self.O))
-            A, Z, W, score = optimize_intercept((self.K, self.T, self.initial_W, self.X, self.Y))
+        for _ in range(20):
+            A, Z, score = optimize_transition((self.K, self.T, self.O))
+            # A, Z, W, score = optimize_intercept((self.K, self.T, self.initial_W, self.X, self.Y))
             self.scores.append(score)
             As.append(A)
             Zs.append(Z)
-            Ws.append(W)
-
-        # n = 100
-        # args = []
-        # ij = []
-        # self.grid_search = np.zeros((n,n))
-        # for i,p0 in enumerate(np.linspace(0.01, 0.99, n)):
-        #     for j,p1 in enumerate(np.linspace(0.01, 0.99, n)):
-        #         print(i,j)
-        #         P = np.array([p0, p1])                
-        #         args.append((self.K, self.T, self.initial_W, self.X, self.Y, P))
-        #         ij.append((i,j))
-        #         # A, Z, W, score = optimize_intercept((self.K, self.T, self.initial_W, self.X, self.Y, P))        
-        # with Pool(3) as pool:
-        #     for result, k in zip(pool.map(optimize_intercept, args), ij):
-        #         As.append(result[0])
-        #         Zs.append(result[1])
-        #         Ws.append(result[2])
-        #         self.scores.append(result[3])
-        #         self.grid_search[k[0], k[1]] = np.max(result[3])
+            try:
+                Ws.append(W)
+            except:
+                Ws.append(self.initial_W)
                         
         # self.scores = np.array(self.scores).T
         self.max_L = np.array([score.max() for score in self.scores])

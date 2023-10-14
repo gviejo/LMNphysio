@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-10-09 12:30:08
+# @Last Modified time: 2023-10-14 15:09:29
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -111,7 +111,7 @@ for s in datasets:
 
         spikes.set_info(maxch = maxch[tokeep])
 
-
+        print(s, tokeep)
         if len(tokeep) > 5:
             
             # figure()
@@ -344,6 +344,7 @@ ylim(0, 1)
 xticks(np.arange(corr.shape[1]), corr.columns)
 
 subplot(gs[1,2])
+spkcounts = spkcounts.div(spkcounts.sum(axis=1), axis=0)
 tmp = spkcounts.values.T
 # tmp = tmp/tmp.sum(0)
 plot(tmp, 'o-')

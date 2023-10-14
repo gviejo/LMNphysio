@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-01 19:20:07
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-10-09 12:40:56
+# @Last Modified time: 2023-10-14 19:06:27
 
 import numpy as np
 import pandas as pd
@@ -57,6 +57,7 @@ for s in datasets:
             filepath = os.path.join(data_directory, s, os.path.basename(s))
             hmm_eps.append(nap.load_file(filepath+"_HMM_ep0.npz"))
             hmm_eps.append(nap.load_file(filepath+"_HMM_ep1.npz"))
+            hmm_eps.append(nap.load_file(filepath+"_HMM_ep2.npz"))
         except:
             pass
 
@@ -88,7 +89,7 @@ for s in datasets:
             tcurves2.append(tcurves_half)       
         tokeep = np.intersect1d(tokeep2[0], tokeep2[1])  
         
-        if len(tokeep) > 4:
+        if len(tokeep) > 2:
 
             spikes = spikes[tokeep]
             # spikes = spikes.getby_threshold('SI', 0.4)
@@ -107,7 +108,7 @@ for s in datasets:
             # PEARSON CORRELATION
             ###############################################################################################
             rates = {}
-            for e, ep, bin_size, std in zip(['wak', 'rem', 'sws'], [newwake_ep, rem_ep, sws_ep], [0.2, 0.2, 0.03], [1, 1, 1]):
+            for e, ep, bin_size, std in zip(['wak', 'rem', 'sws'], [newwake_ep, rem_ep, sws_ep], [0.2, 0.2, 0.02], [1, 1, 1]):
                 count = spikes.count(bin_size, ep)
                 rate = count/bin_size
                 rate = rate.as_dataframe()
@@ -136,7 +137,7 @@ for s in datasets:
             #######################
             # COMPUTING PEARSON R FOR EACH SESSION
             #######################
-            pearson[s] = np.zeros((5))*np.nan
+            pearson[s] = np.zeros((6))*np.nan
             pearson[s][0] = scipy.stats.pearsonr(r['wak'], r['rem'])[0]
             pearson[s][1] = scipy.stats.pearsonr(r['wak'], r['sws'])[0]
             if len(hmm_eps):
@@ -153,22 +154,20 @@ for s in datasets:
 allr = pd.concat(allr, 0)
 
 pearson = pd.DataFrame(pearson).T
-pearson.columns = ['rem', 'sws', 'ep0', 'ep1', 'count']
+pearson.columns = ['rem', 'sws', 'ep0', 'ep1', 'ep2', 'count']
 
 datatosave = {
     'allr':allr,
     'pearsonr':pearson
     }
-# cPickle.dump(datatosave, open(os.path.join('/home/guillaume/Dropbox/LMNphysio/data', 'All_correlation_ADN.pickle'), 'wb'))
-# cPickle.dump(datatosave, open(os.path.join('/home/guillaume/Dropbox/CosyneData', 'A5043_correlation_ADN.pickle'), 'wb'))
 
-# datatosave = {'allr':allr}
-# cPickle.dump(datatosave, open(os.path.join('../data/', 'All_correlation_ADN_LMN.pickle'), 'wb'))
+dropbox_path = os.path.expanduser("~/Dropbox/LMNphysio/data")
+cPickle.dump(datatosave, open(os.path.join(dropbox_path, 'All_correlation_ADN.pickle'), 'wb'))
 
 
 figure()
-for i, e in enumerate(["rem", "sws", "ep0", "ep1"]):
-    subplot(1, 4, i+1)
+for i, e in enumerate(["rem", "sws", "ep0", "ep1", "ep2"]):
+    subplot(1, 5, i+1)
     tmp = allr[['wak', e]].dropna()
     plot(tmp['wak'], tmp[e], 'o', color = 'red', alpha = 0.5)
     m, b = np.polyfit(tmp['wak'].values, tmp[e].values, 1)

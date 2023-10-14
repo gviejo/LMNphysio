@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-09-16 15:35:08
+# @Last Modified time: 2023-10-14 18:12:36
 import numpy as np
 import pynapple as nap
 import os, sys
@@ -108,9 +108,18 @@ class HankelGLM(object):
 
 class ConvolvedGLM(object):
 
-    def __init__(self, spikes, binsize, windowsize, ep):
+    def __init__(self, spikes, binsize, windowsize, ep=None):
         self.spikes = spikes
-        self.N = len(self.spikes)
+
+        if isinstance(spikes, nap.TsGroup):
+            self.N = len(self.spikes)
+            count = self.spikes.count(binsize, ep)
+            self.Y = count.values
+            self.T = len(self.Y)
+        else:
+            self.N = spikes.shape[1]
+            self.Y = spikes
+            self.T = spikes.shape[0]
         
         # mask
         # self.mask = np.ones((self.N, self.N-1), dtype=np.int32)
@@ -124,9 +133,6 @@ class ConvolvedGLM(object):
         #                     self.mask[i,j] = 0
 
 
-        count = self.spikes.count(binsize, ep)
-        self.Y = count.values
-        self.T = len(self.Y)
 
         nt = int(windowsize/binsize)
         if nt%2==0: nt += 1
