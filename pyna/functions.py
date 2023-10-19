@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-02-28 16:16:36
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-09-16 15:18:14
+# @Last Modified by:   gviejo
+# @Last Modified time: 2023-10-17 17:56:29
 import numpy as np
 from numba import jit
 import pandas as pd
@@ -203,7 +203,7 @@ def centerTuningCurves(tcurve):
     peak            = pd.Series(index=tcurve.columns,data = np.array([circmean(tcurve.index.values, tcurve[i].values) for i in tcurve.columns]))
     new_tcurve      = []
     for p in tcurve.columns:    
-        x = tcurve[p].index.values - tcurve[p].index[tcurve[p].index.get_loc(peak[p], method='nearest')]
+        x = tcurve[p].index.values - tcurve[p].index[np.searchsorted(tcurve[p].index, peak[p])-1]
         x[x<-np.pi] += 2*np.pi
         x[x>np.pi] -= 2*np.pi
         tmp = pd.Series(index = x, data = tcurve[p].values).sort_index()

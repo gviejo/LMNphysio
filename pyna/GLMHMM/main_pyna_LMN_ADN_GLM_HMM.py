@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
 # @Last Modified by:   gviejo
-# @Last Modified time: 2023-08-28 22:23:07
+# @Last Modified time: 2023-10-18 13:43:01
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -40,8 +40,8 @@ datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), d
 
 
 SI_thr = {
-    'adn':0.5, 
-    'lmn':0.2,
+    'adn':0.3, 
+    'lmn':0.1,
     'psb':1.5
     }
 
@@ -52,7 +52,7 @@ corr = {'adn':[], 'lmn':[]}
 
 # for s in datasets:
 # for s in ["LMN-ADN/A5043/A5043-230302A"]:
-for s in ['LMN-ADN/A5043/A5043-230301A']:
+for s in ['LMN-ADN/A5043/A5043-230306A']:
 # # for s in ['LMN/A1413/A1413-200918A']:
 # for s in ['LMN/A1414/A1414-200929A']:
     print(s)
@@ -116,13 +116,13 @@ for s in ['LMN-ADN/A5043/A5043-230301A']:
             # show()
             
             velocity = computeAngularVelocity(position['ry'], position.time_support.loc[[0]], 0.2)
-            newwake_ep = velocity.threshold(0.05).time_support.drop_short_intervals(1).merge_close_intervals(1)
+            newwake_ep = np.abs(velocity).threshold(0.02).time_support.drop_short_intervals(1).merge_close_intervals(1)
 
             ############################################################################################### 
             # HMM GLM
             ###############################################################################################
             
-            bin_size = 0.03
+            bin_size = 0.02
             window_size = bin_size*50.0
             
             ############################################
@@ -138,14 +138,17 @@ for s in ['LMN-ADN/A5043/A5043-230301A']:
             rglm.fit_scipy()
             # rglm.fit_sklearn()
 
-            # glm0 = ConvolvedGLM(spikes, bin_size, window_size, newwake_ep)
-            # glm0.W = np.zeros_like(glm.W)
+            spikes0 = nap.TsGroup({i:nap.Ts(np.array([])) for i in spikes.keys()}, time_support=newwake_ep)
+            glm0 = ConvolvedGLM(spikes0, bin_size, window_size, newwake_ep)
+            glm0.fit_scipy()                        
 
 
-            # hmm = GLM_HMM((glm0, glm, rglm))
-            hmm = GLM_HMM((glm, rglm))
+            glms = (glm0, glm, rglm)
+
+            hmm = GLM_HMM(glms)
+            # hmm = GLM_HMM((glm, rglm))
             
-            sws_ep = sws_ep.drop_short_intervals(600)
+            # sws_ep = sws_ep.drop_short_intervals(600)
 
             hmm.fit_transition(spikes, sws_ep, bin_size)
             
@@ -280,14 +283,18 @@ ylim(0, 1)
 
 show()
 
-sys.exit()
 
 ##################################################################
 # FOR FIGURE 1
 ##################################################################
 
-Y = StandardScaler().fit_transform(glm.Y.astype(np.float32))
-Yr = StandardScaler().fit_transform(rglm.Y.astype(np.float32))
+C = spikes.restrict(newwake_ep).count(0.2).values
+Cr = spikes2.restrict(newwake_ep).count(0.2).values
+
+Y = StandardScaler().fit_transform(C)
+Yr = StandardScaler().fit_transform(Cr)
+Y = gaussian_filter1d(Y, sigma=1, axis=0)
+Yr = gaussian_filter1d(Yr, sigma=1, axis=0)
 
 from sklearn.decomposition import KernelPCA
 imap = KernelPCA(n_components=2, kernel="cosine").fit_transform(Y)
@@ -307,15 +314,16 @@ tmp = tmp[order]
 datatosave = {
     "imap":imap,
     "imapr":imapr,
-    # "hmm":hmm,
-    "glm":glm,
-    "glmr":rglm
+    "W":np.array([glms[i].W for i in range(len(glms))]),
+    "bestZ":hmm.Z,
+    "O":hmm.O,
+    "W2":tmp
 }
 
 
 dropbox_path = os.path.expanduser("~/Dropbox/LMNphysio/data")
 today = datetime.date.today()
-file_name = "GLM_HMM_"+os.path.basename(s)+"_"+ today.strftime("%d-%m-%Y") + ".pickle"
+file_name = "GLM_HMM_"+os.path.basename(s)+".pickle"
 
 import _pickle as cPickle
 

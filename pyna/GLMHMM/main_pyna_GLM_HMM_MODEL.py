@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-10-14 18:53:48
+# @Last Modified by:   gviejo
+# @Last Modified time: 2023-10-17 15:15:42
 import numpy as np
 from scipy.optimize import minimize
 from matplotlib.pyplot import *
@@ -34,7 +34,7 @@ tmp = np.roll(np.exp(-(2.0*x)**2), (len(bins)-1)//2)
 tc = np.array([np.roll(tmp, i*(len(bins)-1)//N) for i in range(N)]).T
 Y = np.random.poisson(tc[alpha]*5)
 
-tcr = np.random.rand(120, N)*np.mean(Y.sum(0)/T)
+tcr = np.random.rand(tc.shape[0], N)*np.mean(Y.sum(0)/T)
 Yr = np.random.poisson(tcr[alpha]*2)
 
 Y0 = np.zeros_like(Yr)
@@ -99,10 +99,31 @@ hmm = GLM_HMM(glms)
 
 hmm.fit_transition(Yt)
 
+# Sampling random trajectories to compute score
 
+random_scores = []
+
+for i in range(1000):
+    Ar = np.random.rand(K, K)
+    Ar = Ar/Ar.sum(1)[:,None]
+    Zr = np.zeros(T*3, dtype='int')
+    for j in range(1, T*3):
+        Zr[j] = np.sum(np.random.rand()>np.cumsum(Ar[Zr[j-1]]))
+    random_scores.append(np.sum(Z == Zr)/len(Z))
+
+random_scores = np.array(random_scores)
 ##################################################################
 # FOR FIGURE supp 1
 ##################################################################
+
+n = 1000
+
+figure()
+imshow(Yt.values[0:n].T, aspect='auto')
+show()
+
+
+
 
 
 datatosave = {
@@ -110,10 +131,16 @@ datatosave = {
     "scores":hmm.scores,
     "A":A,
     "bestA":hmm.A,
-    "Z":Z,
-    "bestZ":hmm.Z,    
+    "Z":Z[0:n],
+    "bestZ":hmm.Z[0:n].values,    
     "tc":tc,
     "tcr":tcr,    
+    "Yt":Yt.values[0:n],
+    "Y":Y[0:100],
+    "Yr":Yr[0:100],
+    "B":glm.B,
+    "random_scores":random_scores,
+    "O":hmm.O[0:n]
     }
 
 

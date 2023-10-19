@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-10-14 18:42:36
+# @Last Modified by:   gviejo
+# @Last Modified time: 2023-10-18 20:58:23
 import numpy as np
 import os, sys
 from scipy.optimize import minimize
@@ -249,8 +249,8 @@ def optimize_intercept(args):
         G[-1] = alpha[-1]
 
         # Maximisation
-        # init = G[0]
-        # A = E.sum(0)/(G[0:-1].sum(0)[:,None])    
+        init = G[0]
+        A = E.sum(0)/(G[0:-1].sum(0)[:,None])    
 
         print(i, np.sum(np.log(scaling)))
         scores.append(np.sum(np.log(scaling)))
@@ -285,7 +285,7 @@ class GLM_HMM(object):
         ############################################
         if isinstance(spikes, nap.TsGroup):
             self.N = len(self.spikes)
-            count = self.spikes.count(binsize, ep)
+            count = self.spikes.count(bin_size, ep)
             self.Y = count.values
             self.T = len(self.Y)
             self.time_idx = count.index.values
@@ -353,7 +353,7 @@ class GLM_HMM(object):
         #         Ws.append(result[2])
         #         self.scores.append(result[3])
 
-        for _ in range(20):
+        for _ in range(5):
             A, Z, score = optimize_transition((self.K, self.T, self.O))
             # A, Z, W, score = optimize_intercept((self.K, self.T, self.initial_W, self.X, self.Y))
             self.scores.append(score)

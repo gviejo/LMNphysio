@@ -2,12 +2,13 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-08-10 17:16:25
 # @Last Modified by:   gviejo
-# @Last Modified time: 2023-08-24 12:08:42
+# @Last Modified time: 2023-10-18 13:46:57
 import scipy.io
 import sys, os
 import numpy as np
 import pandas as pd
 import pynapple as nap
+sys.path.append("../")
 from functions import *
 import sys
 from itertools import combinations, product
@@ -24,7 +25,7 @@ elif os.path.exists('/media/guillaume/Raid2'):
     data_directory = '/media/guillaume/Raid2'
 
 # path = '/mnt/DataRAID2/LMN-ADN/A5043/A5043-230301A'
-path = os.path.join(data_directory, 'LMN-ADN/A5043/A5043-230303A')
+path = os.path.join(data_directory, 'LMN-ADN/A5043/A5043-230306A')
 
 
 data = nap.load_session(path, 'neurosuite')
@@ -55,7 +56,7 @@ r = correlate_TC_half_epochs(spikes, angle, 120, (0, 2*np.pi))
 spikes.set_info(halfr = r)
 
 
-adn = spikes.getby_category("location")['adn'].getby_threshold('SI', 0.5).getby_threshold('halfr', 0.5).index
+adn = spikes.getby_category("location")['adn'].getby_threshold('SI', 0.2).getby_threshold('halfr', 0.5).index
 lmn = spikes.getby_category("location")['lmn'].getby_threshold('SI', 0.1).getby_threshold('halfr', 0.5).index
 
 tokeep = list(adn) + list(lmn)
@@ -113,7 +114,7 @@ peaks = pd.Series(index=tcurves.columns,data = np.array([circmean(tcurves.index.
 adn = peaks[adn].sort_values().index.values
 lmn = peaks[lmn].sort_values().index.values
 
-sys.exit()
+# sys.exit()
 
 ###########################################################################
 #SAVING
@@ -134,16 +135,16 @@ datatosave = { 'wak':angle_wak,
               # 'down_ep':down_ep,
               'tokeep':tokeep,
               'ex_sws':nap.IntervalSet(
-                start = 12560.73,
-                end = 12566.38
+                start = 1522.73,
+                end = 1530.38
                 ),
               'ex_rem':nap.IntervalSet(
-                start = 758.38,
-                end = 791.37
+                start = 7600.00,
+                end = 7627.00
                 ),
               'ex_wak':nap.IntervalSet(
-                start = 7349.50,
-                end = 7410.00
+                start = 4560.50,
+                end = 4600.00
                 )
           }
 

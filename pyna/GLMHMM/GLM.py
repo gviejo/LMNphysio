@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-10-14 18:12:36
+# @Last Modified by:   gviejo
+# @Last Modified time: 2023-10-16 14:50:58
 import numpy as np
 import pynapple as nap
 import os, sys
@@ -11,8 +11,8 @@ from matplotlib.pyplot import *
 from sklearn.preprocessing import StandardScaler
 from scipy.linalg import hankel
 
-from jaxopt import GradientDescent, LBFGS, ScipyMinimize
-import jax.numpy as jnp
+# from jaxopt import GradientDescent, LBFGS, ScipyMinimize
+# import jax.numpy as jnp
 
 from scipy.ndimage import gaussian_filter1d
 from scipy.stats import poisson, gamma, norm
