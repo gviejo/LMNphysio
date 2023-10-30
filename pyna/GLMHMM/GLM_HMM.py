@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
 # @Last Modified by:   gviejo
-# @Last Modified time: 2023-10-18 20:58:23
+# @Last Modified time: 2023-10-25 17:47:20
 import numpy as np
 import os, sys
 from scipy.optimize import minimize
@@ -20,7 +20,7 @@ import pynapple as nap
 
 
 @njit
-def forward(A, T, K, O, init):                    
+def forward(A, T, K, O, init):
     alpha = np.zeros((T, K))
     scaling = np.zeros(T)
     alpha[0] = init*O[0]
@@ -233,7 +233,7 @@ def optimize_intercept(args):
     A = np.eye(K) + np.random.rand(K, K)*0.01
     A = A/A.sum(1)[:,None]
     
-    for i in range(20):
+    for i in range(10):
 
         # Computing the observation
         O = compute_observation(W, X, Y, K)
@@ -250,7 +250,7 @@ def optimize_intercept(args):
 
         # Maximisation
         init = G[0]
-        A = E.sum(0)/(G[0:-1].sum(0)[:,None])    
+        # A = E.sum(0)/(G[0:-1].sum(0)[:,None])
 
         print(i, np.sum(np.log(scaling)))
         scores.append(np.sum(np.log(scaling)))
@@ -353,9 +353,9 @@ class GLM_HMM(object):
         #         Ws.append(result[2])
         #         self.scores.append(result[3])
 
-        for _ in range(5):
-            A, Z, score = optimize_transition((self.K, self.T, self.O))
-            # A, Z, W, score = optimize_intercept((self.K, self.T, self.initial_W, self.X, self.Y))
+        for _ in range(2):
+            # A, Z, score = optimize_transition((self.K, self.T, self.O))
+            A, Z, W, score = optimize_intercept((self.K, self.T, self.initial_W, self.X, self.Y))
             self.scores.append(score)
             As.append(A)
             Zs.append(Z)

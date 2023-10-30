@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
 # @Last Modified by:   gviejo
-# @Last Modified time: 2023-10-18 13:43:01
+# @Last Modified time: 2023-10-25 17:53:29
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -103,11 +103,9 @@ for s in ['LMN-ADN/A5043/A5043-230306A']:
             group.set_info(order=order, peaks=peaks)
             groups[k] = group
 
-        spikes = groups['lmn']
+        for k in ['adn', 'lmn']:
 
-
-
-        if len(groups['lmn']) > 5 and len(groups['adn']) > 3:
+            spikes = groups[k]
             
             # figure()
             # for i in range(len(tokeep)):
@@ -122,7 +120,7 @@ for s in ['LMN-ADN/A5043/A5043-230306A']:
             # HMM GLM
             ###############################################################################################
             
-            bin_size = 0.02
+            bin_size = 0.015
             window_size = bin_size*50.0
             
             ############################################
@@ -167,7 +165,9 @@ for s in ['LMN-ADN/A5043/A5043-230306A']:
             ylim(0, 2*np.pi)
             subplot(gs[3,0], sharex=ax)
             plot(hmm.time_idx, hmm.O[:,0:])
-            ylabel("P(O)")                        
+            ylabel("P(O)")                  
+            show()
+            sys.exit()      
 
             if all([len(ep)>1 for ep in hmm.eps.values()]):
                             

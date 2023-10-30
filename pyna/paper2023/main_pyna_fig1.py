@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   gviejo
-# @Last Modified time: 2023-10-18 21:40:53
+# @Last Modified time: 2023-10-27 10:45:45
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -645,6 +645,7 @@ gca().spines["bottom"].set_bounds(exs['sws'].end[0] - 1, exs['sws'].end[0])
 xticks([exs['sws'].end[0] - 0.5], ["0.5 s"])
 xlim(exs[ep].loc[0, "start"], exs[ep].loc[0, "end"])
 
+
 ###############################
 # GLM - HMM SWS
 ###############################
@@ -696,6 +697,7 @@ gs3_2 = gridspec.GridSpecFromSubplotSpec(3, 1,
 subplot(gs3_2[0,0])
 noaxis(gca())
 
+sys.exit()
 
 #############################
 # Transition
