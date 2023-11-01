@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: gviejo
 # @Date:   2023-08-29 15:43:45
-# @Last Modified by:   gviejo
-# @Last Modified time: 2023-09-01 17:01:08
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2023-11-01 12:30:22
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -32,7 +32,6 @@ elif os.path.exists('/mnt/ceph/users/gviejo'):
 elif os.path.exists('/media/guillaume/Raid2'):
     data_directory = '/media/guillaume/Raid2'
 
-data_directory = "/media/guillaume/My Passport"
 
 datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN_OPTO_WAKE.list'), delimiter = '\n', dtype = str, comments = '#')
 
@@ -49,8 +48,8 @@ alltco = []
 allmeta = []
 
 
-# for s in datasets:
-for s in ["A8000/A8047/A8047-230310B"]:
+for s in datasets:
+# for s in ["A8000/A8047/A8047-230310B"]:
     print(s)    
     ############################################################################################### 
     # LOADING DATA

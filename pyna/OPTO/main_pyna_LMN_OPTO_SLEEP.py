@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: gviejo
 # @Date:   2023-08-29 13:46:37
-# @Last Modified by:   gviejo
-# @Last Modified time: 2023-08-31 16:09:27
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2023-10-31 17:12:26
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -32,7 +32,7 @@ elif os.path.exists('/mnt/ceph/users/gviejo'):
 elif os.path.exists('/media/guillaume/Raid2'):
     data_directory = '/media/guillaume/Raid2'
 
-data_directory = "/media/guillaume/My Passport"
+# data_directory = "/media/guillaume/My Passport"
 
 datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN_OPTO_SLEEP.list'), delimiter = '\n', dtype = str, comments = '#')
 
@@ -54,7 +54,7 @@ for s in datasets:
     ############################################################################################### 
     # LOADING DATA
     ###############################################################################################
-    path = os.path.join(data_directory, s)
+    path = os.path.join(data_directory, 'OPTO', s)
     data = nap.load_session(path, 'neurosuite')
     spikes = data.spikes
     position = data.position

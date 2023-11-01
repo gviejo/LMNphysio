@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-09-07 20:43:28
+# @Last Modified time: 2023-11-01 18:08:10
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -111,6 +111,11 @@ colors = {"adn": "#EA9E8D", "lmn": "#8BA6A9", "psb": "#CACC90"}
 ###############################################################################################
 dropbox_path = os.path.expanduser("~") + "/Dropbox/LMNphysio/data"
 
+ex_path_psb = {
+    "wake": "/DATA_FIG_PSB_WAKE_A8054-230719A.pickle",
+    "sleep": "/DATA_FIG_PSB_SLEEP_A8054-230718A.pickle"
+    }
+
 
 ###############################################################################################################
 # PLOT
@@ -118,19 +123,25 @@ dropbox_path = os.path.expanduser("~") + "/Dropbox/LMNphysio/data"
 
 markers = ["d", "o", "v"]
 
+mks = 1.1
+alp = 1
+medw = 0.08
+
+
 fig = figure(figsize=figsize(2))
 
 outergs = GridSpec(3, 1, figure=fig, hspace=0.5)
 
 #####################################
-# PSB OPTO
+# PSB OPTO SLEEP
 #####################################
 gs1 = gridspec.GridSpecFromSubplotSpec(
-    1, 3, subplot_spec=outergs[0, 0], width_ratios=[0.15, 0.2, 0.1], hspace=0.5,
-    wspace = 0.3
+    1, 3, subplot_spec=outergs[0, 0], 
+    hspace=0.5, wspace = 0.3,
+    width_ratios=[0.1, 0.5, 0.1]
 )
 
-
+# Histology
 subplot(gs1[0, 0])
 noaxis(gca())
 img = mpimg.imread(dropbox_path+"/PSBopto.png")
@@ -139,28 +150,79 @@ xticks([])
 yticks([])
 
 
-psbdata = cPickle.load(open(dropbox_path + "/OPTO_PSB.pickle", "rb"))
-allmeta = psbdata['allmeta']
-allfr = psbdata['allfr']
+# for e, ep, sl, msl in zip(range(2), ['wake', 'sleep'], [slice(-4,14), slice(-1,2)], [slice(-4,0), slice(-1,0)]):    
 
-gs12 = gridspec.GridSpecFromSubplotSpec(2, 2, subplot_spec=gs1[0, 1],
+# PSB opto example wake
+gs1_2 = gridspec.GridSpecFromSubplotSpec(2, 4, subplot_spec=gs1[0, 1],
     hspace=0.4, wspace=0.5)
 
-for i, ep, sl, msl in zip(range(2), ['wake', 'sleep'], [slice(-4,14), slice(-1,2)], [slice(-4,0), slice(-1,0)]):
-    order = allmeta[ep].sort_values(by="SI").index.values
-    tmp = allfr[ep][order].loc[sl]
+ep = 'wake'
+sl = slice(-4, 14)
+psbex = cPickle.load(open(dropbox_path + ex_path_psb[ep], "rb"))
+
+for i, n, k in zip(range(2), psbex['tc'].columns, ['hd', 'nhd']):
+    subplot(gs1_2[i,0], projection='polar')
+    gca().spines["polar"].set_visible(False)
+    fill_between(
+        psbex['tc'][n].index.values,
+        np.zeros_like(psbex['tc'][n].values),
+        psbex['tc'][n].values,
+        color = colors['psb']
+        )
+    xticks([0, np.pi/2, np.pi, 3*np.pi/2], ['', '', '', ''])
+    gca().tick_params(pad=1)
+    yticks([])
+
+    subplot(gs1_2[i,1])
+    simpleaxis(gca())
+    plot(psbex[k][np.arange(0, 30)].to_tsd(), '|', 
+        color = colors['psb'],
+        markersize=mks,
+        markeredgewidth=medw,
+        alpha=alp,
+        )
+    if i == 0:
+        xticks([0, 10], ['', ''])
+    if i == 1:
+        xlabel("Time from stim (s)")
+
+# PSB average firing rate
+psbdata = cPickle.load(open(dropbox_path + "/OPTO_PSB.pickle", "rb"))
+allmeta = psbdata['allmeta'][ep]
+allfr = psbdata['allfr'][ep]
+alltc = psbdata['alltc'][ep]
+
+neurons = allmeta.index.values
+hd = neurons[allmeta['SI']>0.5]
+nhd = neurons[allmeta['SI']<=0.1]
+
+for i, gr in enumerate([hd, nhd]):
+    tc = centerTuningCurves(alltc[gr])
+    tc = tc / tc.loc[0]
+    subplot(gs1_2[i,2])
+    simpleaxis(gca())
+    plot(tc, color = colors['psb'], linewidth=0.1, alpha=0.4)
+    plot(tc.mean(1), linewidth=0.5, color=colors['psb'])
+    xticks([-np.pi, 0, np.pi], ['', '', ''])
+    if i == 1:
+        xticks([-np.pi, 0, np.pi], [-180, 0, 180])
+        xlabel("Centered HD")
+
+
+    tmp = allfr[gr].loc[sl]
     tmp = tmp.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
-    subplot(gs12[0,i])
+    subplot(gs1_2[i,3])
     simpleaxis(gca())
     plot(tmp, color = colors['psb'], linewidth=0.1)
-    title(ep)
+    # title(ep)
     ylim(0, 2.5)
 
-    subplot(gs12[1,i])
-    # tmp = tmp - tmp.loc[msl].mean(0)
-    # tmp = tmp / tmp.std(0)    
-    imshow(tmp.values.T, aspect='auto')
-    
+
+
+# PSB opto vs control wake
+subplot(gs1[0,2])
+simpleaxis(gca())
+
 
 #####################################
 # LMN OPTO
