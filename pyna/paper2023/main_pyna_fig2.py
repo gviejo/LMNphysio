@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-11-01 18:08:10
+# @Last Modified by:   gviejo
+# @Last Modified time: 2023-11-01 22:59:45
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -197,7 +197,7 @@ hd = neurons[allmeta['SI']>0.5]
 nhd = neurons[allmeta['SI']<=0.1]
 
 for i, gr in enumerate([hd, nhd]):
-    tc = centerTuningCurves(alltc[gr])
+    tc = centerTuningCurves2(alltc[gr])
     tc = tc / tc.loc[0]
     subplot(gs1_2[i,2])
     simpleaxis(gca())

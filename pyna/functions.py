@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-02-28 16:16:36
 # @Last Modified by:   gviejo
-# @Last Modified time: 2023-10-17 17:56:29
+# @Last Modified time: 2023-11-01 22:59:00
 import numpy as np
 from numba import jit
 import pandas as pd
@@ -210,6 +210,21 @@ def centerTuningCurves(tcurve):
         new_tcurve.append(tmp.values)
     new_tcurve = pd.DataFrame(index = np.linspace(-np.pi, np.pi, tcurve.shape[0]+1)[0:-1], data = np.array(new_tcurve).T, columns = tcurve.columns)
     return new_tcurve
+
+def centerTuningCurves2(tcurve):
+    """
+    center tuning curves by peak index
+    """
+    peak            = tcurve.idxmax()
+    new_tcurve      = []
+    for p in tcurve.columns:    
+        x = tcurve[p].index.values - tcurve[p].index[np.searchsorted(tcurve[p].index, peak[p])-1]
+        x[x<-np.pi] += 2*np.pi
+        x[x>np.pi] -= 2*np.pi
+        tmp = pd.Series(index = x, data = tcurve[p].values).sort_index()
+        new_tcurve.append(tmp.values)
+    new_tcurve = pd.DataFrame(index = np.linspace(-np.pi, np.pi, tcurve.shape[0]+1)[0:-1], data = np.array(new_tcurve).T, columns = tcurve.columns)
+    return new_tcurve    
 
 def compute_ISI_HD(spikes, angle, ep, bins):
     nb_bin_hd = 31
