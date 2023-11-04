@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-12-16 14:24:56
-# @Last Modified by:   gviejo
-# @Last Modified time: 2023-04-17 09:57:02
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2023-11-03 19:26:52
 import scipy.io
 import sys, os
 import numpy as np
@@ -18,7 +18,7 @@ from matplotlib.pyplot import *
 # sns.set_theme()
 
 
-path = '/media/guillaume/New Volume/A8000/A8049/A8049-230412A'
+path = '/mnt/ceph/users/gviejo/OPTO/A8000/A8054/A8054-230718A'
 #path = '/mnt/Data2/LMN-PSB-2/A3018/A3018-220614A'
 
 data = nap.load_session(path, 'neurosuite')
@@ -41,7 +41,7 @@ stim_duration = np.round(opto_ep.loc[0,'end'] - opto_ep.loc[0,'start'], 6)
 
 peth = nap.compute_perievent(spikes, nap.Ts(opto_ep["start"].values), minmax=(-stim_duration, 2*stim_duration))
 
-frates = pd.DataFrame({n:peth[n].count(0.05).sum(1) for n in peth.keys()})
+frates = pd.DataFrame({n:np.sum(peth[n].count(0.05), 1).values for n in peth.keys()})
 
 rasters = {j:pd.concat([peth[j][i].as_series().fillna(i) for i in peth[j].index]) for j in peth.keys()}
 
@@ -69,8 +69,8 @@ for l,j in enumerate(np.unique(shank)):
         count+=1
         gca().set_xticklabels([])
 
-hd = SI[SI>0.1].dropna().index.values
-nhd = SI[SI<0.1].dropna().index.values
+hd = SI[SI>0.5].dropna().index.values
+nhd = SI[SI<0.5].dropna().index.values
 
 # groups = np.array_split(list(spikes.keys()), 3)
 groups = [hd, nhd]
@@ -90,11 +90,10 @@ for i, neurons in enumerate(groups):
         bar(frates[n].index.values, frates[n].values, np.diff(frates[n].index.values)[0])
         axvline(0)
         axvline(stim_duration)
-        title(n+2)
+        title(os.path.basename(path)+"_"+str(n))
         yticks([])
         subplot(subgs[1,1])
-        plot(rasters[n], '.', markersize = 0.24)
-        title(n+2)
+        plot(rasters[n], '.', markersize = 0.24)        
         count+=1
         gca().set_xticklabels([])
         axvline(0)
@@ -150,7 +149,7 @@ stim_duration = np.round(opto_ep.loc[0,'end'] - opto_ep.loc[0,'start'], 6)
 
 peth = nap.compute_perievent(spikes, nap.Ts(opto_ep["start"].values), minmax=(-stim_duration, 2*stim_duration))
 
-frates = pd.DataFrame({n:peth[n].count(0.5).sum(1) for n in peth.keys()})
+frates = pd.DataFrame({n:np.sum(peth[n].count(0.05), 1).values for n in peth.keys()})
 
 rasters = {j:pd.concat([peth[j][i].as_series().fillna(i) for i in peth[j].index]) for j in peth.keys()}
 

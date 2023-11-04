@@ -2,7 +2,7 @@
 # @Author: gviejo
 # @Date:   2023-08-29 13:46:37
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-10-31 17:12:26
+# @Last Modified time: 2023-11-04 18:12:41
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -39,7 +39,7 @@ datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN_OPTO_SLEEP.li
 
 SI_thr = {
     'adn':0.5, 
-    'lmn':0.2,
+    'lmn':0.1,
     'psb':1.5
     }
 
@@ -48,6 +48,7 @@ corr = []
 allfr = []
 allmeta = []
 alltc = []
+n_neurons = []
 
 for s in datasets:
     print(s)    
@@ -88,7 +89,6 @@ for s in datasets:
     order = np.argsort(peaks.values)
     spikes.set_info(order=order, peaks=peaks)
 
-
     ############################################################################################### 
     # LOADING OPTO INFO
     ###############################################################################################    
@@ -108,11 +108,20 @@ for s in datasets:
                 sys.exit()
         opto_ep.save(os.path.join(path, os.path.basename(path))+"_opto_sleep_ep")
 
+    
+    opto_ep = opto_ep.intersect(sws_ep)
+
+
+
+
 
     ############################################################################################### 
     # FIRING RATE MODULATION
     ###############################################################################################    
-    stim_duration = np.round(opto_ep.loc[0,'end'] - opto_ep.loc[0,'start'], 6)
+    #stim_duration = np.round(opto_ep.loc[0,'end'] - opto_ep.loc[0,'start'], 6)
+    stim_duration = 1.0
+
+    opto_ep = opto_ep[(opto_ep['end'] - opto_ep['start'])>=stim_duration-0.001]
 
     # peth = nap.compute_perievent(spikes[tokeep], nap.Ts(opto_ep["start"].values), minmax=(-stim_duration, 2*stim_duration))
     # frates = pd.DataFrame({n:peth[n].count(0.05).sum(1) for n in peth.keys()})
@@ -130,17 +139,17 @@ for s in datasets:
         #     plot(tcurves[tokeep[i]])
         
         
-        velocity = computeAngularVelocity(position['ry'], position.time_support.loc[[0]], 0.2)
-        newwake_ep = velocity.threshold(0.05).time_support.drop_short_intervals(1).merge_close_intervals(1)
+        velocity = np.abs(computeAngularVelocity(position['ry'], position.time_support.loc[[0]], 0.2))
+        newwake_ep = velocity.threshold(0.02).time_support.drop_short_intervals(1).merge_close_intervals(1)
 
 
         ############################################################################################### 
         # PEARSON CORRELATION
         ###############################################################################################        
         rates = {}
-        sws2_ep = sws_ep.intersect(sleep_ep.loc[[0]])        
+        sws2_ep = sws_ep.intersect(sleep_ep.loc[[0]])
 
-        for e, ep, bin_size, std in zip(['wak', 'sws', 'opto'], [newwake_ep, sws_ep, opto_ep], [0.3, 0.03, 0.03], [1, 1, 1]):
+        for e, ep, bin_size, std in zip(['wak', 'sws', 'opto'], [newwake_ep, sws2_ep, opto_ep], [0.3, 0.03, 0.03], [1, 1, 1]):
             count = spikes.count(bin_size, ep)
             rate = count/bin_size
             rate = rate.as_dataframe()
@@ -172,7 +181,7 @@ for s in datasets:
         tmp = pd.DataFrame(index=[data.basename])
         tmp['sws'] = scipy.stats.pearsonr(r['wak'], r['sws'])[0]
         tmp['opto'] = scipy.stats.pearsonr(r['wak'], r['opto'])[0]
-        
+        tmp['n'] = len(spikes)
         corr.append(tmp)
                     
         #######################
@@ -216,7 +225,7 @@ for i, e in enumerate(epochs):
 subplot(gs[1,0])
 for i, e in enumerate(corr.columns):
     plot(np.random.randn(len(corr))*0.1+np.ones(len(corr))*i, corr[e], 'o')
-ylim(0, 1)
+# ylim(0, 1)
 xticks(np.arange(corr.shape[1]), corr.columns)
 
 subplot(gs[1,1])

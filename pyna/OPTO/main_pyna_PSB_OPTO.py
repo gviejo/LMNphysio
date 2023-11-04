@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: gviejo
 # @Date:   2023-08-29 13:46:37
-# @Last Modified by:   gviejo
-# @Last Modified time: 2023-08-31 14:14:24
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2023-11-03 19:42:46
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -32,8 +32,6 @@ elif os.path.exists('/mnt/ceph/users/gviejo'):
 elif os.path.exists('/media/guillaume/Raid2'):
     data_directory = '/media/guillaume/Raid2'
 
-data_directory = "/media/guillaume/My Passport"
-
 datasets = {
     "wake":np.genfromtxt(os.path.join(data_directory,'datasets_PSB_OPTO_WAKE.list'), delimiter = '\n', dtype = str, comments = '#'),
     "sleep":np.genfromtxt(os.path.join(data_directory,'datasets_PSB_OPTO_SLEEP.list'), delimiter = '\n', dtype = str, comments = '#')
@@ -42,7 +40,7 @@ datasets = {
 SI_thr = {
     'adn':0.5, 
     'lmn':0.2,
-    'psb':0.4,
+    'psb':1.0
     }
 
 allr = []
@@ -59,7 +57,7 @@ for ep in datasets:
         ############################################################################################### 
         # LOADING DATA
         ###############################################################################################
-        path = os.path.join(data_directory, s)
+        path = os.path.join(data_directory, "OPTO", s)
         data = nap.load_session(path, 'neurosuite')
         spikes = data.spikes
         position = data.position
@@ -69,15 +67,34 @@ for ep in datasets:
         rem_ep = data.read_neuroscope_intervals('rem')
         # down_ep = data.read_neuroscope_intervals('down')
         spikes = spikes.getby_threshold("rate", 1.0)
-        idx = spikes._metadata[spikes._metadata["location"].str.contains("psb")].index.values
+        idx = spikes._metadata[spikes._metadata["location"].str.contains("psb|PSB")].index.values
         spikes = spikes[idx]
           
+        ############################################################################################### 
+        # LOADING OPTO INFO
+        ###############################################################################################    
+        try:
+            opto_ep = nap.load_file(os.path.join(path, os.path.basename(path))+"_opto_ep.npz")
+        except:
+            opto_ep = []
+            epoch = 0
+            while len(opto_ep) == 0:
+                try:
+                    opto_ep = loadOptoEp(path, epoch=epoch, n_channels = 2, channel = 0)
+                    opto_ep = opto_ep.intersect(data.epochs[ep])
+                except:
+                    pass                    
+                epoch += 1
+                if epoch == 10:
+                    sys.exit()
+            opto_ep.save(os.path.join(path, os.path.basename(path))+"_opto_ep")
+
         ############################################################################################### 
         # COMPUTING TUNING CURVES
         ###############################################################################################
         tuning_curves = nap.compute_1d_tuning_curves(spikes, position['ry'], 120, minmax=(0, 2*np.pi), ep = position.time_support.loc[[0]])
         tuning_curves = smoothAngularTuningCurves(tuning_curves)    
-        tcurves = tuning_curves
+        tcurves = tuning_curves        
         SI = nap.compute_1d_mutual_info(tcurves, position['ry'], position.time_support.loc[[0]], (0, 2*np.pi))
         spikes.set_info(SI)
         spikes.set_info(max_fr = tcurves.max())
@@ -99,33 +116,25 @@ for ep in datasets:
         order = np.argsort(peaks.values)
         spikes.set_info(order=order, peaks=peaks)
 
-        ############################################################################################### 
-        # LOADING OPTO INFO
-        ###############################################################################################    
-        try:
-            opto_ep = nap.load_file(os.path.join(path, os.path.basename(path))+"_opto_ep.npz")
-        except:
-            opto_ep = []
-            epoch = 0
-            while len(opto_ep) == 0:
-                try:
-                    opto_ep = loadOptoEp(path, epoch=epoch, n_channels = 2, channel = 0)
-                    opto_ep = opto_ep.intersect(data.epochs[ep])
-                except:
-                    pass                    
-                epoch += 1
-                if epoch == 10:
-                    sys.exit()
-            opto_ep.save(os.path.join(path, os.path.basename(path))+"_opto_ep")
+
 
         ############################################################################################### 
         # FIRING RATE MODULATION
         ###############################################################################################    
-        stim_duration = np.round(opto_ep.loc[0,'end'] - opto_ep.loc[0,'start'], 6)
+        # stim_duration = np.round(opto_ep.loc[0,'end'] - opto_ep.loc[0,'start'], 3)
+        if ep == 'wake':
+            stim_duration = 10.0
+        else:
+            stim_duration = 1.0
+
+        print(stim_duration)
 
         # peth = nap.compute_perievent(spikes[tokeep], nap.Ts(opto_ep["start"].values), minmax=(-stim_duration, 2*stim_duration))
-        # frates = pd.DataFrame({n:peth[n].count(0.05).sum(1) for n in peth.keys()})
+        # frates = pd.DataFrame({n:np.sum(peth[n].count(0.05), 1).values for n in peth.keys()})
         frates = nap.compute_eventcorrelogram(spikes[tokeep], nap.Ts(opto_ep["start"].values), stim_duration/20., stim_duration*2, norm=True)
+        
+
+
         frates.columns = [data.basename+"_"+str(i) for i in frates.columns]
 
         #######################
@@ -154,8 +163,8 @@ for ep in datasets:
 figure()
 gs = GridSpec(2, 2)
 for i, ep, sl, msl in zip(range(2), ['wake', 'sleep'], [slice(-4,14), slice(-1,2)], [slice(-4,0), slice(-1,0)]):
-    order = allmeta[ep].sort_values(by="SI").index.values
-    tmp = allfr[ep][order].loc[sl]
+    # order = allmeta[ep].sort_values(by="SI").index.values
+    tmp = allfr[ep].loc[sl]
     tmp = tmp.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
     subplot(gs[0,i])
     plot(tmp)
