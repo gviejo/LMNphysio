@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-03-02 15:21:29
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-03-10 15:38:36
+# @Last Modified time: 2023-11-06 18:49:43
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
@@ -18,8 +18,6 @@ from matplotlib import rcParams
 import matplotlib as mpl
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import matplotlib.gridspec as gridspec
-from mpl_toolkits.axes_grid.inset_locator import (inset_axes, InsetPosition,
-                                                  mark_inset)
 import matplotlib.font_manager as font_manager
 #matplotlib.style.use('seaborn-paper')
 import matplotlib.image as mpimg
@@ -42,7 +40,7 @@ def figsize(scale):
     golden_mean = (np.sqrt(5.0)-1.0) / 2           # Aesthetic ratio (you could change this)
     #fig_width = fig_width_pt*inches_per_pt*scale    # width in inches
     fig_width = 5
-    fig_height = fig_width*golden_mean*0.9         # height in inches
+    fig_height = fig_width*golden_mean*0.7         # height in inches
     fig_size = [fig_width,fig_height]
     return fig_size
 
@@ -74,7 +72,7 @@ fontsize = 9
 
 COLOR = (0.25, 0.25, 0.25)
 
-rcParams['font.family'] = 'sans-serif'
+# rcParams['font.family'] = 'sans-serif'
 rcParams['font.sans-serif'] = ['Arial']
 rcParams['font.size'] = fontsize
 rcParams['text.color'] = COLOR
@@ -100,16 +98,13 @@ rcParams['ytick.color'] = COLOR
 ############################################################################################### 
 # GENERAL infos
 ###############################################################################################
-name = 'A5011-201014A'
-path = '/home/guillaume/Dropbox/CosyneData/A5011-201014A'
-
-path2 = '/home/guillaume/Dropbox/CosyneData'
+dropbox_path = os.path.expanduser("~") + "/Dropbox/CosyneData"
 
 
 ############################################################################################### 
 # LOADING DATA
 ###############################################################################################
-decoding = cPickle.load(open('/home/guillaume/Dropbox/CosyneData/DATA_FIG_2_LMN_PSB.pickle', 'rb'))
+decoding = cPickle.load(open(os.path.join(dropbox_path, 'DATA_FIG_2_LMN_PSB.pickle'), 'rb'))
 
 angle_wak = decoding['wak']
 angle_rem = decoding['rem']
@@ -140,7 +135,7 @@ markers = ['d', 'o', 'v']
 
 fig = figure(figsize = figsize(2))
 
-outergs = GridSpec(2,1, figure = fig, height_ratios = [0.3, 0.5], hspace = 0.3)
+outergs = GridSpec(2,1, figure = fig, height_ratios = [0.2, 0.5], hspace = 0.06)
 
 #####################################
 gs1 = gridspec.GridSpecFromSubplotSpec(1,2, 
@@ -213,7 +208,7 @@ for i, st in enumerate([psb, lmn]):
 # RASTER PLOTS
 #########################
 gs_raster = gridspec.GridSpecFromSubplotSpec(3,3, 
-    subplot_spec = outergs[1,0],  hspace = 0.2)
+    subplot_spec = outergs[1,0],  hspace = 0.3)
     # height_ratios=[0.3, 0.7, 0.65, 0.5])
 exs = { 'wak':nap.IntervalSet(start = 9968.5, end = 9987, time_units='s'),
         'rem':nap.IntervalSet(start = 13383.819, end= 13390, time_units = 's'),
@@ -232,9 +227,9 @@ medw = 0.9
 # epochs = ['Wake', 'REM sleep', 'nREM sleep']
 epochs = ['Wake', 'nREM sleep', 'nREM sleep']
 
-power = cPickle.load(open('/home/guillaume/Dropbox/CosyneData/DELTA_POWER_PSB.pickle', 'rb'))
+# power = cPickle.load(open('/home/guillaume/Dropbox/CosyneData/DELTA_POWER_PSB.pickle', 'rb'))
 
-delta = power['LMN-PSB/A3019/A3019-220701A']
+# delta = power['LMN-PSB/A3019/A3019-220701A']
 
 
 
@@ -257,7 +252,7 @@ for i, ep in enumerate(['wak', 'nrem2', 'nrem3']):
         yticks([0, 2*np.pi], ["0", "360"])
         ylim(0, 2*np.pi)
         # if j == 1:
-        legend(frameon=False, handlelength = 1.5, bbox_to_anchor=(1.3,2.0), ncol = 2)
+        legend(frameon=False, handlelength = 1.5, bbox_to_anchor=(2,1.6), ncol = 1)
 
 
     if ep == 'rem':
@@ -284,29 +279,29 @@ for i, ep in enumerate(['wak', 'nrem2', 'nrem3']):
         xticks([])
         ylim(0, 2*np.pi)
 
-    if ep == 'nrem2':
-        subplot(gs_raster[0,1])
-        simpleaxis(gca())
-        gca().spines['bottom'].set_visible(False)
-        gca().spines['left'].set_visible(False)                        
-        tmp2 = angle_sws.restrict(exs[ep])
-        plot(tmp2, '--', linewidth = 1, color = 'gray', alpha = alp)
-        title(epochs[1], pad = 1, x=1.1)
-        yticks([])
-        xticks([])
-        ylim(0, 2*np.pi)
+    # if ep == 'nrem2':
+    #     subplot(gs_raster[0,1])
+    #     simpleaxis(gca())
+    #     gca().spines['bottom'].set_visible(False)
+    #     gca().spines['left'].set_visible(False)                        
+    #     tmp2 = angle_sws.restrict(exs[ep])
+    #     plot(tmp2, '--', linewidth = 1, color = 'gray', alpha = alp)
+    #     title(epochs[1], pad = 1, x=1.1)
+    #     yticks([])
+    #     xticks([])
+    #     ylim(0, 2*np.pi)
 
-    if ep == 'nrem3':
-        subplot(gs_raster[0,2])
-        simpleaxis(gca())
-        gca().spines['bottom'].set_visible(False)
-        gca().spines['left'].set_visible(False)                        
-        tmp2 = angle_sws.restrict(exs[ep])
-        plot(tmp2, '--', linewidth = 1, color = 'gray', alpha = alp)
-        # title(epochs[2], pad = 1)
-        yticks([])
-        xticks([])
-        ylim(0, 2*np.pi)
+    # if ep == 'nrem3':
+    #     subplot(gs_raster[0,2])
+    #     simpleaxis(gca())
+    #     gca().spines['bottom'].set_visible(False)
+    #     gca().spines['left'].set_visible(False)                        
+    #     tmp2 = angle_sws.restrict(exs[ep])
+    #     plot(tmp2, '--', linewidth = 1, color = 'gray', alpha = alp)
+    #     # title(epochs[2], pad = 1)
+    #     yticks([])
+    #     xticks([])
+    #     ylim(0, 2*np.pi)
 
     for j, st in enumerate([psb, lmn]):
         subplot(gs_raster[j+1,i])
@@ -346,10 +341,12 @@ for i, ep in enumerate(['wak', 'nrem2', 'nrem3']):
             plot(np.array([exs[ep].end[0]-0.5, exs[ep].end[0]]), [0, 0], linewidth = 1, color = 'black')
             xlabel('0.5s', horizontalalignment='right', x=1.0)
 
+        if i == 1 and j == 0:
+            text(0.8, 1.1, "nREM sleep", transform=gca().transAxes) 
 
-outergs.update(top= 0.97, bottom = 0.05, right = 0.96, left = 0.1)
+outergs.update(top= 0.97, bottom = 0.1, right = 0.96, left = 0.1)
 
 
-savefig("/home/guillaume/Dropbox/Applications/Overleaf/Cosyne 2023 poster/figures/fig3.pdf", dpi = 200, facecolor = 'white')
+savefig(os.path.expanduser("~")+"/Dropbox/Applications/Overleaf/SFN 2023 poster/figures/fig3.pdf", dpi = 200, facecolor = 'white')
 
 #show() 

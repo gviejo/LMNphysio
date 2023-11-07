@@ -2,18 +2,28 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-08-10 17:16:25
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-03-06 12:46:43
+# @Last Modified time: 2023-11-06 18:15:38
 import scipy.io
 import sys, os
 import numpy as np
 import pandas as pd
 import pynapple as nap
+import sys, os
+sys.path.append("..")
 from functions import *
 import sys
 from itertools import combinations, product
 from matplotlib.pyplot import *
 
 
+if os.path.exists("/mnt/Data/Data/"):
+    data_directory = "/mnt/Data/Data"
+elif os.path.exists('/mnt/DataRAID2/'):    
+    data_directory = '/mnt/DataRAID2/'
+elif os.path.exists('/mnt/ceph/users/gviejo'):    
+    data_directory = '/mnt/ceph/users/gviejo'
+elif os.path.exists('/media/guillaume/Raid2'):
+    data_directory = '/media/guillaume/Raid2'
 
 #path = '/mnt/Data2/LMN-PSB-2/A3019/A3019-220701A'
 #path = '/mnt/Data2/LMN-PSB-2/A3019/A3019-220630A'
@@ -24,7 +34,8 @@ from matplotlib.pyplot import *
 # path = '/mnt/Data2/LMN-PSB-2/A3018/A3018-220615A'
 #path = '/mnt/Data2/LMN-PSB-2/A3019/A3019-220629A'
 #path = '/mnt/Data2/LMN-PSB-2/A3019/A3019-220630A'
-path = '/mnt/DataRAID2/LMN-PSB/A3019/A3019-220701A'
+path = os.path.join(data_directory, 'LMN-PSB/A3019/A3019-220701A')
+
 
 
 data = nap.load_session(path, 'neurosuite')
@@ -45,8 +56,8 @@ sws_ep = data.read_neuroscope_intervals('sws')
 rem_ep = data.read_neuroscope_intervals('rem')
 up_ep = read_neuroscope_intervals(data.path, data.basename, 'up')
 down_ep = read_neuroscope_intervals(data.path, data.basename, 'down')
-nrem2_ep = read_neuroscope_intervals(data.path, data.basename, 'nrem2')
-nrem3_ep = read_neuroscope_intervals(data.path, data.basename, 'nrem3')
+# nrem2_ep = read_neuroscope_intervals(data.path, data.basename, 'nrem2')
+# nrem3_ep = read_neuroscope_intervals(data.path, data.basename, 'nrem3')
 
 
 tuning_curves = nap.compute_1d_tuning_curves(spikes, angle, 120, minmax=(0, 2*np.pi), ep = angle.time_support.loc[[0]])
@@ -130,8 +141,10 @@ datatosave = { 'wak':angle_wak,
 
 import _pickle as cPickle
 # cPickle.dump(datatosave, open('../figures/figures_adrien_2022/fig_1_decoding.pickle', 'wb'))
-cPickle.dump(datatosave, open('/home/guillaume/Dropbox/CosyneData/DATA_FIG_2_LMN_PSB.pickle', 'wb'))
+cPickle.dump(datatosave, open('/mnt/home/gviejo/Dropbox/CosyneData/DATA_FIG_2_LMN_PSB.pickle', 'wb'))
 
+
+sys.exit()
 
 # wake
 figure()

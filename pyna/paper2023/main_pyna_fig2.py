@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-11-04 19:33:09
+# @Last Modified time: 2023-11-06 19:21:30
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -237,32 +237,51 @@ for e, ep, sl, msl in zip(range(2), ['wake', 'sleep'], [slice(-4,14), slice(-1,2
             ylabel("Firing rate (norm.)", y=1.5)
             xlabel("Time (s)", labelpad=1)
 
-
+titles = ['Wake', 'nREM']
 
 # PSB opto vs control wake
-gs1_3 = gridspec.GridSpecFromSubplotSpec(2, 1, subplot_spec=gs1[0, 2],
+gs1_3 = gridspec.GridSpecFromSubplotSpec(2, 2, subplot_spec=gs1[0, 2],
     hspace=0.5, wspace=0.6)
 for i, gr in enumerate(['hd', 'nhd']):
-    subplot(gs1_3[i, 0])
-    simpleaxis(gca())
-
     xs = [[0, 1], [2,3]]
 
-    for e, ep, sl, msl in zip(range(2), ['wake', 'sleep'], [slice(-4,14), slice(-1,2)], [slice(-4,0), slice(-1,0)]):
+    for e, ep, sl, msl in zip(range(2), ['wake', 'sleep'], [slice(0,10), slice(0,1)], [slice(-3,-1), slice(-1,0)]):
+
+        subplot(gs1_3[i, e])
+        simpleaxis(gca())
+
+
         allfr = psbdata['allfr'][ep]
-    
-        tmp1 = allfr[groups[ep][gr]].loc[sl].mean(0)
-        tmp2 = allfr[groups[ep][gr]].loc[msl].mean(0)
-        corr = np.vstack((tmp2, tmp1)).T
+            
+        tmp = allfr[groups[ep][gr]]
 
-        plot(xs[e], corr.T, color = clrs[i], linewidth=0.1)
-        plot(xs[e], corr.T.mean(1), color = clrs[i], linewidth=1)
+        y = tmp.loc[sl].mean().values-tmp.loc[msl].mean().values
 
-    yticks([0, 1, 2])
-    xticks([])
-    if i == 1:
-        ylabel("Rate mod. (norm.)", y = 1.5)#, labelpad = 8)
-        xticks([0.5, 2.5], ["Wake", "nREM"])
+        hist(y, edgecolor=COLOR, facecolor='white', bins = np.linspace(-1, 1, 8))
+
+        if i == 0:
+            xlim(-1, 0)            
+            title(titles[e])
+                    
+        if i == 1 and e == 0:
+            ylabel("Count", y = 1.05, labelpad = 10)
+            xlabel("% mod", x = 1)
+        # if i == 1:
+        xlim(-1, 1)
+        # xlim(-1, 1)
+        # xticks([-0.5, 0, 0.5], [-50, 0, 50])
+
+
+        # corr = np.vstack((tmp2, tmp1)).T
+
+        # plot(xs[e], corr.T, color = clrs[i], linewidth=0.1)
+        # plot(xs[e], corr.T.mean(1), color = clrs[i], linewidth=1)
+
+    # yticks([0, 1, 2])
+    # xticks([])
+    # if i == 1:
+    #     ylabel("Rate mod. (norm.)", y = 1.5)#, labelpad = 8)
+    #     xticks([0.5, 2.5], ["Wake", "nREM"])
 
 
 #####################################
@@ -406,7 +425,7 @@ simpleaxis(gca())
 
 y = tmp.loc[0:1].mean().values-tmp.loc[-1:0].mean().values
 
-hist(y, edgecolor='grey', facecolor='white')
+hist(y, edgecolor=COLOR, facecolor='white')
 xlabel("% mod")
 ylabel("Count")
 xlim(-1, 1)
@@ -492,7 +511,7 @@ for ax in allaxis:
 # LMN TUNING CURVES WAKE
 #####################################
 gs3_2 = gridspec.GridSpecFromSubplotSpec(
-    2, 3, subplot_spec=gs3[0, 1], wspace=1, hspace=0.5
+    2, 3, subplot_spec=gs3[0, 1], wspace=1, hspace=1
     )
 
 # FIRING rate during wake
@@ -505,7 +524,7 @@ allfr = lmndata[ep]['allfr']
 # order = allmeta.sort_values(by="SI").index.values
 tmp = allfr.loc[sl]
 tmp = tmp.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
-subplot(gs3_2[:,0])
+subplot(gs3_2[0,0])
 simpleaxis(gca())
 plot(tmp, color = colors['lmn'], linewidth=0.1, alpha=0.25)
 plot(tmp.mean(1), color = colors['lmn'], linewidth=1)
@@ -514,8 +533,23 @@ yticks([0, 2])
 title('Wake')
 axvspan(0, 10, color = 'lightcoral', alpha=0.2, ec = None)
 xticks([0, 10])
-ylabel("Firing rate (norm.)")
+ylabel("Firing\nrate (norm.)")
+xlabel("Time (s)", labelpad=1)
 
+subplot(gs3_2[1,0])
+simpleaxis(gca())
+
+y = tmp.loc[0:10].mean().values-tmp.loc[-1:0].mean().values
+
+hist(y, edgecolor=COLOR, facecolor='white', bins = np.linspace(-1, 1, 15))
+xlabel("% mod")
+ylabel("Count")
+xlim(-0.75, 0.75)
+xticks([-0.5, 0, 0.5], [-50, 0, 50])
+
+
+
+# Tuning curves LMN
 subplot(gs3_2[:,1])
 tcn = lmndata[ep]['alltcn']
 tco = lmndata[ep]['alltco']
@@ -571,6 +605,7 @@ ylim(0, 180)
 
 outergs.update(top=0.95, bottom=0.1, right=0.98, left=0.08)
 
+sys.exit()
 
 savefig(
     os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2023/fig2.pdf",

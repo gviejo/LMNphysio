@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-04-13 09:53:18
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-11-03 17:56:27
+# @Last Modified time: 2023-11-06 14:42:33
 import scipy.io
 import sys, os
 import numpy as np
@@ -26,7 +26,7 @@ elif os.path.exists('/mnt/ceph/users/gviejo'):
 elif os.path.exists('/media/guillaume/Raid2'):
     data_directory = '/media/guillaume/Raid2'
 
-path = os.path.join(data_directory, 'LMN-ADN/A5043/A5043-230315A')
+path = os.path.join(data_directory, 'LMN-ADN/A5043/A5043-230316A')
 
 data = ntm.load_session(path, 'neurosuite')
 
@@ -47,7 +47,7 @@ wake_ep = data.epochs['wake']
 
 # Linear velocity
 position = data.position[['x', 'z']]
-pos2 = position.bin_average(0.4)
+pos2 = position.bin_average(0.2)
 pos2 = pos2.as_dataframe().rolling(window=100,win_type='gaussian',center=True,min_periods=1).mean(std=1.0)
 speed = np.sqrt(np.sum(np.power(pos2.values[1:, :] - pos2.values[0:-1, :], 2), 1))    
 speed = nap.Tsd(t = pos2.index.values[0:-1], d=speed, time_support = position.time_support)
@@ -56,12 +56,25 @@ ep = speed.threshold(0.006, "above").time_support
 
 # ep = ep1.intersect(ep2)
 
-angle2 = angle.restrict(ep)
-# angle2 = smoothAngle(angle, 1)
 
-tuning_curves = nap.compute_1d_tuning_curves(spikes, angle2, 360, minmax=(0, 2*np.pi), ep = angle2.time_support)
-tuning_curves = smoothAngularTuningCurves(tuning_curves, window = 40, deviation = 3.0)
-# SI = nap.compute_1d_mutual_info(tuning_curves, angle, angle.time_support.loc[[0]], minmax=(0,2*np.pi))
+tmp = np.linspace(angle.time_support.start[0], angle.time_support.end[0], 30)[0:-1]
+
+# SIs = []
+
+# for i in range(len(tmp)-1):
+# 	ep = nap.IntervalSet(start=tmp[i], end=tmp[i]+60*4)
+
+# 	if ep.tot_length('s') < 60*3:
+# 		break
+
+angle = angle.restrict(ep)
+angle = smoothAngle(angle, 1)
+
+tuning_curves = nap.compute_1d_tuning_curves(spikes, angle, 120, minmax=(0, 2*np.pi), ep = angle.time_support)
+tuning_curves = smoothAngularTuningCurves(tuning_curves, window = 40, deviation = 1.0)
+SI = nap.compute_1d_mutual_info(tuning_curves, angle, angle.time_support.loc[[0]], minmax=(0,2*np.pi))
+
+# SIs.append(SI.mean())
 # spikes.set_info(SI)
 
 # pf, bins = nap.compute_2d_tuning_curves(spikes, data.position[['x', 'z']], 15, ep=wake_ep)
@@ -87,7 +100,7 @@ for l,j in enumerate(np.unique(shank)):
 show()
 
 
-# sys.exit()
+sys.exit()
 
 # csv_file = os.path.join(path, "A5043-230315A_1_test2.csv")
 
@@ -117,10 +130,13 @@ show()
 
 
 
-ep2 = nap.IntervalSet(start = data.position.time_support.start[0],
-						end = data.position.time_support.start[0]+15*60)
+# ep2 = nap.IntervalSet(start = data.position.time_support.start[0],
+# 						end = data.position.time_support.start[0]+15*60)
 
-X = np.sqrt(spikes.getby_category("location")['adn'].restrict(ep2).count(0.1))
+ep2 = angle.time_support
+
+# X = np.sqrt(spikes.getby_category("location")['adn'].restrict(ep2).count(0.1))
+X = np.sqrt(spikes.getby_category("group")[1].restrict(ep2).count(0.2))
 t = X.t
 X = X.values
 
@@ -139,7 +155,49 @@ alpha = np.arctan2(imap[:,1], imap[:,0])
 alpha += np.pi
 
 alpha = nap.Tsd(t=t, d=alpha)
-alpha = alpha.bin_average(0.2)
+# alpha = alpha.bin_average(0.2)
 
 
 tc2 = nap.compute_1d_tuning_curves(spikes, alpha, 120, minmax=(0, 2*np.pi), ep = ep2)
+SI2 = nap.compute_1d_mutual_info(tc2, alpha, alpha.time_support.loc[[0]], minmax=(0,2*np.pi))
+
+
+figure()
+ax=subplot(211)
+plot(alpha, label='decoded')
+tmp = -1.0 * np.unwrap(angle).bin_average(0.2)
+tmp = tmp%(2*np.pi)
+plot(tmp, label = 'optitrack')
+legend()
+subplot(212, sharex=ax)
+plot(speed)
+show()
+
+
+figure()
+ax=subplot(311)
+plot(alpha, label='decoded')
+tmp = -1.0 * np.unwrap(angle).bin_average(0.2)
+tmp = (tmp.as_series())%(2*np.pi)
+plot(tmp, label = 'optitrack')
+legend()
+subplot(312, sharex=ax)
+rx = data.position['rx']
+rx[(rx>np.pi).values] = rx[(rx>np.pi).values] - 2*np.pi
+rx = rx.bin_average(0.2)
+plot(rx)
+subplot(313, sharex=ax)
+rz = data.position['rz']
+rz[(rz>np.pi).values] = rz[(rz>np.pi).values] - 2*np.pi
+rz = rz.bin_average(0.2)
+plot(rz)
+
+show()
+
+
+
+
+epz = rz.threshold(0.8, "above").time_support
+epx = rx.threshold(-0.3, "below").time_support
+
+ep2 = epz.intersect(epx)
