@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-01 12:03:19
-# @Last Modified by:   gviejo
-# @Last Modified time: 2023-08-24 10:27:30
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2023-12-10 18:03:15
 
 import numpy as np
 import pandas as pd
@@ -173,5 +173,7 @@ for i, e in enumerate(["rem", "sws", "ep0", "ep1"]):
     
     r, p = scipy.stats.pearsonr(tmp['wak'], tmp[e])
     title('r = '+str(np.round(r, 3)))
+
+tight_layout()
 
 show()
