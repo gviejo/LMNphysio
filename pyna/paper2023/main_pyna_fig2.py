@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-11-06 19:21:30
+# @Last Modified time: 2024-02-21 18:29:12
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -585,7 +585,7 @@ wn = np.rad2deg((np.abs(tcn[0:]-0.5)).idxmin())
 wo = np.rad2deg((np.abs(tco[0:]-0.5)).idxmin())
 widths = pd.DataFrame.from_dict({'wake':wn,'opto':wo})
 for i, e in enumerate(widths.columns):
-    plot(np.random.randn(len(widths))*0.05+np.ones(len(widths))*i, widths[e], 
+    plot(np.random.randn(len(widths))*0.08+np.ones(len(widths))*i, widths[e], 
         'o', markersize=4,
         color = fcolors[i],
         mec=colors['lmn']
@@ -605,7 +605,7 @@ ylim(0, 180)
 
 outergs.update(top=0.95, bottom=0.1, right=0.98, left=0.08)
 
-sys.exit()
+# sys.exit()
 
 savefig(
     os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2023/fig2.pdf",

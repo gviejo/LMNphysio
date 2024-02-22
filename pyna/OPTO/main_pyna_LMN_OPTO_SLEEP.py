@@ -2,7 +2,7 @@
 # @Author: gviejo
 # @Date:   2023-08-29 13:46:37
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-11-04 18:12:41
+# @Last Modified time: 2024-02-21 18:24:45
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -223,7 +223,7 @@ for i, e in enumerate(epochs):
     title('r = '+str(np.round(r, 3)))
 
 subplot(gs[1,0])
-for i, e in enumerate(corr.columns):
+for i, e in enumerate(['sws', 'opto']):
     plot(np.random.randn(len(corr))*0.1+np.ones(len(corr))*i, corr[e], 'o')
 # ylim(0, 1)
 xticks(np.arange(corr.shape[1]), corr.columns)
