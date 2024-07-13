@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-04-13 09:53:18
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-11-06 14:42:33
+# @Last Modified time: 2024-05-01 12:30:31
 import scipy.io
 import sys, os
 import numpy as np
@@ -26,7 +26,7 @@ elif os.path.exists('/mnt/ceph/users/gviejo'):
 elif os.path.exists('/media/guillaume/Raid2'):
     data_directory = '/media/guillaume/Raid2'
 
-path = os.path.join(data_directory, 'LMN-ADN/A5043/A5043-230316A')
+path = os.path.join(data_directory, 'LMN-ADN/A5044/A5044-240329B')
 
 data = ntm.load_session(path, 'neurosuite')
 

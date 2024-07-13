@@ -697,7 +697,7 @@ gs3_2 = gridspec.GridSpecFromSubplotSpec(3, 1,
 subplot(gs3_2[0,0])
 noaxis(gca())
 
-sys.exit()
+# sys.exit()
 
 #############################
 # Transition
