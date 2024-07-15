@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   gviejo
-# @Last Modified time: 2023-10-17 16:56:01
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2024-07-15 19:13:40
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -111,7 +111,7 @@ colors = {"adn": "#EA9E8D", "lmn": "#8BA6A9", "psb": "#CACC90"}
 ###############################################################################################
 dropbox_path = os.path.expanduser("~") + "/Dropbox/LMNphysio/data"
 
-data = cPickle.load(open(dropbox_path + "/DATA_SUPP_FIG_1_HMM_exemple.pickle", "rb"))
+data = cPickle.load(open(dropbox_path + "/DATA_SUPP_FIG_1_HMM_exemple_nemos.pickle", "rb"))
 
 W = data["W"]
 scores = data["scores"]
@@ -215,7 +215,7 @@ axes = [[], []]
 
 for i in range(2):    
 
-    w = W[i+1][0:-1].reshape(11,3,12)
+    w = W[i+1].reshape(12,3,12)[0:-1] # Wrong
     w = w[:,::-1,:]
     tmp = []
     for j in range(3):

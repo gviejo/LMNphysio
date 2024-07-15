@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
-# @Last Modified by:   gviejo
-# @Last Modified time: 2023-10-17 15:15:42
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2024-07-15 19:05:13
 import numpy as np
 from scipy.optimize import minimize
 from matplotlib.pyplot import *
@@ -12,9 +12,6 @@ from scipy.ndimage import gaussian_filter1d
 from scipy.stats import poisson
 import os
 import pynapple as nap
-
-import jax
-jax.config.update('jax_platform_name', 'cpu')
 
 import nemos as nmo
 
@@ -110,17 +107,101 @@ Yt = np.array(Yt)
 bin_size = 0.02
 Yt = nap.TsdFrame(t=np.arange(0, len(Yt))*bin_size, d=Yt)
 
-Yt_f = basis.compute_features(Yt)
+X = basis.compute_features(Yt)
 
-sys.exit()
+tokeep = ~np.any(np.isnan(X.d), 1)
+
+X = X[tokeep]
+Yt = Yt[tokeep]
+
+############################################
+# FITTING THE HMM
+############################################
+
+# Computing the observation
+# self.O = compute_observation(initial_W, self.X, self.Y, self.K)
+# self.O = gaussian_filter(self.O, (1, 0))
+
+def compute_observation(glms, X, Y):
+    O = []
+    for k in range(len(glms)):
+        mu = glms[k].predict(X)
+        p = poisson.pmf(k=Y, mu=mu)
+        p = np.clip(p, 1e-10, 1.0)
+        O.append(p.prod(1))
+    O = np.array(O).T
+
+    return O
+
+from GLM_HMM import optimize_transition
+
+class GLM_HMM_nemos(object):
+
+    def __init__(self, glms):
+        self.K = len(glms)
+        self.glms = glms
+        self.initial_W = np.array([glms[i].coef_ for i in range(len(glms))])
+
+    def fit_transition(self, X, Yt):
+        self.O = compute_observation(self.glms, X, Yt)
+
+        self.scores = []
+        As = []
+        Zs = []
+        Ws = []
+
+        tokeep = ~np.any(np.isnan(self.O), 1)
+
+        self.O = self.O[tokeep]
+
+        self.O = self.O/self.O.sum(1)[:,np.newaxis]
+
+        T = len(self.O)        
+
+        for _ in range(2):
+            A, Z, score = optimize_transition((self.K, T, self.O))
+            # A, Z, W, score = optimize_intercept((self.K, self.T, self.initial_W, self.X, self.Y))
+            self.scores.append(score)
+            As.append(A)
+            Zs.append(Z)
+            try:
+                Ws.append(W)
+            except:
+                Ws.append(self.initial_W)
+                        
+        max_L = np.array([score.max() for score in self.scores])
+        As = np.array(As)
+        # Bs = np.array(Bs)
+
+        self.A = As[np.argmax(max_L)]
+        self.best_W = Ws[np.argmax(max_L)]
+
+        # self.Z = nap.Tsd(t = Yt.t[],d = Zs[np.argmax(self.max_L)],time_support = ep)
+        self.Z = nap.Tsd(t = Yt.t[tokeep], d = Zs[np.argmax(max_L)])
+
+        eps = {}
+        for i in range(self.K):
+            ep = self.Z.threshold(i-0.5).threshold(i+0.5, "below").time_support
+            # ep = ep.drop_short_intervals(0.01)
+            eps[i] = ep
+
+        self.eps = eps
+        self.W = np.array([self.glms[i].coef_ for i in range(K)])
+        # self.O = compute_observation(best_W, self.X, self.Y, self.K)
 
 
+hmm = GLM_HMM_nemos(glms)
 
+hmm.fit_transition(X, Yt)
+
+#######################################################################
 # Sampling random trajectories to compute score
+#######################################################################
 
 random_scores = []
 
-for i in range(1000):
+for i in range(10):
+    print(i)
     Ar = np.random.rand(K, K)
     Ar = Ar/Ar.sum(1)[:,None]
     Zr = np.zeros(T*3, dtype='int')
@@ -144,7 +225,7 @@ show()
 
 
 datatosave = {
-    "W":np.array([glms[i].W for i in range(len(glms))]),
+    "W":hmm.W,
     "scores":hmm.scores,
     "A":A,
     "bestA":hmm.A,
@@ -155,14 +236,14 @@ datatosave = {
     "Yt":Yt.values[0:n],
     "Y":Y[0:100],
     "Yr":Yr[0:100],
-    "B":glm.B,
+    "B":coupling_basis,
     "random_scores":random_scores,
     "O":hmm.O[0:n]
     }
 
 
 dropbox_path = os.path.expanduser("~/Dropbox/LMNphysio/data")
-file_name = "DATA_SUPP_FIG_1_HMM_exemple.pickle"
+file_name = "DATA_SUPP_FIG_1_HMM_exemple_nemos.pickle"
 
 import _pickle as cPickle
 

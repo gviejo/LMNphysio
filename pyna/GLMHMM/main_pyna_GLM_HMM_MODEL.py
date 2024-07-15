@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
-# @Last Modified by:   gviejo
-# @Last Modified time: 2023-10-17 15:15:42
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2024-07-15 19:07:24
 import numpy as np
 from scipy.optimize import minimize
 from matplotlib.pyplot import *
@@ -119,7 +119,12 @@ random_scores = np.array(random_scores)
 n = 1000
 
 figure()
+subplot(211)
 imshow(Yt.values[0:n].T, aspect='auto')
+subplot(212)
+plot(Z)
+plot(hmm.Z.d)
+
 show()
 
 
