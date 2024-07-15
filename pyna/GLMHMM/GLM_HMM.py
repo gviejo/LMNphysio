@@ -275,7 +275,7 @@ class GLM_HMM(object):
         self.glms = glms        
         self.B = glms[0].B
         self.n_basis = self.B.shape[1]
-        # self.mask = self.glms[0].mask
+        self.mask = self.glms[0].mask
 
     def fit_transition(self, spikes, ep=None, bin_size=None):
         self.spikes = spikes        
