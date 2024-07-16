@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2024-07-15 19:05:13
+# @Last Modified time: 2024-07-16 16:50:33
 import numpy as np
 from scipy.optimize import minimize
 from matplotlib.pyplot import *
@@ -47,9 +47,9 @@ window_size = bin_size*50.0
 ############################################
 
 basis = nmo.basis.RaisedCosineBasisLog(
-    n_basis_funcs=3, mode="conv", window_size=int(window_size/bin_size)
+    n_basis_funcs=3, shift=True, mode="conv", window_size=int(window_size/bin_size)
 )
-_, coupling_basis = basis.evaluate_on_grid(100)
+_, coupling_basis = basis.evaluate_on_grid(int(window_size/bin_size))
 
 mask = np.repeat(1-np.eye(N), 3, axis=0)
 
@@ -111,8 +111,9 @@ X = basis.compute_features(Yt)
 
 tokeep = ~np.any(np.isnan(X.d), 1)
 
-X = X[tokeep]
-Yt = Yt[tokeep]
+X = X[tokeep] # Features
+Yt = Yt[tokeep] # Spike counts
+Z = Z[tokeep] # State
 
 ############################################
 # FITTING THE HMM
@@ -158,7 +159,7 @@ class GLM_HMM_nemos(object):
 
         T = len(self.O)        
 
-        for _ in range(2):
+        for _ in range(10):
             A, Z, score = optimize_transition((self.K, T, self.O))
             # A, Z, W, score = optimize_intercept((self.K, self.T, self.initial_W, self.X, self.Y))
             self.scores.append(score)
@@ -197,19 +198,22 @@ hmm.fit_transition(X, Yt)
 #######################################################################
 # Sampling random trajectories to compute score
 #######################################################################
+from numba import njit
 
-random_scores = []
+@njit
+def get_random_scores(Z, K, n=1000):    
+    random_scores = np.zeros(n)
+    for i in range(n):        
+        Ar = np.random.rand(K, K)
+        Ar = Ar/Ar.sum(1)[:,None]
+        Zr = np.zeros(len(Z), dtype='int')
+        for j in range(1, len(Z)):
+            Zr[j] = np.sum(np.random.rand()>np.cumsum(Ar[Zr[j-1]]))
+        random_scores[i]=np.sum(Z == Zr)/len(Z)
+    return random_scores
 
-for i in range(10):
-    print(i)
-    Ar = np.random.rand(K, K)
-    Ar = Ar/Ar.sum(1)[:,None]
-    Zr = np.zeros(T*3, dtype='int')
-    for j in range(1, T*3):
-        Zr[j] = np.sum(np.random.rand()>np.cumsum(Ar[Zr[j-1]]))
-    random_scores.append(np.sum(Z == Zr)/len(Z))
-
-random_scores = np.array(random_scores)
+random_scores = get_random_scores(Z, K, 1)
+random_scores = get_random_scores(Z, K, 1000)
 ##################################################################
 # FOR FIGURE supp 1
 ##################################################################

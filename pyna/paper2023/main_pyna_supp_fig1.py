@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2024-07-15 19:13:40
+# @Last Modified time: 2024-07-16 15:47:13
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -200,7 +200,9 @@ colors = ['blue', 'orange', 'green']
 subplot(gs_1_2[0,:])
 simpleaxis(gca())
 for i in range(3):
-    plot(B[:,i][::-1], color = colors[i], linewidth=0.5)
+    tmp=B[:,2-i][::-1]
+    tmp = np.hstack((tmp, np.zeros_like(tmp)))
+    plot(tmp, color = colors[i], linewidth=0.5)
 title("Basis function")
 xticks([0, 50, 100], [-50,0,50])
 xlabel("Time", labelpad=0)
