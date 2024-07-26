@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2024-07-16 16:50:33
+# @Last Modified time: 2024-07-17 16:23:57
 import numpy as np
 from scipy.optimize import minimize
 from matplotlib.pyplot import *
@@ -47,7 +47,7 @@ window_size = bin_size*50.0
 ############################################
 
 basis = nmo.basis.RaisedCosineBasisLog(
-    n_basis_funcs=3, shift=True, mode="conv", window_size=int(window_size/bin_size)
+    n_basis_funcs=3, shift=False, mode="conv", window_size=int(window_size/bin_size)
 )
 _, coupling_basis = basis.evaluate_on_grid(int(window_size/bin_size))
 
@@ -123,73 +123,7 @@ Z = Z[tokeep] # State
 # self.O = compute_observation(initial_W, self.X, self.Y, self.K)
 # self.O = gaussian_filter(self.O, (1, 0))
 
-def compute_observation(glms, X, Y):
-    O = []
-    for k in range(len(glms)):
-        mu = glms[k].predict(X)
-        p = poisson.pmf(k=Y, mu=mu)
-        p = np.clip(p, 1e-10, 1.0)
-        O.append(p.prod(1))
-    O = np.array(O).T
-
-    return O
-
-from GLM_HMM import optimize_transition
-
-class GLM_HMM_nemos(object):
-
-    def __init__(self, glms):
-        self.K = len(glms)
-        self.glms = glms
-        self.initial_W = np.array([glms[i].coef_ for i in range(len(glms))])
-
-    def fit_transition(self, X, Yt):
-        self.O = compute_observation(self.glms, X, Yt)
-
-        self.scores = []
-        As = []
-        Zs = []
-        Ws = []
-
-        tokeep = ~np.any(np.isnan(self.O), 1)
-
-        self.O = self.O[tokeep]
-
-        self.O = self.O/self.O.sum(1)[:,np.newaxis]
-
-        T = len(self.O)        
-
-        for _ in range(10):
-            A, Z, score = optimize_transition((self.K, T, self.O))
-            # A, Z, W, score = optimize_intercept((self.K, self.T, self.initial_W, self.X, self.Y))
-            self.scores.append(score)
-            As.append(A)
-            Zs.append(Z)
-            try:
-                Ws.append(W)
-            except:
-                Ws.append(self.initial_W)
-                        
-        max_L = np.array([score.max() for score in self.scores])
-        As = np.array(As)
-        # Bs = np.array(Bs)
-
-        self.A = As[np.argmax(max_L)]
-        self.best_W = Ws[np.argmax(max_L)]
-
-        # self.Z = nap.Tsd(t = Yt.t[],d = Zs[np.argmax(self.max_L)],time_support = ep)
-        self.Z = nap.Tsd(t = Yt.t[tokeep], d = Zs[np.argmax(max_L)])
-
-        eps = {}
-        for i in range(self.K):
-            ep = self.Z.threshold(i-0.5).threshold(i+0.5, "below").time_support
-            # ep = ep.drop_short_intervals(0.01)
-            eps[i] = ep
-
-        self.eps = eps
-        self.W = np.array([self.glms[i].coef_ for i in range(K)])
-        # self.O = compute_observation(best_W, self.X, self.Y, self.K)
-
+from GLM_HMM import GLM_HMM_nemos
 
 hmm = GLM_HMM_nemos(glms)
 

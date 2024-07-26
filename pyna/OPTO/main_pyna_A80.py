@@ -2,12 +2,14 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-12-16 14:24:56
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-11-03 19:26:52
+# @Last Modified time: 2024-07-24 11:26:37
 import scipy.io
 import sys, os
 import numpy as np
 import pandas as pd
 import pynapple as nap
+import nwbmatic as ntm
+sys.path.append("../")
 from functions import *
 import sys
 from itertools import combinations, product
@@ -18,10 +20,10 @@ from matplotlib.pyplot import *
 # sns.set_theme()
 
 
-path = '/mnt/ceph/users/gviejo/OPTO/A8000/A8054/A8054-230718A'
+path = '/mnt/ceph/users/gviejo/OPTO/A8000/A8066/A8066-240216A'
 #path = '/mnt/Data2/LMN-PSB-2/A3018/A3018-220614A'
 
-data = nap.load_session(path, 'neurosuite')
+data = ntm.load_session(path, 'neurosuite')
 
 spikes = data.spikes.getby_threshold('rate', 0.6)
 angle = data.position['ry']
@@ -39,7 +41,7 @@ opto_ep = opto_ep.merge_close_intervals(0.03)
 
 stim_duration = np.round(opto_ep.loc[0,'end'] - opto_ep.loc[0,'start'], 6)
 
-peth = nap.compute_perievent(spikes, nap.Ts(opto_ep["start"].values), minmax=(-stim_duration, 2*stim_duration))
+peth = nap.compute_perievent(spikes, opto_ep.starts, minmax=(-stim_duration, 2*stim_duration))
 
 frates = pd.DataFrame({n:np.sum(peth[n].count(0.05), 1).values for n in peth.keys()})
 

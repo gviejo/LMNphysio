@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2024-02-21 18:29:12
+# @Last Modified time: 2024-07-24 16:29:13
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -218,7 +218,7 @@ for e, ep, sl, msl in zip(range(2), ['wake', 'sleep'], [slice(-4,14), slice(-1,2
     allfr = psbdata['allfr'][ep]    
     for i, gr in enumerate(['hd', 'nhd']):
         tmp = allfr[groups[ep][gr]].loc[sl]
-        tmp = tmp.rolling(window=100, win_type='gaussian', center=True, min_periods=1, axis = 0).mean(std=1)
+        # tmp = tmp.rolling(window=100, win_type='gaussian', center=True, min_periods=1, axis = 0).mean(std=1)
         subplot(gs1_2[i,e+1])
         simpleaxis(gca())
         plot(tmp, color = clrs[i], linewidth=0.1, alpha=0.5)
@@ -407,7 +407,7 @@ allmeta = lmndata[ep]['allmeta']
 allfr = lmndata[ep]['allfr']
 order = allmeta.sort_values(by="SI").index.values
 tmp = allfr[order].loc[sl]
-tmp = tmp.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=3)
+# tmp = tmp.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=3)
 subplot(gs2_4[0,0])
 simpleaxis(gca())
 plot(tmp, color = colors['lmn'], linewidth=0.1, alpha=0.25)
@@ -523,7 +523,7 @@ allmeta = lmndata[ep]['allmeta']
 allfr = lmndata[ep]['allfr']
 # order = allmeta.sort_values(by="SI").index.values
 tmp = allfr.loc[sl]
-tmp = tmp.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
+# tmp = tmp.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
 subplot(gs3_2[0,0])
 simpleaxis(gca())
 plot(tmp, color = colors['lmn'], linewidth=0.1, alpha=0.25)

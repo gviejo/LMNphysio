@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-11-01 17:09:39
+# @Last Modified time: 2024-07-18 16:52:06
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -702,7 +702,7 @@ noaxis(gca())
 #############################
 # Transition
 #############################
-good_hmm = "GLM_HMM_LMN_09-10-2023.pickle"
+good_hmm = "GLM_HMM_LMN_18-07-2024.pickle"
 data = cPickle.load(open(dropbox_path+"/"+good_hmm, "rb"))
 
 
@@ -866,7 +866,7 @@ outergs.update(top=0.96, bottom=0.07, right=0.98, left=0.05)
 
 
 savefig(
-    os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2023/fig1.png",
+    os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2023/fig1.pdf",
     dpi=200,
     facecolor="white",
 )

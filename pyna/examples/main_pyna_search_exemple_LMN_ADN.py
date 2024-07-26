@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-08-10 17:16:25
-# @Last Modified by:   gviejo
-# @Last Modified time: 2023-10-18 13:46:57
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2024-07-17 15:46:13
 import scipy.io
 import sys, os
 import numpy as np
@@ -156,7 +156,7 @@ filepath = os.path.join(os.path.expanduser("~"), 'Dropbox/LMNphysio/data/DATA_FI
 
 cPickle.dump(datatosave, open(filepath, 'wb'))
 
-sws2_ep = sws_ep.loc[[(sws_ep["end"] - sws_ep["start"]).sort_values().index[-2]]]
+sws2_ep = sws_ep[np.argsort(sws_ep.end-sws_ep.start)[-2]]
 
 # wake
 figure()

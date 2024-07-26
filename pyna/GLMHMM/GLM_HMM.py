@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
-# @Last Modified by:   gviejo
-# @Last Modified time: 2023-10-25 17:47:20
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2024-07-18 09:50:38
 import numpy as np
 import os, sys
 from scipy.optimize import minimize
@@ -474,3 +474,70 @@ class GLM_HMM(object):
         self.eps = eps
         self.W = np.array([self.glms[i].W for i in range(self.K)])
         self.O = compute_observation(self.W, self.X, self.Y, self.K)
+
+class GLM_HMM_nemos(object):
+
+    def __init__(self, glms, n_basis = 3):
+        self.K = len(glms)
+        self.glms = glms
+        self.initial_W = np.array([glms[i].coef_ for i in range(len(glms))])
+        self.n_basis = n_basis
+
+    def fit_transition(self, X, Yt):        
+
+        self.O = self.compute_observation(X, Yt)
+
+        self.scores = []
+        As = []
+        Zs = []
+        Ws = []
+
+        tokeep = ~np.any(np.isnan(self.O), 1)
+
+        self.O = self.O[tokeep]
+
+        self.O = self.O/self.O.sum(1)[:,np.newaxis]
+
+        T = len(self.O)        
+
+        for _ in range(3):
+            A, Z, score = optimize_transition((self.K, T, self.O))
+            # A, Z, W, score = optimize_intercept((self.K, self.T, self.initial_W, self.X, self.Y))
+            self.scores.append(score)
+            As.append(A)
+            Zs.append(Z)
+            try:
+                Ws.append(W)
+            except:
+                Ws.append(self.initial_W)
+                        
+        max_L = np.array([score.max() for score in self.scores])
+        As = np.array(As)
+        # Bs = np.array(Bs)
+
+        self.A = As[np.argmax(max_L)]
+        self.best_W = Ws[np.argmax(max_L)]
+
+        # self.Z = nap.Tsd(t = Yt.t[],d = Zs[np.argmax(self.max_L)],time_support = ep)
+        self.Z = nap.Tsd(t = Yt.t[tokeep], d = Zs[np.argmax(max_L)])
+
+        eps = {}
+        for i in range(self.K):
+            ep = self.Z.threshold(i-0.5).threshold(i+0.5, "below").time_support
+            # ep = ep.drop_short_intervals(0.01)
+            eps[i] = ep
+
+        self.eps = eps
+        self.W = np.array([self.glms[i].coef_ for i in range(self.K)])
+        # self.O = compute_observation(best_W, self.X, self.Y, self.K)
+
+    def compute_observation(self, X, Y):
+        O = []
+        for k in range(self.K):
+            mu = self.glms[k].predict(X)
+            p = poisson.pmf(k=Y, mu=mu)
+            p = np.clip(p, 1e-10, 1.0)
+            O.append(p.prod(1))
+        O = np.array(O).T
+
+        return O

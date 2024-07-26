@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-10-14 15:09:29
+# @Last Modified time: 2024-07-18 16:50:24
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -16,13 +16,10 @@ from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 from itertools import combinations
 from scipy.stats import zscore
 from scipy.ndimage import gaussian_filter1d
-from sklearn.linear_model import PoissonRegressor
-from GLM_HMM import GLM_HMM
-from GLM import HankelGLM, ConvolvedGLM, CorrelationGLM
-from sklearn.preprocessing import StandardScaler
-from scipy.stats import poisson
-
-
+from GLM_HMM import GLM_HMM_nemos
+# from GLM import HankelGLM, ConvolvedGLM, CorrelationGLM
+import nemos as nmo
+import nwbmatic as ntm
 
 ############################################################################################### 
 # GENERAL infos
@@ -59,10 +56,6 @@ spkcounts = []
 corr = []
 
 for s in datasets:
-# for s in ["LMN-ADN/A5011/A5011-201010A"]:
-# for s in ["LMN/A6701/A6701-201208A"]:
-# for s in ['LMN-ADN/A5002/A5002-200303B']:
-# for s in ['LMN-PSB/A3010/A3010-210324A']:
     print(s)
     ############################################################################################### 
     # LOADING DATA
@@ -70,7 +63,7 @@ for s in datasets:
     path = os.path.join(data_directory, s)
     if os.path.isdir(os.path.join(path, "pynapplenwb")):
 
-        data = nap.load_session(path, 'neurosuite')
+        data = ntm.load_session(path, 'neurosuite')
         spikes = data.spikes
         position = data.position
         wake_ep = data.epochs['wake'].loc[[0]]
@@ -129,29 +122,47 @@ for s in datasets:
             
             bin_size = 0.02
             window_size = bin_size*50.0
+            
 
-
-
+            # GLM
             ############################################
             print("fitting GLM")
-            glm = ConvolvedGLM(spikes, bin_size, window_size, newwake_ep)
-            glm.fit_scipy()
-            # glm.fit_sklearn()            
 
-            spikes2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(newwake_ep))            
+            basis = nmo.basis.RaisedCosineBasisLog(
+                n_basis_funcs=3, shift=False, mode="conv", window_size=int(window_size/bin_size)
+                )
+
+            mask = np.repeat(1-np.eye(len(spikes)), 3, axis=0)
+
+
+            Y = spikes.count(bin_size, newwake_ep)
+
+            spikes2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(newwake_ep))
             spikes2.set_info(maxch = spikes._metadata["maxch"], group = spikes._metadata["group"])
-            rglm = ConvolvedGLM(spikes2, bin_size, window_size, newwake_ep)
-            rglm.fit_scipy()
-            # rglm.fit_sklearn()
+            Y2 = spikes2.count(bin_size, newwake_ep)
 
             spikes0 = nap.TsGroup({i:nap.Ts(np.array([])) for i in spikes.keys()}, time_support=newwake_ep)
-            glm0 = ConvolvedGLM(spikes0, bin_size, window_size, newwake_ep)
-            glm0.fit_scipy()                        
+            Y0 = spikes0.count(bin_size, newwake_ep)
+
+            glm = nmo.glm.PopulationGLM(regularizer=nmo.regularizer.UnRegularized("LBFGS"), feature_mask=mask)
+            glm.fit(basis.compute_features(Y), Y)
+
+            rglm = nmo.glm.PopulationGLM(regularizer=nmo.regularizer.UnRegularized("LBFGS"), feature_mask=mask)
+            rglm.fit(basis.compute_features(Y2), Y2)
+
+            glm0 = nmo.glm.PopulationGLM(regularizer=nmo.regularizer.UnRegularized("LBFGS"), feature_mask=mask)
+            glm0.fit(basis.compute_features(Y0), Y0)
+
+            # HMM
+            ############################################
             
-            hmm = GLM_HMM((glm0, glm, rglm))
+            hmm = GLM_HMM_nemos((glm0, glm, rglm))
             # hmm = GLM_HMM((glm, rglm))
+
+            Y = spikes.count(bin_size, sws_ep)
+            X = basis.compute_features(Y)
             
-            hmm.fit_transition(spikes, sws_ep, bin_size)
+            hmm.fit_transition(X, Y)
             
             # figure()
             # gs = GridSpec(3,1)
@@ -301,10 +312,10 @@ for s in datasets:
                     )
             
 
-allr = pd.concat(allr, 0)
+allr = pd.concat(allr)
 # allr_glm = pd.concat(allr_glm, 0)
-durations = pd.concat(durations, 0)
-corr = pd.concat(corr, 0)
+durations = pd.concat(durations)
+corr = pd.concat(corr)
 spkcounts = pd.concat(spkcounts)
 
 
@@ -360,9 +371,9 @@ datatosave = {
     "corr":corr,
     "allr":allr,
     "durations":durations,
-    "hmm":hmm,
-    "glm":glm,
-    "glmr":rglm
+    # "hmm":hmm,
+    # "glm":glm,
+    # "glmr":rglm
 }
 
 

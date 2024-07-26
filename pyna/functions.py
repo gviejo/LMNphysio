@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-02-28 16:16:36
-# @Last Modified by:   gviejo
-# @Last Modified time: 2023-11-01 22:59:00
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2024-07-25 15:33:44
 import numpy as np
 from numba import jit
 import pandas as pd
@@ -16,6 +16,11 @@ import pynapple as nap
 from matplotlib.colors import hsv_to_rgb
 # import xgboost as xgb
 # from LinearDecoder import linearDecoder
+from scipy.ndimage import gaussian_filter1d
+
+def smooth_series(series, sigma=1):
+    smoothed_series = gaussian_filter1d(series, sigma=sigma, mode='constant')
+    return pd.Series(smoothed_series, index = series.index)
 
 def getAllInfos(data_directory, datasets):
     allm = np.unique(["/".join(s.split("/")[0:2]) for s in datasets])
@@ -35,7 +40,8 @@ def smoothAngularTuningCurves(tuning_curves, window = 20, deviation = 3.0):
                                                 tcurves.index.values,
                                                 tcurves.index.values+(2*np.pi)+offset)),
                             data = np.hstack((tcurves.values, tcurves.values, tcurves.values)))
-        smoothed = padded.rolling(window=window,win_type='gaussian',center=True,min_periods=1).mean(std=deviation)      
+        # smoothed = padded.rolling(window=window,win_type='gaussian',center=True,min_periods=1).mean(std=deviation)
+        smoothed = smooth_series(padded, sigma=deviation)
         new_tuning_curves[i] = smoothed.loc[tcurves.index]
 
     new_tuning_curves = pd.DataFrame.from_dict(new_tuning_curves)
@@ -89,7 +95,7 @@ def computeAngularVelocity(angle, ep, bin_size):
     """        
     tmp = np.unwrap(angle.restrict(ep).values)
     tmp = pd.Series(index=angle.restrict(ep).index.values, data=tmp)
-    tmp = tmp.rolling(window=100,win_type='gaussian',center=True,min_periods=1).mean(std=2.0)    
+    tmp = smooth_series(tmp, 2.0)
     tmp = nap.Tsd(t = tmp.index.values, d = tmp.values)    
     tmp = tmp.bin_average(bin_size)
     t = tmp.index.values[0:-1]+np.diff(tmp.index.values)

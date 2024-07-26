@@ -2,12 +2,13 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-12-16 14:24:56
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-03-14 14:16:03
+# @Last Modified time: 2024-07-24 13:27:24
 import scipy.io
 import sys, os
 import numpy as np
 import pandas as pd
 import pynapple as nap
+import nwbmatic as ntm
 from functions import *
 import sys
 from itertools import combinations, product
@@ -18,10 +19,11 @@ from matplotlib.pyplot import *
 # sns.set_theme()
 
 
-path = '/mnt/Data2/Opto/A8000/A8047/A8047-230311A'
+# path = '/mnt/Data2/Opto/A8000/A8047/A8047-230311A'
 #path = '/mnt/Data2/LMN-PSB-2/A3018/A3018-220614A'
+path = '/mnt/ceph/users/gviejo/OPTO/A8000/A8066/A8066-240216A'
 
-data = nap.load_session(path, 'neurosuite')
+data = ntm.load_session(path, 'neurosuite')
 
 spikes = data.spikes.getby_threshold('rate', 0.6)
 angle = data.position['ry']
@@ -29,7 +31,7 @@ wake_ep = data.epochs['wake']
 sleep_ep = data.epochs['sleep']
 
 
-opto_ep = loadOptoEp(path, epoch=1, n_channels = 2, channel = 0)
+opto_ep = loadOptoEp(path, epoch=2, n_channels = 2, channel = 0)
 
 wake2_ep = wake_ep.loc[[0]]
 
@@ -47,8 +49,8 @@ spikes.set_info(SI)
 
 
 stim_duration = np.round(opto_ep.loc[0,'end'] - opto_ep.loc[0,'start'], 6)
-peth = nap.compute_perievent(spikes, nap.Ts(opto_ep["start"].values), minmax=(-4, 14))
-frates = pd.DataFrame({n:peth[n].count(1.0).sum(1) for n in peth.keys()})
+peth = nap.compute_perievent(spikes, opto_ep.starts, minmax=(-4, 14))
+frates = pd.DataFrame.from_dict({n:peth[n].count(1.0).sum(1).as_series() for n in peth.keys()})
 rasters = {j:pd.concat([peth[j][i].as_series().fillna(i) for i in peth[j].index]) for j in peth.keys()}
 
 ############################################################################################### 
@@ -110,6 +112,8 @@ for i, neurons in enumerate(groups):
 
 show()
 
+
+sys.exit()
 
 def computeAngularVelocity(angle, ep, bin_size):
     """this function only works for single epoch
