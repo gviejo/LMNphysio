@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2024-07-18 16:52:06
+# @Last Modified time: 2024-09-06 12:20:28
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -414,20 +414,6 @@ gscor = gridspec.GridSpecFromSubplotSpec(
 
 
 allaxis = []
-
-
-paths = [
-    dropbox_path + "/All_correlation_ADN.pickle",
-    # dropbox_path+'/All_correlation_ADN_LMN.pickle',
-    dropbox_path + "/All_correlation_LMN.pickle",
-]
-# names = ['ADN', 'ADN/LMN', 'LMN']
-# clrs = ['lightgray', 'darkgray', 'gray']
-# clrs = ['sandybrown', 'olive']
-# clrs = ['lightgray', 'gray']
-names = ["ADN", "LMN"]
-corrcolor = COLOR
-mkrs = 6
 
 xpos = [0, 2]
 

@@ -2,11 +2,12 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-01 19:20:07
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-10-14 19:06:27
+# @Last Modified time: 2024-09-10 12:52:25
 
 import numpy as np
 import pandas as pd
 import pynapple as nap
+import nwbmatic as ntm
 from pylab import *
 from functions import *
 import sys
@@ -29,9 +30,14 @@ elif os.path.exists('/mnt/ceph/users/gviejo'):
 elif os.path.exists('/media/guillaume/Raid2'):
     data_directory = '/media/guillaume/Raid2'
 
-datasets = np.genfromtxt(os.path.join(data_directory,'datasets_ADN.list'), delimiter = '\n', dtype = str, comments = '#')
+datasets = np.hstack([
+    np.genfromtxt(os.path.join(data_directory,'datasets_ADN.list'), delimiter = '\n', dtype = str, comments = '#'),
+    np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#'),
+    # np.genfromtxt(os.path.join(data_directory,'datasets_LMN_PSB.list'), delimiter = '\n', dtype = str, comments = '#'),
+    ])
 
 
+datasets = np.unique(datasets)
 
 allr = []
 pearson = {}
@@ -44,12 +50,13 @@ for s in datasets:
     ###############################################################################################
     path = os.path.join(data_directory, s)
     if os.path.isdir(os.path.join(path, "pynapplenwb")):
-        data = nap.load_session(path, 'neurosuite')
+        data = ntm.load_session(path, 'neurosuite')
         spikes = data.spikes
         position = data.position
         wake_ep = data.epochs['wake']
         sws_ep = data.read_neuroscope_intervals('sws')
         rem_ep = data.read_neuroscope_intervals('rem')
+
         
 
         hmm_eps = []
@@ -89,7 +96,7 @@ for s in datasets:
             tcurves2.append(tcurves_half)       
         tokeep = np.intersect1d(tokeep2[0], tokeep2[1])  
         
-        if len(tokeep) > 2:
+        if len(tokeep) > 4:
 
             spikes = spikes[tokeep]
             # spikes = spikes.getby_threshold('SI', 0.4)
@@ -108,12 +115,13 @@ for s in datasets:
             # PEARSON CORRELATION
             ###############################################################################################
             rates = {}
-            for e, ep, bin_size, std in zip(['wak', 'rem', 'sws'], [newwake_ep, rem_ep, sws_ep], [0.2, 0.2, 0.02], [1, 1, 1]):
+            for e, ep, bin_size, std in zip(['wak', 'rem', 'sws'], [newwake_ep, rem_ep, sws_ep], [0.2, 0.2, 0.02], [2, 2, 2]):
+                ep = ep.drop_short_intervals(bin_size*22)
                 count = spikes.count(bin_size, ep)
                 rate = count/bin_size
-                rate = rate.as_dataframe()
-                rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=std)       
-                rate = rate.apply(zscore)            
+                # rate = rate.as_dataframe()
+                rate = rate.smooth(std=bin_size*std, windowsize=bin_size*20).as_dataframe()
+                rate = rate.apply(zscore)
                 rates[e] = rate
                 if len(hmm_eps) and e == "sws":
                     for i in range(len(hmm_eps)):
@@ -166,8 +174,8 @@ cPickle.dump(datatosave, open(os.path.join(dropbox_path, 'All_correlation_ADN.pi
 
 
 figure()
-for i, e in enumerate(["rem", "sws", "ep0", "ep1", "ep2"]):
-    subplot(1, 5, i+1)
+for i, e in enumerate(["rem", "sws"]):
+    subplot(1, 3, i+1)
     tmp = allr[['wak', e]].dropna()
     plot(tmp['wak'], tmp[e], 'o', color = 'red', alpha = 0.5)
     m, b = np.polyfit(tmp['wak'].values, tmp[e].values, 1)
@@ -178,5 +186,16 @@ for i, e in enumerate(["rem", "sws", "ep0", "ep1", "ep2"]):
     
     r, p = scipy.stats.pearsonr(tmp['wak'], tmp[e])
     title('r = '+str(np.round(r, 3)))
+
+subplot(133)
+plot(np.zeros(len(pearson))+np.random.randn(len(pearson))*0.1, pearson['rem'].values, 'o') 
+plot(np.ones(len(pearson))+np.random.randn(len(pearson))*0.1, pearson['sws'].values, 'o') 
+
+print(scipy.stats.wilcoxon(pearson["rem"], pearson["sws"]))
+print(scipy.stats.ttest_ind(pearson["rem"], pearson["sws"]))
+
+
+xticks([0,1], ['rem', 'sws'])
+ylim(-0.5, 1)
 
 show()

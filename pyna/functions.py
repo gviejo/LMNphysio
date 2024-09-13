@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-02-28 16:16:36
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2024-07-25 15:33:44
+# @Last Modified time: 2024-08-13 18:24:45
 import numpy as np
 from numba import jit
 import pandas as pd
@@ -85,9 +85,9 @@ def findHDCells(tuning_curves, z = 50, p = 0.0001 , m = 1):
 def computeLinearVelocity(pos, ep, bin_size):
     pos = pos.restrict(ep)
     pos2 = pos.bin_average(bin_size)    
-    pos2 = pos2.rolling(window=100,win_type='gaussian',center=True,min_periods=1).mean(std=1.0) 
+    pos2 = pos2.smooth(1.0)
     speed = np.sqrt(np.sum(np.power(pos2.values[1:, :] - pos2.values[0:-1, :], 2), 1))    
-    speed = nap.Tsd(t = pos2.index.values, d=speed, time_support = ep)
+    speed = nap.Tsd(t = pos2.index.values[0:-1], d=speed, time_support = ep)
     return speed
 
 def computeAngularVelocity(angle, ep, bin_size):

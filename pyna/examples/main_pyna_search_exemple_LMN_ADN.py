@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-08-10 17:16:25
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2024-07-17 15:46:13
+# @Last Modified time: 2024-09-10 16:45:02
 import scipy.io
 import sys, os
 import numpy as np
@@ -25,21 +25,30 @@ elif os.path.exists('/media/guillaume/Raid2'):
     data_directory = '/media/guillaume/Raid2'
 
 # path = '/mnt/DataRAID2/LMN-ADN/A5043/A5043-230301A'
-path = os.path.join(data_directory, 'LMN-ADN/A5043/A5043-230306A')
+path = os.path.join(data_directory, 'LMN-ADN/A5044/A5044-240401A')
 
 
 data = nap.load_session(path, 'neurosuite')
 
-spikes = data.spikes.getby_threshold('rate', 1)
+# spikes = data.spikes.getby_threshold('rate', 1)
+
+spikes = nap.load_file(os.path.join(path, "kilosort4/spikes_ks4.npz"))
+spikes = spikes.getby_threshold("rate", 1)
+
 angle = data.position['ry']
 position = data.position
 
-# turning by pi
-tmp = np.unwrap(position['ry'].values)
-tmp += np.pi
-tmp = np.mod(tmp, 2*np.pi)
-angle = nap.Tsd(t = position.index.values, d = tmp, time_support=position.time_support)
+# # turning by pi
+# tmp = np.unwrap(position['ry'].values)
+# tmp += np.pi
+# tmp = np.mod(tmp, 2*np.pi)
+# angle = nap.Tsd(t = position.index.values, d = tmp, time_support=position.time_support)
 
+
+dropbox_path = os.path.expanduser("~") + "/Dropbox/LMNphysio/data"
+datahmm = cPickle.load(
+    open(os.path.join(dropbox_path, "GLM_HMM_{}.pickle".format(s)), "rb")
+)
 
 
 wake_ep = data.epochs['wake']
@@ -84,7 +93,7 @@ for l,j in enumerate(np.unique(shank)):
                 tuning_curves[i].values, 
                 color = colors[l])
 
-show()
+# show()
 
 # sys.exit()
 
@@ -154,7 +163,7 @@ import _pickle as cPickle
 
 filepath = os.path.join(os.path.expanduser("~"), 'Dropbox/LMNphysio/data/DATA_FIG_LMN_ADN_{}.pickle'.format(os.path.basename(path)))
 
-cPickle.dump(datatosave, open(filepath, 'wb'))
+# cPickle.dump(datatosave, open(filepath, 'wb'))
 
 sws2_ep = sws_ep[np.argsort(sws_ep.end-sws_ep.start)[-2]]
 
@@ -182,7 +191,7 @@ for i,n in enumerate(adn):
 subplot(312, sharex = ax)
 for i,n in enumerate(lmn):
     plot(spikes[n].restrict(sws_ep).fillna(i), '|', markersize = 15, markeredgewidth=5)
-show()
+
 
 # rem
 figure()

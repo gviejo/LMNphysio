@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
-# @Last Modified by:   gviejo
-# @Last Modified time: 2023-10-25 17:53:29
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2024-09-11 12:00:20
 import numpy as np
 import pandas as pd
 import pynapple as nap
+import nwbmatic as ntm
 from pylab import *
 import sys, os
 sys.path.append("..")
@@ -17,9 +18,11 @@ from itertools import combinations
 from scipy.stats import zscore
 from scipy.ndimage import gaussian_filter1d
 from sklearn.linear_model import PoissonRegressor
-from GLM_HMM import GLM_HMM
-from GLM import HankelGLM, ConvolvedGLM, CorrelationGLM
+# from GLM_HMM import GLM_HMM
+# from GLM import HankelGLM, ConvolvedGLM, CorrelationGLM
 from sklearn.preprocessing import StandardScaler
+from GLM_HMM import GLM_HMM_nemos
+import nemos as nmo
 
 
 ############################################################################################### 
@@ -40,7 +43,7 @@ datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), d
 
 
 SI_thr = {
-    'adn':0.3, 
+    'adn':0.2, 
     'lmn':0.1,
     'psb':1.5
     }
@@ -52,7 +55,7 @@ corr = {'adn':[], 'lmn':[]}
 
 # for s in datasets:
 # for s in ["LMN-ADN/A5043/A5043-230302A"]:
-for s in ['LMN-ADN/A5043/A5043-230306A']:
+for s in ['LMN-ADN/A5044/A5044-240401A']:
 # # for s in ['LMN/A1413/A1413-200918A']:
 # for s in ['LMN/A1414/A1414-200929A']:
     print(s)
@@ -62,8 +65,11 @@ for s in ['LMN-ADN/A5043/A5043-230306A']:
     path = os.path.join(data_directory, s)
     if os.path.isdir(os.path.join(path, "pynapplenwb")):
 
-        data = nap.load_session(path, 'neurosuite')
-        spikes = data.spikes
+        data = ntm.load_session(path, 'neurosuite')
+        try:
+            spikes = nap.load_file(os.path.join(path, "kilosort4/spikes_ks4.npz"))
+        except:
+            spikes = data.spikes
         position = data.position
         wake_ep = data.epochs['wake'].loc[[0]]
         sws_ep = data.read_neuroscope_intervals('sws')
@@ -72,14 +78,14 @@ for s in ['LMN-ADN/A5043/A5043-230306A']:
         idx = spikes._metadata[spikes._metadata["location"].str.contains("lmn|adn")].index.values
         spikes = spikes[idx]
 
-        try:
-            maxch = pd.read_csv(data.nwb_path + "/maxch.csv", index_col=0)['0']
+        # try:
+        #     maxch = pd.read_csv(data.nwb_path + "/maxch.csv", index_col=0)['0']
             
-        except:
-            meanwf, maxch = data.load_mean_waveforms(spike_count=1000)
-            maxch.to_csv(data.nwb_path + "/maxch.csv")        
+        # except:
+        #     meanwf, maxch = data.load_mean_waveforms(spike_count=1000)
+        #     maxch.to_csv(data.nwb_path + "/maxch.csv")        
 
-        spikes.set_info(maxch = maxch[idx])
+        # spikes.set_info(maxch = maxch[idx])
 
         ############################################################################################### 
         # COMPUTING TUNING CURVES
@@ -120,35 +126,69 @@ for s in ['LMN-ADN/A5043/A5043-230306A']:
             # HMM GLM
             ###############################################################################################
             
-            bin_size = 0.015
-            window_size = bin_size*50.0
+            bin_size = 0.02
+            window_size = bin_size*20.0
             
+            # GLM
             ############################################
             print("fitting GLM")
-            glm = ConvolvedGLM(spikes, bin_size, window_size, newwake_ep)
-            glm.fit_scipy()
-            # glm.fit_sklearn()
-            
 
-            spikes2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(newwake_ep))            
-            spikes2.set_info(maxch = spikes._metadata["maxch"], group = spikes._metadata["group"])
-            rglm = ConvolvedGLM(spikes2, bin_size, window_size, newwake_ep)            
-            rglm.fit_scipy()
-            # rglm.fit_sklearn()
+            basis = nmo.basis.RaisedCosineBasisLog(
+                n_basis_funcs=3, shift=True, mode="conv", window_size=int(window_size/bin_size)
+                )
+
+            # x,b=basis.evaluate_on_grid(int(window_size/bin_size))
+
+            # B = np.zeros((len(b)*2, 5))
+            # B[0:len(b),0:3] = b[::-1,::-1]
+            # B[len(b):,-3:] = b#[:,::-1]
+            # B = B/B.sum(0)
+
+
+            mask = np.repeat(1-np.eye(len(spikes)), 3, axis=0)
+
+            Y = spikes.count(bin_size, newwake_ep)
+
+            spikes2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(newwake_ep))
+            spikes2.set_info(group = spikes._metadata["group"])
+            Y2 = spikes2.count(bin_size, newwake_ep)
 
             spikes0 = nap.TsGroup({i:nap.Ts(np.array([])) for i in spikes.keys()}, time_support=newwake_ep)
-            glm0 = ConvolvedGLM(spikes0, bin_size, window_size, newwake_ep)
-            glm0.fit_scipy()                        
+            Y0 = spikes0.count(bin_size, newwake_ep)
 
+            glm = nmo.glm.PopulationGLM(regularizer=nmo.regularizer.UnRegularized("LBFGS"), feature_mask=mask)
+            FEAT = basis.compute_features(Y)
+            # FEAT = nmo.convolve.create_convolutional_predictor(B, Y)
+            # FEAT = FEAT.values.reshape(len(FEAT), -1)
+            glm.fit(FEAT, Y)
 
-            glms = (glm0, glm, rglm)
+            rglm = nmo.glm.PopulationGLM(regularizer=nmo.regularizer.UnRegularized("LBFGS"), feature_mask=mask)
+            FEAT2 = basis.compute_features(Y2)
+            # FEAT2 = nmo.convolve.create_convolutional_predictor(B, Y2)
+            # FEAT2 = FEAT2.values.reshape(len(FEAT2), -1)
+            rglm.fit(FEAT2, Y2)
 
-            hmm = GLM_HMM(glms)
-            # hmm = GLM_HMM((glm, rglm))
+            glm0 = nmo.glm.PopulationGLM(regularizer=nmo.regularizer.UnRegularized("LBFGS"), feature_mask=mask)
+            FEAT0 = basis.compute_features(Y0)
+            # FEAT0 = nmo.convolve.create_convolutional_predictor(B, Y0)
+            # FEAT0 = FEAT0.values.reshape(len(FEAT0), -1)
+            glm0.fit(FEAT0, Y0)
+
+            # HMM
+            ############################################
             
-            # sws_ep = sws_ep.drop_short_intervals(600)
+            hmm = GLM_HMM_nemos((glm0, glm, rglm))
+            # hmm = GLM_HMM_nemos((glm, rglm))
 
-            hmm.fit_transition(spikes, sws_ep, bin_size)
+            Y = spikes.count(bin_size, sws_ep)
+            X = basis.compute_features(Y)
+            
+            # X = nmo.convolve.create_convolutional_predictor(B, Y)
+            # X = X.values.reshape(len(X), -1)
+            
+
+            hmm.fit_transition(X, Y)
+
             
             figure()
             gs = GridSpec(4,1, hspace = 0)
@@ -164,7 +204,7 @@ for s in ['LMN-ADN/A5043/A5043-230306A']:
             ylabel("LMN")
             ylim(0, 2*np.pi)
             subplot(gs[3,0], sharex=ax)
-            plot(hmm.time_idx, hmm.O[:,0:])
+            plot(hmm.O)
             ylabel("P(O)")                  
             show()
             sys.exit()      

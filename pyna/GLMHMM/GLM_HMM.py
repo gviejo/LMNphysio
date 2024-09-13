@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2024-07-18 09:50:38
+# @Last Modified time: 2024-09-11 11:58:10
 import numpy as np
 import os, sys
 from scipy.optimize import minimize
@@ -83,7 +83,7 @@ def optimize_transition(args):
     # A = np.eye(K) + np.random.rand(K, K)*0.1
     A = np.random.rand(K, K)
     A = A/A.sum(1)[:,None]
-    for i in range(30):
+    for i in range(100):
         alpha, scaling = forward(A, T, K, O, init)                
         beta = backward(A, T, K, O, scaling)
         # Expectation
@@ -494,14 +494,12 @@ class GLM_HMM_nemos(object):
 
         tokeep = ~np.any(np.isnan(self.O), 1)
 
-        self.O = self.O[tokeep]
-
-        self.O = self.O/self.O.sum(1)[:,np.newaxis]
+        self.O = self.O[tokeep.values]
 
         T = len(self.O)        
 
         for _ in range(3):
-            A, Z, score = optimize_transition((self.K, T, self.O))
+            A, Z, score = optimize_transition((self.K, T, self.O.values))
             # A, Z, W, score = optimize_intercept((self.K, self.T, self.initial_W, self.X, self.Y))
             self.scores.append(score)
             As.append(A)
@@ -536,8 +534,10 @@ class GLM_HMM_nemos(object):
         for k in range(self.K):
             mu = self.glms[k].predict(X)
             p = poisson.pmf(k=Y, mu=mu)
-            p = np.clip(p, 1e-10, 1.0)
+            # p = np.clip(p, 1e-10, 1.0)
             O.append(p.prod(1))
         O = np.array(O).T
+        O = O/O.sum(1)[:,None]
 
+        O = nap.TsdFrame(t=X.t, d=O, time_support=X.time_support)
         return O

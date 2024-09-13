@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2024-07-18 16:50:24
+# @Last Modified time: 2024-09-10 17:25:05
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -44,9 +44,9 @@ datasets = np.hstack([
 
 
 SI_thr = {
-    'adn':0.5, 
-    'lmn':0.2,
-    'psb':1.5
+    'adn':0.2, 
+    'lmn':0.1,
+    'psb':1.0
     }
 
 allr = []
@@ -64,7 +64,12 @@ for s in datasets:
     if os.path.isdir(os.path.join(path, "pynapplenwb")):
 
         data = ntm.load_session(path, 'neurosuite')
-        spikes = data.spikes
+
+        try:
+            spikes = nap.load_file(os.path.join(path, "kilosort4/spikes_ks4"))
+        except:
+            spikes = data.spikes
+
         position = data.position
         wake_ep = data.epochs['wake'].loc[[0]]
         sws_ep = data.read_neuroscope_intervals('sws')
@@ -237,20 +242,21 @@ for s in datasets:
                 # SAVING HMM EPOCHS
                 ###############################################################################################        
                 for i in hmm.eps.keys():
-                    hmm.eps[i].save(os.path.join(path, os.path.basename(s)+"_HMM_ep{}".format(i)))
+                    hmm.eps[i].save(os.path.join(path, os.path.basename(s)+"_HMM_LMN_ep{}".format(i)))
 
                 ############################################################################################### 
                 # PEARSON CORRELATION
-                ###############################################################################################        
+                ###############################################################################################                        
                 rates = {}
-
-                for e, ep, bin_size, std in zip(['wak', 'sws'], [newwake_ep, sws_ep], [0.2, 0.02], [1, 1]):
+                for e, ep, bin_size, std in zip(['wak', 'rem', 'sws'], [newwake_ep, rem_ep, sws_ep], [0.2, 0.2, 0.02], [2, 2, 2]):
+                    ep = ep.drop_short_intervals(bin_size*22)
                     count = spikes.count(bin_size, ep)
                     rate = count/bin_size
-                    rate = rate.as_dataframe()
-                    rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=std)
-                    rate = rate.apply(zscore)                    
+                    # rate = rate.as_dataframe()
+                    rate = rate.smooth(std=bin_size*std, windowsize=bin_size*20).as_dataframe()
+                    rate = rate.apply(zscore)
                     rates[e] = nap.TsdFrame(rate)
+
                 
                 eps = hmm.eps
                 for i in eps.keys():

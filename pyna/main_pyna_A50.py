@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-04-13 09:53:18
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2024-05-01 12:30:31
+# @Last Modified time: 2024-08-14 15:22:57
 import scipy.io
 import sys, os
 import numpy as np
@@ -26,7 +26,7 @@ elif os.path.exists('/mnt/ceph/users/gviejo'):
 elif os.path.exists('/media/guillaume/Raid2'):
     data_directory = '/media/guillaume/Raid2'
 
-path = os.path.join(data_directory, 'LMN-ADN/A5044/A5044-240329B')
+path = os.path.join(data_directory, 'LMN-ADN/A5044/A5044-240401A')
 
 data = ntm.load_session(path, 'neurosuite')
 
@@ -48,7 +48,7 @@ wake_ep = data.epochs['wake']
 # Linear velocity
 position = data.position[['x', 'z']]
 pos2 = position.bin_average(0.2)
-pos2 = pos2.as_dataframe().rolling(window=100,win_type='gaussian',center=True,min_periods=1).mean(std=1.0)
+# pos2 = pos2.as_dataframe().rolling(window=100,win_type='gaussian',center=True,min_periods=1).mean(std=1.0)
 speed = np.sqrt(np.sum(np.power(pos2.values[1:, :] - pos2.values[0:-1, :], 2), 1))    
 speed = nap.Tsd(t = pos2.index.values[0:-1], d=speed, time_support = position.time_support)
 
@@ -68,11 +68,16 @@ tmp = np.linspace(angle.time_support.start[0], angle.time_support.end[0], 30)[0:
 # 		break
 
 angle = angle.restrict(ep)
-angle = smoothAngle(angle, 1)
+# angle = smoothAngle(angle, 1)
 
 tuning_curves = nap.compute_1d_tuning_curves(spikes, angle, 120, minmax=(0, 2*np.pi), ep = angle.time_support)
 tuning_curves = smoothAngularTuningCurves(tuning_curves, window = 40, deviation = 1.0)
 SI = nap.compute_1d_mutual_info(tuning_curves, angle, angle.time_support.loc[[0]], minmax=(0,2*np.pi))
+
+
+order = np.argsort(np.argmax(tuning_curves.values, 0))
+
+spikes.set_info(order=order)
 
 # SIs.append(SI.mean())
 # spikes.set_info(SI)

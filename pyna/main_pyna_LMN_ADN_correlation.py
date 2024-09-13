@@ -18,11 +18,19 @@ from matplotlib.gridspec import GridSpec
 ############################################################################################### 
 # GENERAL infos
 ###############################################################################################
-data_directory = '/mnt/DataRAID2/'
+if os.path.exists("/mnt/Data/Data/"):
+    data_directory = "/mnt/Data/Data"
+elif os.path.exists('/mnt/DataRAID2/'):    
+    data_directory = '/mnt/DataRAID2/'
+elif os.path.exists('/mnt/ceph/users/gviejo'):    
+    data_directory = '/mnt/ceph/users/gviejo'
+elif os.path.exists('/media/guillaume/Raid2'):
+    data_directory = '/media/guillaume/Raid2'
+
 datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#')
 
-# infos = getAllInfos(data_directory, datasets)
-
+datasets = np.unique(datasets)
+# datasets = np.genfromtxt('/media/guillaume/LaCie/datasets_LMN_PSB.list', delimiter = '\n', dtype = str, comments = '#')
 
 
 allr = []

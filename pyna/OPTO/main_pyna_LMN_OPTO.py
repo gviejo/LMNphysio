@@ -72,7 +72,7 @@ for ep in ['wake', 'sleep']:
         spikes = spikes.getby_threshold("rate", 1.0)
         idx = spikes._metadata[spikes._metadata["location"].str.contains("lmn")].index.values
         spikes = spikes[idx]
-          
+
         ############################################################################################### 
         # LOADING OPTO INFO
         ###############################################################################################            
