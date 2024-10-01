@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-01 19:20:07
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2024-09-10 12:52:25
+# @Last Modified time: 2024-09-16 16:57:00
 
 import numpy as np
 import pandas as pd
@@ -51,7 +51,12 @@ for s in datasets:
     path = os.path.join(data_directory, s)
     if os.path.isdir(os.path.join(path, "pynapplenwb")):
         data = ntm.load_session(path, 'neurosuite')
-        spikes = data.spikes
+        try:
+            spikes = nap.load_file(os.path.join(path, "kilosort4/spikes_ks4.npz"))
+            spikes = spikes.getby_threshold("rate", 1)
+        except:
+            spikes = data.spikes
+
         position = data.position
         wake_ep = data.epochs['wake']
         sws_ep = data.read_neuroscope_intervals('sws')
@@ -96,7 +101,7 @@ for s in datasets:
             tcurves2.append(tcurves_half)       
         tokeep = np.intersect1d(tokeep2[0], tokeep2[1])  
         
-        if len(tokeep) > 4:
+        if len(tokeep) > 5:
 
             spikes = spikes[tokeep]
             # spikes = spikes.getby_threshold('SI', 0.4)
@@ -191,8 +196,9 @@ subplot(133)
 plot(np.zeros(len(pearson))+np.random.randn(len(pearson))*0.1, pearson['rem'].values, 'o') 
 plot(np.ones(len(pearson))+np.random.randn(len(pearson))*0.1, pearson['sws'].values, 'o') 
 
-print(scipy.stats.wilcoxon(pearson["rem"], pearson["sws"]))
-print(scipy.stats.ttest_ind(pearson["rem"], pearson["sws"]))
+
+print(scipy.stats.wilcoxon(pearson.dropna()["rem"], pearson.dropna()["sws"]))
+print(scipy.stats.ttest_ind(pearson.dropna()["rem"], pearson.dropna()["sws"]))
 
 
 xticks([0,1], ['rem', 'sws'])

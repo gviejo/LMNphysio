@@ -2,7 +2,7 @@
 # @Author: gviejo
 # @Date:   2023-08-29 13:46:37
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2024-07-26 18:31:27
+# @Last Modified time: 2024-09-17 11:08:53
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -59,7 +59,11 @@ for ep in ['wake', 'sleep']:
         ###############################################################################################
         path = os.path.join(data_directory, "OPTO", s)
         data = ntm.load_session(path, 'neurosuite')
-        spikes = data.spikes
+        try:
+            spikes = nap.load_file(os.path.join(path, "kilosort4/spikes_ks4.npz"))
+            spikes = spikes.getby_threshold("rate", 1)
+        except:
+            spikes = data.spikes 
         position = data.position
         wake_ep = data.epochs['wake'].loc[[0]]
         sleep_ep = data.epochs["sleep"]
@@ -137,6 +141,7 @@ for ep in ['wake', 'sleep']:
 
         opto_ep = opto_ep[(opto_ep['end'] - opto_ep['start'])>=stim_duration-0.001]
 
+
         # peth = nap.compute_perievent(spikes[tokeep], nap.Ts(opto_ep.start), minmax=(-stim_duration, 2*stim_duration))
         # frates = pd.DataFrame({n:np.sum(peth[n].count(0.05), 1).values for n in peth.keys()})
 
@@ -153,7 +158,10 @@ for ep in ['wake', 'sleep']:
             newwake_ep = velocity.threshold(0.02).time_support.drop_short_intervals(1).merge_close_intervals(1)
 
             rates = {}
-            sws2_ep = sws_ep.intersect(sleep_ep.loc[[0]])
+
+            sws2_ep = nap.IntervalSet(start=opto_ep.start-stim_duration, end=opto_ep.start)
+            sws2_ep = sws2_ep.intersect(sws_ep)
+            sws2_ep.drop_short_intervals(stim_duration-0.001)
 
             for e, iset, bin_size, std in zip(['wak', 'sws', 'opto'], [newwake_ep, sws2_ep, opto_ep], [0.3, 0.03, 0.03], [1, 1, 1]):
                 count = spikes.count(bin_size, iset)

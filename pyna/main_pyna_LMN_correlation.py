@@ -2,8 +2,9 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-01 12:03:19
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2024-09-10 12:49:10
+# @Last Modified time: 2024-09-17 10:45:06
 
+# %%
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -17,7 +18,7 @@ from matplotlib.gridspec import GridSpec
 from itertools import combinations
 from scipy.stats import zscore
 
-
+# %%
 ############################################################################################### 
 # GENERAL infos
 ###############################################################################################
@@ -51,7 +52,13 @@ for s in datasets:
     path = os.path.join(data_directory, s)
     if os.path.isdir(os.path.join(path, "pynapplenwb")):    
         data = ntm.load_session(path, 'neurosuite')
-        spikes = data.spikes
+
+        try:
+            spikes = nap.load_file(os.path.join(path, "kilosort4/spikes_ks4.npz"))
+            spikes = spikes.getby_threshold("rate", 1)
+        except:
+            spikes = data.spikes
+
         position = data.position
         wake_ep = data.epochs['wake']
         sws_ep = data.read_neuroscope_intervals('sws')
@@ -97,7 +104,7 @@ for s in datasets:
             tcurves2.append(tcurves_half)       
         tokeep = np.intersect1d(tokeep2[0], tokeep2[1])
         
-        if len(tokeep) > 4:
+        if len(tokeep) > 5:
 
             spikes = spikes[tokeep]
             # groups = spikes._metadata.loc[tokeep].groupby("location").groups

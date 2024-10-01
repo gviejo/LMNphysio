@@ -2,7 +2,9 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2024-07-17 16:23:57
+# @Last Modified time: 2024-09-28 16:48:06
+
+# %%
 import numpy as np
 from scipy.optimize import minimize
 from matplotlib.pyplot import *
@@ -47,26 +49,41 @@ window_size = bin_size*50.0
 ############################################
 
 basis = nmo.basis.RaisedCosineBasisLog(
-    n_basis_funcs=3, shift=False, mode="conv", window_size=int(window_size/bin_size)
+    n_basis_funcs=5, shift=False, mode="conv", window_size=int(window_size/bin_size), time_scaling=10, predictor_causality="acausal"
 )
 _, coupling_basis = basis.evaluate_on_grid(int(window_size/bin_size))
+
+figure()
+subplot(121)
+plot(coupling_basis)
+
+subplot(122)
+plot(Y[:,0], '--')
+plot(basis.compute_features(Y[:,0]))
+show()
+
+sys.exit()
+
 
 mask = np.repeat(1-np.eye(N), 3, axis=0)
 
 glm = nmo.glm.PopulationGLM(
-    regularizer=nmo.regularizer.UnRegularized("LBFGS"),
+    regularizer="UnRegularized",
+    solver_name="LBFGS",
     feature_mask=mask
     )
 glm.fit(basis.compute_features(Y), Y)
 
 rglm = nmo.glm.PopulationGLM(
-    regularizer=nmo.regularizer.UnRegularized("LBFGS"),
+    regularizer="UnRegularized",
+    solver_name="LBFGS",
     feature_mask=mask
     )
 rglm.fit(basis.compute_features(Yr), Yr)
 
 glm0 = nmo.glm.PopulationGLM(
-    regularizer=nmo.regularizer.UnRegularized("LBFGS"),
+    regularizer="UnRegularized",
+    solver_name="LBFGS",    
     feature_mask=mask
     )
 glm0.fit(basis.compute_features(Y0), Y0)
@@ -155,7 +172,11 @@ random_scores = get_random_scores(Z, K, 1000)
 n = 1000
 
 figure()
+subplot(211)
 imshow(Yt.values[0:n].T, aspect='auto')
+subplot(212)
+plot(Z[0:n], 'o')
+plot(hmm.Z[0:n].values, '-')
 show()
 
 

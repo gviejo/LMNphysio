@@ -2,7 +2,7 @@
 # @Author: gviejo
 # @Date:   2023-08-29 13:46:37
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-11-06 16:50:23
+# @Last Modified time: 2024-09-17 16:17:47
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -147,7 +147,10 @@ for s in datasets:
         # PEARSON CORRELATION
         ###############################################################################################        
         rates = {}
-        sws2_ep = sws_ep.intersect(sleep_ep.loc[[0]])
+        sws2_ep = nap.IntervalSet(start=opto_ep.start-stim_duration, end=opto_ep.start)
+        sws2_ep = sws2_ep.intersect(sws_ep)
+        sws2_ep.drop_short_intervals(stim_duration-0.001)
+        
 
         for e, ep, bin_size, std in zip(['wak', 'sws', 'opto'], [newwake_ep, sws2_ep, opto_ep], [0.3, 0.03, 0.03], [1, 1, 1]):
             count = spikes.count(bin_size, ep)

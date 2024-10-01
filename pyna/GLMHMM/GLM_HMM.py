@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2024-09-11 11:58:10
+# @Last Modified time: 2024-09-18 16:27:29
 import numpy as np
 import os, sys
 from scipy.optimize import minimize
@@ -483,9 +483,11 @@ class GLM_HMM_nemos(object):
         self.initial_W = np.array([glms[i].coef_ for i in range(len(glms))])
         self.n_basis = n_basis
 
-    def fit_transition(self, X, Yt):        
+    def fit_transition(self, X, Y):        
 
-        self.O = self.compute_observation(X, Yt)
+        self.O = self.compute_observation(X, Y)
+
+        # self.O = self.O.smooth(0.1)
 
         self.scores = []
         As = []
@@ -499,7 +501,7 @@ class GLM_HMM_nemos(object):
         T = len(self.O)        
 
         for _ in range(3):
-            A, Z, score = optimize_transition((self.K, T, self.O.values))
+            A, Z, score = optimize_transition((self.K, T, np.asarray(self.O.values)))
             # A, Z, W, score = optimize_intercept((self.K, self.T, self.initial_W, self.X, self.Y))
             self.scores.append(score)
             As.append(A)
@@ -517,7 +519,7 @@ class GLM_HMM_nemos(object):
         self.best_W = Ws[np.argmax(max_L)]
 
         # self.Z = nap.Tsd(t = Yt.t[],d = Zs[np.argmax(self.max_L)],time_support = ep)
-        self.Z = nap.Tsd(t = Yt.t[tokeep], d = Zs[np.argmax(max_L)])
+        self.Z = nap.Tsd(t = Y.t[tokeep], d = Zs[np.argmax(max_L)])
 
         eps = {}
         for i in range(self.K):
