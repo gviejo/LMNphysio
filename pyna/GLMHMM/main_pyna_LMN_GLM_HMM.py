@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2024-10-01 16:34:49
+# @Last Modified time: 2024-10-03 10:45:49
 # %%
 import numpy as np
 import pandas as pd
@@ -41,8 +41,8 @@ elif os.path.exists('/media/guillaume/Raid2'):
 # datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN.list'), delimiter = '\n', dtype = str, comments = '#')
 
 datasets = np.hstack([
-    np.genfromtxt(os.path.join(data_directory,'datasets_LMN.list'), delimiter = '\n', dtype = str, comments = '#'),
-    # np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#'),
+    # np.genfromtxt(os.path.join(data_directory,'datasets_LMN.list'), delimiter = '\n', dtype = str, comments = '#'),
+    np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#'),
     # np.genfromtxt(os.path.join(data_directory,'datasets_LMN_PSB.list'), delimiter = '\n', dtype = str, comments = '#'),
     ])
 
@@ -61,6 +61,7 @@ corr = []
 
 for s in datasets:
 # for s in ['LMN-ADN/A5044/A5044-240401A']:
+# for s in ['LMN/A1411/A1411-200910A']:
     print(s)
     ############################################################################################### 
     # LOADING DATA
@@ -69,19 +70,19 @@ for s in datasets:
     if os.path.isdir(os.path.join(path, "pynapplenwb")):
 
         data = ntm.load_session(path, 'neurosuite')
-
-        try:
-            spikes = nap.load_file(os.path.join(path, "kilosort4/spikes_ks4.npz"))
-            print("Loading KS4")
-        except:
-            spikes = data.spikes
-
+        spikes = data.spikes
         position = data.position
-        wake_ep = data.epochs['wake'].loc[[0]]
+        wake_ep = data.epochs['wake']
         sws_ep = data.read_neuroscope_intervals('sws')
         rem_ep = data.read_neuroscope_intervals('rem')
-        # down_ep = data.read_neuroscope_intervals('down')
-
+        
+        try:
+            basename = os.path.basename(path)
+            nwb = nap.load_file(os.path.join(path, "kilosort4", basename + ".nwb"))
+            spikes = nwb['units']
+            spikes = spikes.getby_threshold("rate", 1)            
+        except:
+            pass
 
         idx = spikes._metadata[spikes._metadata["location"].str.contains("lmn|adn")].index.values
         spikes = spikes[idx]
@@ -129,7 +130,7 @@ for s in datasets:
             
             # figure()
             # for i in range(len(tokeep)):
-            #     subplot(4, 4, i+1, projection='polar')
+            #     subplot(4, 6, i+1, projection='polar')
             #     plot(tcurves[tokeep[i]])
             
             
@@ -156,7 +157,7 @@ for s in datasets:
 
             # Ring
             Y = spikes.count(bin_size, newwake_ep)
-            glm = nmo.glm.PopulationGLM(regularizer_strength=0.01, regularizer="Ridge", feature_mask=mask)
+            glm = nmo.glm.PopulationGLM(regularizer_strength=0.001, regularizer="Ridge", feature_mask=mask, solver_name="LBFGS")
             glm.fit(basis.compute_features(Y), Y)
 
             # Random
@@ -164,17 +165,17 @@ for s in datasets:
             spikes2.set_info(group = spikes._metadata["group"])
             Y2 = spikes2.count(bin_size, newwake_ep)
 
-            rglm = nmo.glm.PopulationGLM(regularizer_strength=0.01, regularizer="Ridge", feature_mask=mask)
+            rglm = nmo.glm.PopulationGLM(regularizer_strength=0.001, regularizer="Ridge", feature_mask=mask, solver_name="LBFGS")
             rglm.fit(basis.compute_features(Y2), Y2)
             
             # Null
             spikes0 = nap.TsGroup(
                 {i:nap.Ts(
-                    np.sort(np.random.choice(spikes[i].t, int(0.001*len(spikes[i])), replace=False))
+                    np.sort(np.random.choice(spikes[i].t, int(0.0*len(spikes[i])), replace=False))
                     ) for i in spikes.keys()}, time_support=newwake_ep)
             Y0 = spikes0.count(bin_size, newwake_ep)
             
-            glm0 = nmo.glm.PopulationGLM(regularizer_strength=0.01, regularizer="Ridge", feature_mask=mask)
+            glm0 = nmo.glm.PopulationGLM(regularizer_strength=0.001, regularizer="Ridge", feature_mask=mask, solver_name="LBFGS")
             glm0.fit(basis.compute_features(Y0), Y0)
 
 
@@ -231,7 +232,7 @@ for s in datasets:
                 # PEARSON CORRELATION
                 ###############################################################################################                        
                 rates = {}
-                for e, ep, bin_size, std in zip(['wak', 'rem', 'sws'], [newwake_ep, rem_ep, sws_ep], [0.2, 0.2, 0.02], [1, 1, 1]):
+                for e, ep, bin_size, std in zip(['wak', 'rem', 'sws'], [newwake_ep, rem_ep, sws_ep], [0.2, 0.2, 0.02], [2, 2, 2]):
                     ep = ep.drop_short_intervals(bin_size*22)
                     count = spikes.count(bin_size, ep)
                     rate = count/bin_size
@@ -299,7 +300,7 @@ for s in datasets:
                         columns = np.arange(len(eps)),
                         index = [data.basename])
                     )
-            
+#%%
 
 allr = pd.concat(allr)
 # allr_glm = pd.concat(allr_glm, 0)
@@ -314,7 +315,7 @@ print(scipy.stats.wilcoxon(corr.iloc[:,0], corr.iloc[:,-2]))
 print(scipy.stats.wilcoxon(corr.iloc[:,0], corr.iloc[:,-1]))
 print(scipy.stats.wilcoxon(corr.iloc[:,-2], corr.iloc[:,-1]))
 
-
+# %%
 figure()
 epochs = ['sws'] + ['ep'+str(i) for i in range(len(eps))]
 gs = GridSpec(2, len(epochs))
@@ -353,6 +354,7 @@ plot(tmp, 'o-')
 
 show()
 
+# %%
 
 sys.exit()
 ##################################################################

@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2024-10-01 16:36:57
+# @Last Modified time: 2024-10-02 18:47:31
 # %%
 import numpy as np
 import pandas as pd
@@ -140,92 +140,67 @@ for s in ['LMN-ADN/A5044/A5044-240401A']:
             ############################################################################################### 
             # CROSS_VALIDATIONS
             ###############################################################################################
-            
-            bin_size = 0.015
-            window_size = bin_size*50.0
-            
-            Y1 = spikes.count(bin_size, newwake_ep)
-            Y2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(newwake_ep)).count(bin_size, newwake_ep)
-            spikes0 = nap.TsGroup(
-                {i:nap.Ts(
-                    np.sort(np.random.choice(spikes[i].t, int(0.001*len(spikes[i])), replace=False))
-                    ) for i in spikes.keys()}, time_support=newwake_ep)
-            Y0 = spikes0.count(bin_size, newwake_ep)
-
-            scores = []
-
-            for i, Y in enumerate([Y0, Y1, Y2]):
-
-                mask = np.repeat(1-np.eye(len(spikes)), 3, axis=0)
-
-                basis = nmo.basis.RaisedCosineBasisLog(n_basis_funcs=3, shift=False, mode="conv", window_size=int(window_size/bin_size)) * Y.shape[1]
-
-                param_grid = dict(
-                    glm__regularizer_strength=(0.1, 0.01, 0.001, 1e-6),
-                    # basis__n_basis_funcs=(3, 5),
-                )
-
-                pipeline = Pipeline([
-                    ("basis", basis.to_transformer()),                
-                    ("glm", nmo.glm.PopulationGLM(regularizer_strength=0.5, regularizer="Ridge", feature_mask=mask)),])
                     
-                pipeline.fit(Y, Y)
-
-                score = pipeline.score(Y, Y)
-
-                scores.append(score)
-                                
-
-                gridsearch = GridSearchCV(
-                    pipeline,
-                    param_grid=param_grid,
-                    cv=3
-                )
-
-                gridsearch.fit(Y.values, Y.values)
-
-                sys.exit()
-
-
-
-
-            # HMM
-            ############################################
-            
-            hmm = GLM_HMM_nemos((glm0, glm, rglm))
-            # hmm = GLM_HMM((glm, rglm))
-
-            Y = spikes.count(bin_size, sws_ep)
-            X = basis.compute_features(Y)
-            
-            hmm.fit_transition(X, Y)
-            
 
             
 
-            # #ex_ep = nap.IntervalSet(10810.81, 10847.15)
-            # #(10846, 10854)
+            param_grid = dict(
+                regularizer_strength=(0.01, 0.001, 1e-6),
+                n_basis_funcs=(3, 5),
+                bin_size=(0.010, 0.015, 0.020)
+            )
+            scores = np.zeros(([3]+[len(param_grid[p]) for p in ['bin_size', 'n_basis_funcs', 'regularizer_strength']]))
 
-            # figure()
-            # gs = GridSpec(4,1)
-            # ax = subplot(gs[0,0])
-            # plot(hmm.Z)
-            # ylabel("state")     
             
-            # subplot(gs[1,0], sharex=ax)
-            # plot(spikes_adn.restrict(sws_ep).to_tsd("peaks"), '|', markersize=20)
+            for i, bin_size in enumerate(param_grid["bin_size"]):
 
-            # subplot(gs[2,0], sharex=ax)
-            # plot(spikes.restrict(sws_ep).to_tsd("peaks"), '|', markersize=20)
-            # ylabel("Spikes")
-            # ylim(0, 2*np.pi)
-            
-            # subplot(gs[3,0], sharex=ax)
-            # [plot(hmm.O[:,i], label = str(i)) for i in range(3)]
-            # ylabel("P(O)")
-            # legend()
+                window_size = bin_size*50.0
+                
+                Y1 = spikes.count(bin_size, newwake_ep)
+                Y2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(newwake_ep)).count(bin_size, newwake_ep)
+                spikes0 = nap.TsGroup(
+                    {i:nap.Ts(
+                        np.sort(np.random.choice(spikes[i].t, int(0.001*len(spikes[i])), replace=False))
+                        ) for i in spikes.keys()}, time_support=newwake_ep)
+                Y0 = spikes0.count(bin_size, newwake_ep)
+
+                for j, n_basis_funcs in enumerate(param_grid["n_basis_funcs"]):
+
+                    basis = nmo.basis.RaisedCosineBasisLog(n_basis_funcs=n_basis_funcs, shift=False, mode="conv", window_size=int(window_size/bin_size))
+                    mask = np.repeat(1-np.eye(len(spikes)), n_basis_funcs, axis=0)
+
+                    for k, regularizer_strength in enumerate(param_grid["regularizer_strength"]):
+                                                
+                        glm = nmo.glm.PopulationGLM(regularizer_strength=regularizer_strength, regularizer="Ridge", feature_mask=mask)
+                    
+                        for l, Y in enumerate([Y0, Y1, Y2]):
+
+                            glm.fit(basis.compute_features(Y), Y)
+                            scores[l,i,j,k] = glm.score(basis.compute_features(Y), Y)
+
+                
 
 
-            # show()
-            # sys.exit()
-            
+            sys.exit()
+
+#(glm, bin_size, n_basis_func, regularized_strenght)
+
+figure()
+gs = GridSpec(3,len(param_grid['bin_size']))
+
+for i, g in enumerate(['glm0', 'glm1', 'glm2']):
+    for j, n in enumerate(param_grid['bin_size']):
+        subplot(gs[i,j])
+        im = imshow(scores[i,j], origin='lower', vmin = scores.min(), vmax = scores.max())
+        colorbar(im)
+        xticks(np.arange(len(param_grid['regularizer_strength'])), param_grid['regularizer_strength'])
+        xlabel("regularizer_strength")
+        yticks(np.arange(len(param_grid['n_basis_funcs'])), param_grid['n_basis_funcs'])
+        ylabel("n_basis_funcs")
+        if i == 0:
+            title(f"bin_size={param_grid['bin_size'][j]}")
+
+show()
+
+
+

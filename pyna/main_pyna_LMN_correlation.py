@@ -50,22 +50,24 @@ for s in datasets:
     # LOADING DATA
     ###############################################################################################
     path = os.path.join(data_directory, s)
+    
     if os.path.isdir(os.path.join(path, "pynapplenwb")):    
+                
         data = ntm.load_session(path, 'neurosuite')
-
-        try:
-            spikes = nap.load_file(os.path.join(path, "kilosort4/spikes_ks4.npz"))
-            spikes = spikes.getby_threshold("rate", 1)
-        except:
-            spikes = data.spikes
-
+        spikes = data.spikes
         position = data.position
         wake_ep = data.epochs['wake']
         sws_ep = data.read_neuroscope_intervals('sws')
         rem_ep = data.read_neuroscope_intervals('rem')
         
-
-
+        try:
+            basename = os.path.basename(path)
+            nwb = nap.load_file(os.path.join(path, "kilosort4", basename + ".nwb"))
+            spikes = nwb['units']
+            spikes = spikes.getby_threshold("rate", 1)            
+        except:
+            pass
+        
         hmm_eps = []
         try:
             filepath = os.path.join(data_directory, s, os.path.basename(s))
@@ -122,7 +124,7 @@ for s in datasets:
             # PEARSON CORRELATION
             ###############################################################################################
             rates = {}
-            for e, ep, bin_size, std in zip(['wak', 'rem', 'sws'], [newwake_ep, rem_ep, sws_ep], [0.2, 0.2, 0.02], [2, 2, 2]):
+            for e, ep, bin_size, std in zip(['wak', 'rem', 'sws'], [newwake_ep, rem_ep, sws_ep], [0.1, 0.1, 0.01], [1.5, 1.5, 1.5]):
                 ep = ep.drop_short_intervals(bin_size*22)
                 count = spikes.count(bin_size, ep)
                 rate = count/bin_size
@@ -175,10 +177,10 @@ datatosave = {
     'allr':allr,
     'pearsonr':pearson
     }
-dropbox_path = os.path.expanduser("~/Dropbox/LMNphysio/data")
-cPickle.dump(datatosave, open(os.path.join(dropbox_path, 'All_correlation_LMN.pickle'), 'wb'))
+# dropbox_path = os.path.expanduser("~/Dropbox/LMNphysio/data")
+# cPickle.dump(datatosave, open(os.path.join(dropbox_path, 'All_correlation_LMN.pickle'), 'wb'))
 
-
+#%%
 figure()
 for i, e in enumerate(["rem", "sws"]):
     subplot(1, 3, i+1)
@@ -191,7 +193,7 @@ for i, e in enumerate(["rem", "sws"]):
     ylabel(e)
     
     r, p = scipy.stats.pearsonr(tmp['wak'], tmp[e])
-    title('r = '+str(np.round(r, 3)))
+    title('r = '+str(np.round(r, 3))+f'\n p={p}')
 
 subplot(133)
 plot(np.zeros(len(pearson))+np.random.randn(len(pearson))*0.1, pearson['rem'].values, 'o') 
@@ -201,6 +203,8 @@ print(scipy.stats.wilcoxon(pearson["rem"], pearson["sws"]))
 print(scipy.stats.ttest_ind(pearson["rem"], pearson["sws"]))
 
 xticks([0,1], ['rem', 'sws'])
-ylim(-0.5, 1)
+ylim(-1, 1)
 
 show()
+
+# %%

@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-08-10 17:16:25
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2024-09-10 16:45:02
+# @Last Modified time: 2024-10-26 18:20:57
 import scipy.io
 import sys, os
 import numpy as np
@@ -25,15 +25,16 @@ elif os.path.exists('/media/guillaume/Raid2'):
     data_directory = '/media/guillaume/Raid2'
 
 # path = '/mnt/DataRAID2/LMN-ADN/A5043/A5043-230301A'
-path = os.path.join(data_directory, 'LMN-ADN/A5044/A5044-240401A')
+path = os.path.join(data_directory, "LMN-ADN/A5011/A5011-201014A")
+
 
 
 data = nap.load_session(path, 'neurosuite')
 
-# spikes = data.spikes.getby_threshold('rate', 1)
+spikes = data.spikes.getby_threshold('rate', 1)
 
-spikes = nap.load_file(os.path.join(path, "kilosort4/spikes_ks4.npz"))
-spikes = spikes.getby_threshold("rate", 1)
+# spikes = nap.load_file(os.path.join(path, "kilosort4/spikes_ks4.npz"))
+# spikes = spikes.getby_threshold("rate", 1)
 
 angle = data.position['ry']
 position = data.position
@@ -46,9 +47,9 @@ position = data.position
 
 
 dropbox_path = os.path.expanduser("~") + "/Dropbox/LMNphysio/data"
-datahmm = cPickle.load(
-    open(os.path.join(dropbox_path, "GLM_HMM_{}.pickle".format(s)), "rb")
-)
+# datahmm = cPickle.load(
+#     open(os.path.join(dropbox_path, "GLM_HMM_{}.pickle".format(s)), "rb")
+# )
 
 
 wake_ep = data.epochs['wake']
@@ -128,6 +129,18 @@ lmn = peaks[lmn].sort_values().index.values
 ###########################################################################
 #SAVING
 # ###########################################################################
+# A5011-201014
+exs = {"A5011-201014A":
+        { 'wak':nap.IntervalSet(start = 7590.0, end = 7600.0, time_units='s'),
+        'rem':nap.IntervalSet(start = 15710.150000, end= 15720.363258, time_units = 's'),
+        'sws':nap.IntervalSet(start = 4400600.000, end = 4402154.216186978, time_units = 'ms')},
+        "A5043-230301A":
+        { 'wak':nap.IntervalSet(start = 4560.50, end = 4600.00),
+        'rem':nap.IntervalSet(start = 7600, end= 7627.0, time_units = 's'),
+        'sws':nap.IntervalSet(start = 1522.73, end = 1530.38)}
+    }
+
+
 datatosave = { 'wak':angle_wak,
               'rem':angle_rem,
               'sws':angle_sws,
@@ -143,27 +156,18 @@ datatosave = { 'wak':angle_wak,
               # 'up_ep':up_ep,
               # 'down_ep':down_ep,
               'tokeep':tokeep,
-              'ex_sws':nap.IntervalSet(
-                start = 1522.73,
-                end = 1530.38
-                ),
-              'ex_rem':nap.IntervalSet(
-                start = 7600.00,
-                end = 7627.00
-                ),
-              'ex_wak':nap.IntervalSet(
-                start = 4560.50,
-                end = 4600.00
-                )
+              'ex_sws':exs[os.path.basename(path)]['sws'],
+              'ex_rem':exs[os.path.basename(path)]['rem'],
+              'ex_wak':exs[os.path.basename(path)]['wak']
           }
 
 import _pickle as cPickle
 # cPickle.dump(datatosave, open('../figures/figures_adrien_2022/fig_1_decoding.pickle', 'wb'))
-# filepath = os.path.join(os.path.expanduser("~"), 'Dropbox/LMNphysio/data/DATA_FIG_2_LMN_ADN_A5043_MS5.pickle')
+
 
 filepath = os.path.join(os.path.expanduser("~"), 'Dropbox/LMNphysio/data/DATA_FIG_LMN_ADN_{}.pickle'.format(os.path.basename(path)))
 
-# cPickle.dump(datatosave, open(filepath, 'wb'))
+cPickle.dump(datatosave, open(filepath, 'wb'))
 
 sws2_ep = sws_ep[np.argsort(sws_ep.end-sws_ep.start)[-2]]
 
