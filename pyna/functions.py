@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-02-28 16:16:36
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2024-08-13 18:24:45
+# @Last Modified time: 2024-11-28 15:25:31
 import numpy as np
 from numba import jit
 import pandas as pd
@@ -55,7 +55,9 @@ def splitWake(ep):
     tmp = np.zeros((2,2))
     tmp[0,0] = ep.values[0,0]
     tmp[1,1] = ep.values[0,1]
-    tmp[0,1] = tmp[1,0] = ep.values[0,0] + np.diff(ep.values[0])/2
+    tmp[1,0] = ep.values[0,0] + ep.tot_length()/2
+    tmp[0,1] = tmp[1,0]
+    tmp[0,1] -= 1e-3
     return nap.IntervalSet(start = tmp[:,0], end = tmp[:,1])
 
 def zscore_rate(rate):

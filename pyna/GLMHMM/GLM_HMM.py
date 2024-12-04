@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2024-09-18 16:27:29
+# @Last Modified time: 2024-12-03 21:13:33
 import numpy as np
 import os, sys
 from scipy.optimize import minimize
@@ -233,7 +233,7 @@ def optimize_intercept(args):
     A = np.eye(K) + np.random.rand(K, K)*0.01
     A = A/A.sum(1)[:,None]
     
-    for i in range(10):
+    for i in range(200):
 
         # Computing the observation
         O = compute_observation(W, X, Y, K)
@@ -500,7 +500,7 @@ class GLM_HMM_nemos(object):
 
         T = len(self.O)        
 
-        for _ in range(3):
+        for _ in range(1):
             A, Z, score = optimize_transition((self.K, T, np.asarray(self.O.values)))
             # A, Z, W, score = optimize_intercept((self.K, self.T, self.initial_W, self.X, self.Y))
             self.scores.append(score)
@@ -543,3 +543,6 @@ class GLM_HMM_nemos(object):
 
         O = nap.TsdFrame(t=X.t, d=O, time_support=X.time_support)
         return O
+
+
+
