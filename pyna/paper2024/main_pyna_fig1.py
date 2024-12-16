@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2024-10-26 18:19:37
+# @Last Modified time: 2024-12-16 14:41:04
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -29,13 +29,14 @@ import sys
 
 from scipy.ndimage import gaussian_filter
 
-sys.path.append("../")
-from functions import *
+try:
+    from functions import *
+except:
+    sys.path.append("../")
+    from functions import *
 
-# sys.path.append("../../python")
-# import neuroseries as nts
 
-sys.path.append("../../python")
+
 
 
 
@@ -82,8 +83,7 @@ fontsize = 7
 
 COLOR = (0.25, 0.25, 0.25)
 
-rcParams["font.family"] = "sans-serif"
-# rcParams['font.sans-serif'] = ['Arial']
+rcParams["font.family"] = 'DejaVu Sans Mono'
 rcParams["font.size"] = fontsize
 rcParams["text.color"] = COLOR
 rcParams["axes.labelcolor"] = COLOR
@@ -99,7 +99,7 @@ rcParams["xtick.major.size"] = 1.3
 rcParams["ytick.major.size"] = 1.3
 rcParams["xtick.major.width"] = 0.4
 rcParams["ytick.major.width"] = 0.4
-rcParams["axes.linewidth"] = 0.2
+rcParams["axes.linewidth"] = 0.4
 rcParams["axes.edgecolor"] = COLOR
 rcParams["axes.axisbelow"] = True
 rcParams["xtick.color"] = COLOR
@@ -132,11 +132,76 @@ spikes = data["spikes"]
 tokeep = data["tokeep"]
 adn = data["adn"]
 lmn = data["lmn"]
+waveforms = data['waveforms']
 
 exs = {"wak": data["ex_wak"], "rem": data["ex_rem"], "sws": data["ex_sws"]}
 
 # exs["wak"] = nap.IntervalSet(start=7968.0, end=7990.14)
 # exs["sws"] = nap.IntervalSet(start=12695.73, end=12701.38)
+
+data = cPickle.load(open(os.path.join(dropbox_path, 'All_correlation_LMN.pickle'), 'rb'))
+allrlmn = data['allr']
+r_lmn = data['pearsonr']
+
+data = cPickle.load(open(os.path.join(dropbox_path, 'All_correlation_ADN.pickle'), 'rb'))
+allradn = data['allr']
+r_adn = data['pearsonr']
+
+data = cPickle.load(open(os.path.join(dropbox_path, 'All_CC_LMN.pickle'), 'rb'))
+allcc_lmn = data['allcc']
+
+data = cPickle.load(open(os.path.join(dropbox_path, 'All_CC_ADN.pickle'), 'rb'))
+allcc_adn = data['allcc']
+
+allcc = {'adn':allcc_adn, 'lmn':allcc_lmn}
+allr = {'adn':allradn, 'lmn':allrlmn}
+allr_sess = {'adn':r_adn, 'lmn':r_lmn}
+
+fz = {'adn':np.arctanh(allradn[['wak', 'sws']]), 'lmn':np.arctanh(allrlmn[['wak', 'sws']])}
+# fz = {'adn':allradn[['wak', 'sws']], 'lmn':allrlmn[['wak', 'sws']]}
+angs = {'adn':allradn['ang'], 'lmn':allrlmn['ang']}
+
+zbins = np.linspace(0, 1.5, 30)
+
+angbins = np.linspace(0, np.pi, 4)
+
+meancc = {}
+
+for e in ['wak', 'sws']:
+
+    meancc[e] = {}
+
+    for i, g in enumerate(['adn', 'lmn']):
+    
+        groups = angs[g].groupby(np.digitize(angs[g], angbins))
+            
+        for j in range(angbins.shape[0]-1):
+
+            meancc[e][g+'-'+str(j)] = allcc[g][e][groups.groups[j+1]].mean(1)
+
+    meancc[e] = pd.DataFrame.from_dict(meancc[e])
+
+p = {}
+meanp = {}
+
+for i, g in enumerate(fz.keys()):
+
+    groups = fz[g].groupby(np.digitize(angs[g], angbins))
+
+    for j in range(angbins.shape[0]-1):
+    
+        idx = groups.groups[j+1]
+        z = fz[g].loc[idx]
+
+        count = np.histogram(np.abs(z['wak'] - z['sws']), zbins)[0]
+        count = count/np.sum(count)  
+
+        p[g+'-'+str(j)] = count
+        meanp[g+'-'+str(j)] = np.mean(z['wak'] - z['sws'])
+
+p = pd.DataFrame.from_dict(p)
+p = p.set_index(pd.Index(zbins[0:-1] + np.diff(zbins)/2))
+# p = p.rolling(10, win_type='gaussian').sum(std=1)
 
 
 ###############################################################################################################
@@ -147,30 +212,31 @@ markers = ["d", "o", "v"]
 
 fig = figure(figsize=figsize(2))
 
-outergs = GridSpec(3, 1, figure=fig, height_ratios=[0.3, 0.5, 0.4], hspace=0.4)
+outergs = GridSpec(2, 1, hspace = 0.2)
 
-#####################################
-gs1 = gridspec.GridSpecFromSubplotSpec(
-    1, 4, subplot_spec=outergs[0, 0], width_ratios=[0.1, 0.3, 0.6, 0.1], wspace=0.5
+
+names = {'adn':"ADN", 'lmn':"LMN"}
+epochs = {'wak':'Wake', 'sws':'Sleep'}
+
+gs_top = gridspec.GridSpecFromSubplotSpec(
+    1, 3, subplot_spec=outergs[0, 0], width_ratios=[0.2, 0.5, 0.2]
 )
-
-names = ["ADN", "LMN"]
 
 #####################################
 # Histo
 #####################################
 gs_histo = gridspec.GridSpecFromSubplotSpec(
-    2, 1, subplot_spec=gs1[0, 0], height_ratios=[0.5, 0.5], wspace=0.01, hspace=0.4
+    2, 2, subplot_spec=gs_top[0, 0]#, height_ratios=[0.5, 0.2, 0.2] 
 )
 
-# subplot(gs_histo[0, :])
-# noaxis(gca())
-# img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/CosyneData/brain_render1.png")
-# imshow(img, aspect="equal")
-# xticks([])
-# yticks([])
+subplot(gs_histo[0, :])
+noaxis(gca())
+img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/tmp.png")
+imshow(img, aspect="equal")
+xticks([])
+yticks([])
 
-subplot(gs_histo[0, 0])
+subplot(gs_histo[1, 0])
 noaxis(gca())
 img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/CosyneData/histo_adn.png")
 imshow(img[:, :, 0], aspect="equal", cmap="viridis")
@@ -178,7 +244,7 @@ title("ADN")
 xticks([])
 yticks([])
 
-subplot(gs_histo[1, 0])
+subplot(gs_histo[1, 1])
 noaxis(gca())
 img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/CosyneData/histo_lmn.png")
 imshow(img[:, :, 0], aspect="equal", cmap="viridis")
@@ -186,665 +252,210 @@ title("LMN")
 xticks([])
 yticks([])
 
-
-#########################
-# TUNING CURVes
-#########################
-gs_tc = gridspec.GridSpecFromSubplotSpec(
-    3, 2, subplot_spec=gs1[0, 1], height_ratios=[0.5, 0.5, 0.25]
+#####################################
+# Examples
+#####################################
+gs_top2 = gridspec.GridSpecFromSubplotSpec(
+    3, 3, subplot_spec=gs_top[0, 1], hspace=0.5, wspace=0.5, height_ratios=[0.2, 0.5, 0.5] 
 )
 
-for i, (st, name) in enumerate(zip([adn, lmn], ["adn", "lmn"])):
-    # Tunning curves centerered
-    subplot(gs_tc[i, 0])
-    simpleaxis(gca())
-    tc = centerTuningCurves(tcurves[st])
-    tc = tc / tc.loc[0]
-    plot(tc, linewidth=0.1, color=colors[name], alpha=0.4)
-    plot(tc.mean(1), linewidth=0.5, color=colors[name])
-    xticks([])
-    if i == 1:
-        xticks([-np.pi, 0, np.pi], [-180, 0, 180])
-        xlabel("Centered HD")
+# Position
 
-    # All directions as arrows
-    subplot(gs_tc[i, 1], aspect="equal")
-    gca().spines["left"].set_position(("data", 0))
-    gca().spines["bottom"].set_position(("data", 0))
-    gca().spines["top"].set_visible(False)
-    gca().spines["right"].set_visible(False)
+subplot(gs_top2[0,1])
+simpleaxis(gca())
+plot(angle.restrict(exs['wak']), linewidth=0.2)
+xticks([])
 
-    theta = peaks[st].values
-    radius = np.sqrt(tcurves[st].max(0).values)
-    for t, r in zip(theta, radius):
-        arrow(
-            0, 0, np.cos(t), np.sin(t), linewidth=0.05, color=colors[name], width=0.01
+
+
+adn_idx = [adn[12], adn[13], adn[4]]
+lmn_idx = [lmn[9], lmn[11], lmn[3]]
+
+
+for i, (s, idx) in enumerate(zip(['adn', 'lmn'], [adn_idx, lmn_idx])):
+    
+    
+    # Waveforms + tuning curves
+    gs_neuron = gridspec.GridSpecFromSubplotSpec(
+        2, 2, subplot_spec=gs_top2[i+1, 0], wspace=0.2, hspace=0.2
         )
+    xx = [0, 1, 1]
+    yy = [0, 0, 1]
+    
+    for j, n in enumerate(idx):
+        gs_ex = gridspec.GridSpecFromSubplotSpec(
+            1, 2, subplot_spec=gs_neuron[yy[j], xx[j]], wspace=0.1, hspace=0.4
+            )
+                
+        subplot(gs_ex[0,0])
+        noaxis(gca())
+        tmp = waveforms[n]
+        tmp = tmp - tmp.mean(0)
+        for k in range(tmp.shape[1]):
+            plot(tmp[:,k]*2-k*1000, color = colors[s], linewidth=0.5)
 
-    xticks([-1, 1], ["-pi", "pi"])
-    # xlim(-1, 1)
-    # ylim(-1, 1)
-
-    xticks([])
-    yticks([])
-
-
-#########################
-# RASTER PLOTS WAKE REM
-#########################
-gs_raster = gridspec.GridSpecFromSubplotSpec(
-    3, 2, subplot_spec=gs1[0, 2], hspace=0.2, height_ratios=[0.5, 0.5, 0.4], wspace=0.1
-)
-
-mks = 1.1
-alp = 1
-medw = 0.08
-
-epochs = ["Wake", "REM sleep", "nREM sleep"]
-
-
-for i, ep in enumerate(["wak", "rem"]):
-    for j, (st, name) in enumerate(zip([adn, lmn], ["adn", "lmn"])):
-        subplot(gs_raster[j, i])
-        simpleaxis(gca())
-        gca().spines["bottom"].set_visible(False)
-        if i > 0:
-            gca().spines["left"].set_visible(False)
-
-        order = tcurves[st].idxmax().sort_values().index.values
-
-        for k, n in enumerate(order):
-            spk = spikes[n].restrict(exs[ep]).index.values
-            if len(spk):
-                clr = colors[name]
-                plot(
-                    spk,
-                    np.ones_like(spk) * k,
-                    "|",
-                    color=clr,
-                    markersize=mks,
-                    markeredgewidth=medw,
-                    alpha=alp,
-                )
-        if j == 0:
-            title(epochs[i], pad=5)
-        # ylim(0, 2*np.pi)
-        xlim(exs[ep].loc[0, "start"], exs[ep].loc[0, "end"])
+        # Tuning curves
+        subplot(gs_ex[0,1], projection='polar')
+        fill_between(tcurves[n].index.values, np.zeros_like(tcurves[n]),tcurves[n].values,color=colors[s])
         xticks([])
         yticks([])
-        if i == 0:
-            yticks([len(st)], [len(st) + 1])
-        gca().spines["bottom"].set_visible(False)
-
-        if i == 0:
-            ylabel(name.upper(), rotation=0, labelpad=10)
-
-    #########################
-    # ANGLE
-    #########################
-    subplot(gs_raster[-1, i])
-    simpleaxis(gca())
-
-    gca().spines["bottom"].set_bounds(exs[ep].end[0] - 5, exs[ep].end[0])
-
-    xticks([exs[ep].end[0] - 2.5], ["5 s"])
-
-    if i > 0:
-        gca().spines["left"].set_visible(False)
-
-    if i == 0:
-        yticks([0, 2 * np.pi], [0, 360])
-    else:
-        yticks([])
-    p = data["p_" + ep].restrict(exs[ep]).values.T
-    p[np.isnan(p)] = 0.0
-    startend = exs[ep].values[0]
-    imshow(
-        gaussian_filter(p, 3),
-        origin="lower",
-        aspect="auto",
-        cmap="gist_yarg",
-        extent=(startend[0], startend[1], 0, 2 * np.pi),
-    )
-    if i == 0:
-        plot(angle.restrict(exs[ep]), linewidth=0.25, color="seagreen", alpha=1)
-        ylabel("HD", rotation=0, labelpad=10)
-
-###############################
-# Pairwise correlation wake-rem
-###############################
-gs_1_4 = gridspec.GridSpecFromSubplotSpec(
-    2, 1, subplot_spec=gs1[0, 3], hspace=0.8, height_ratios=[0.3, 0.3]
-)
-
-allaxis = []
-
-
-paths = [
-    dropbox_path + "/All_correlation_ADN.pickle",
-    # dropbox_path+'/All_correlation_ADN_LMN.pickle',
-    dropbox_path + "/All_correlation_LMN.pickle",
-]
-names = ["ADN", "LMN"]
-corrcolor = COLOR
-mkrs = 6
-
-xpos = [0, 2]
-
-
-for i, (p, n) in enumerate(zip(paths, names)):
-    #
-    data3 = cPickle.load(open(p, "rb"))
-    allr = data3["allr"]
-
-    #############################################################
-    subplot(gs_1_4[i, 0])
-    simpleaxis(gca())
-    scatter(
-        allr["wak"],
-        allr["rem"],
-        color=colors[n.lower()],
-        alpha=0.5,
-        edgecolor=None,
-        linewidths=0,
-        s=mkrs,
-    )
-    m, b = np.polyfit(allr["wak"].values, allr["rem"].values, 1)
-    x = np.linspace(allr["wak"].min(), allr["wak"].max(), 5)
-    r, p = scipy.stats.pearsonr(allr["wak"], allr["rem"])
-    plot(
-        x,
-        x * m + b,
-        color=corrcolor,
-        label="r = " + str(np.round(r, 2)),
-        linewidth=0.75,
-    )
-    if i == 1:
-        xlabel("Wake (r)")
-    ylabel("REM (r)")
-    legend(
-        handlelength=0.0,
-        loc="center",
-        bbox_to_anchor=(0.15, 0.9, 0.5, 0.5),
-        framealpha=0,
-    )
-    ax = gca()
-    # ax.set_aspect(1)
-    locator_params(axis="y", nbins=3)
-    locator_params(axis="x", nbins=3)
-    # xlabel('Wake corr. (r)')
-    allaxis.append(gca())
-
-xlims = []
-ylims = []
-for ax in allaxis:
-    xlims.append(ax.get_xlim())
-    ylims.append(ax.get_ylim())
-xlims = np.array(xlims)
-ylims = np.array(ylims)
-xl = (np.min(xlims[:, 0]), np.max(xlims[:, 1]))
-yl = (np.min(ylims[:, 0]), np.max(ylims[:, 1]))
-for ax in allaxis:
-    ax.set_xlim(xl)
-    ax.set_ylim(yl)
-
-
-
-gs2 = gridspec.GridSpecFromSubplotSpec(1, 4,    
-    subplot_spec=outergs[1,0], wspace=0.2, width_ratios=[0.01, 0.5, 0.01, 0.2])
-
-###############################
-# Correlation
-###############################
-
-
-gscor = gridspec.GridSpecFromSubplotSpec(
-    3,
-    2,
-    subplot_spec=gs2[0, 3],
-    wspace=0.9,
-    hspace=0.8,
-    width_ratios=[0.5, 0.5],
-    height_ratios=[0.5, 0.5, 0.001]
-)
-
-
-allaxis = []
-
-xpos = [0, 2]
-
-for i, (p, n) in enumerate(zip(paths, names)):
-    #
-    data3 = cPickle.load(open(p, "rb"))
-    allr = data3["allr"]
-    # pearsonr = data3['pearsonr']
-    print(n, allr.shape)
-    print(
-        len(
-            np.unique(
-                np.array(
-                    [
-                        [p[0].split("-")[0], p[1].split("-")[0]]
-                        for p in np.array(allr.index.values)
-                    ]
-                ).flatten()
+    
+    
+    # Spike counts
+    for j, e in enumerate(['wak', 'sws']):
+        gs_count = gridspec.GridSpecFromSubplotSpec(
+            4, 1, subplot_spec=gs_top2[i+1,1+j], wspace=0.01, hspace=0.4
             )
-        )
-    )
-
-    #############################################################
-    subplot(gscor[i, 0])
-    simpleaxis(gca())
-    scatter(
-        allr["wak"],
-        allr["sws"],
-        color=colors[n.lower()],
-        alpha=0.5,
-        edgecolor=None,
-        linewidths=0,
-        s=mkrs,
-    )
-    m, b = np.polyfit(allr["wak"].values, allr["sws"].values, 1)
-    x = np.linspace(allr["wak"].min(), allr["wak"].max(), 5)
-    r, p = scipy.stats.pearsonr(allr["wak"], allr["sws"])
-    plot(
-        x,
-        x * m + b,
-        color=corrcolor,
-        label="r = " + str(np.round(r, 2)),
-        linewidth=0.75,
-    )
-    if i == 1:
-        xlabel("Wake (r)")
-    ylabel("nREM (r)")
-    legend(
-        handlelength=0.0,
-        loc="center",
-        bbox_to_anchor=(0.15, 0.9, 0.5, 0.5),
-        framealpha=0,
-    )
-    # title(n, pad = 12)
-    ax = gca()
-    aspectratio = 1.0
-    ratio_default = (ax.get_xlim()[1] - ax.get_xlim()[0]) / (
-        ax.get_ylim()[1] - ax.get_ylim()[0]
-    )
-    # ax.set_aspect(ratio_default*aspectratio)
-    # ax.set_aspect(1)
-    locator_params(axis="y", nbins=3)
-    locator_params(axis="x", nbins=3)
-    allaxis.append(gca())
-
-    #############################################################
-    subplot(gscor[i, 1])
-    simpleaxis(gca())
-    marfcol = [colors[n.lower()], "white"]
-
-    y = data3["pearsonr"]
-    y = y[y["count"] > 6]
-    for j, e in enumerate(["rem", "sws"]):
-        plot(
-            np.ones(len(y)) * j + np.random.randn(len(y)) * 0.1,
-            y[e],
-            "o",
-            markersize=2,
-            markeredgecolor=colors[n.lower()],
-            markerfacecolor=marfcol[j],
-        )
-        plot(
-            [j - 0.2, j + 0.2],
-            [y[e].mean(), y[e].mean()],
-            "-",
-            color=corrcolor,
-            linewidth=0.75,
-        )
-    xticks([0, 1])
-    xlim(-0.4, 1.4)
-    # print(scipy.stats.ttest_ind(y["rem"], y["sws"]))
-    print(scipy.stats.wilcoxon(y["rem"], y["sws"]))
-
-    ylim(0, 1.3)
-    yticks([0, 1], [0, 1])
-    # title(names[i], pad = 12)
-
-    gca().spines.left.set_bounds((0, 1))
-    ylabel("r")
-
-    if i == 0:
-        xticks([0, 1], ["", ""])
-    else:
-        xticks([0, 1], ["REM\n    vs Wake", "nREM"])
-        # text(
-        #     0.5,
-        #     -0.1,
-        #     "vs Wake",
-        #     horizontalalignment="center",
-        #     verticalalignment="center",
-        #     transform=gca().transAxes,
-        # )
-
-    lwdtt = 0.1
-    plot([0, 1], [1.2, 1.2], "-", color=COLOR, linewidth=lwdtt)
-    plot([0, 0], [1.15, 1.2], "-", color=COLOR, linewidth=lwdtt)
-    plot([1, 1], [1.15, 1.2], "-", color=COLOR, linewidth=lwdtt)
-    TXT = ["n.s.", "p<0.001"]
-    text(
-        0.5,
-        1.4,
-        TXT[i],
-        horizontalalignment="center",
-        verticalalignment="center",
-    )
+        subplot(gs_count[0,0])
+        noaxis(gca())
+        plot(spikes[idx].to_tsd(np.arange(len(idx))[::-1]).restrict(exs[e]), '|', markersize=3, markeredgewidth=0.1, color = colors[s])
+        
+        for k, n in enumerate(idx):            
+            subplot(gs_count[k+1,0])
+            noaxis(gca())
+            tmp = spikes[n].count(0.1).smooth(0.2).restrict(exs[e])
+            plot(tmp, linewidth=0.2)
 
 
-xlims = []
-ylims = []
-for ax in allaxis:
-    xlims.append(ax.get_xlim())
-    ylims.append(ax.get_ylim())
-xlims = np.array(xlims)
-ylims = np.array(ylims)
-xl = (np.min(xlims[:, 0]), np.max(xlims[:, 1]))
-yl = (np.min(ylims[:, 0]), np.max(ylims[:, 1]))
-for ax in allaxis:
-    ax.set_xlim(xl)
-    ax.set_ylim(yl)
-
-
-###############################
-# SWS RASTER
-###############################
-
-
-gs_raster = gridspec.GridSpecFromSubplotSpec(
-    3,
-    1,
-    subplot_spec=gs2[0, 1],
-    hspace=0.25,
-    height_ratios=[0.5, 0.5, 0.3],
-    wspace=0.1,
+#####################################
+# Pairwise correlation
+#####################################
+gs_corr1 = gridspec.GridSpecFromSubplotSpec(
+    2, 2, subplot_spec=gs_top[0, 2], hspace=0.5, width_ratios=[0.3, 0.5]
 )
 
-ep = "sws"
-for j, (st, name) in enumerate(zip([adn, lmn], ["adn", "lmn"])):
-    subplot(gs_raster[j, 0])
+xlims = (min(np.nanmin(allr['adn']['wak']), np.nanmin(allr['lmn']['wak'])), max(np.nanmax(allr['adn']['wak']), np.nanmax(allr['lmn']['wak'])))
+ylims = (min(np.nanmin(allr['adn']['sws']), np.nanmin(allr['lmn']['sws'])), max(np.nanmax(allr['adn']['sws']), np.nanmax(allr['lmn']['sws'])))
+minmax = (min(xlims[0],ylims[0]), max(xlims[1],ylims[1]))
+
+for i, g in enumerate(['adn', 'lmn']):
+    subplot(gs_corr1[i,-1], aspect='equal')
     simpleaxis(gca())
-    gca().spines["bottom"].set_visible(False)
-    # gca().spines["left"].set_visible(False)
+    tmp = allr[g].dropna()
 
-    order = tcurves[st].idxmax().sort_values().index.values
+    plot(tmp['wak'], tmp['sws'], 'o', color = colors[g], alpha = 0.5, markeredgewidth=0, markersize=1)
+    m, b = np.polyfit(tmp['wak'].values, tmp['sws'].values, 1)
+    x = np.linspace(tmp['wak'].min(), tmp['wak'].max(),5)
+    plot(x, x*m + b, linewidth=0.1)    
+    ylabel(epochs['sws'])
+    if i == 1: xlabel(epochs['wak'])
+    xlim(*minmax)
+    ylim(*minmax)
+    title(names[g])
+    
+    
+###############################################################
+## BOTTOM
+###############################################################
 
-    for k, n in enumerate(order):
-        spk = spikes[n].restrict(exs[ep]).index.values
-        if len(spk):
-            clr = colors[name]
-            plot(
-                spk,
-                np.ones_like(spk) * k,
-                "|",
-                color=clr,
-                markersize=mks*2,
-                markeredgewidth=medw * 4,
-                alpha=alp,
-            )
-    if j == 0:
-        title(epochs[2], pad=5)
-    # ylim(0, 2*np.pi)
-    xlim(exs[ep].loc[0, "start"], exs[ep].loc[0, "end"])
-    xticks([])
-    yticks([len(st)], [len(st) + 1])
-    gca().spines["bottom"].set_visible(False)
-    ylabel(name.upper(), rotation=0, labelpad=10)
+gs_bottom = gridspec.GridSpecFromSubplotSpec(
+    1, 3, subplot_spec=outergs[1, 0], wspace=0.6, width_ratios=[0.3, 0.2, 0.2]
+)
 
-# subplot(gs_raster[2, 0])
-# simpleaxis(gca())
-# # gca().spines["bottom"].set_bounds(exs[ep].end[0] - 5, exs[ep].end[0])
-# # xticks([exs[ep].end[0] - 2.5], ["5 s"])
-# yticks([0, 2 * np.pi], [0, 360])
-# p = data["p_" + ep].restrict(exs[ep]).values.T
-# p[np.isnan(p)] = 0.0
-# startend = exs[ep].values[0]
-# imshow(
-#     gaussian_filter(p, 3),
-#     origin="lower",
-#     aspect="auto",
-#     cmap="gist_yarg",
-#     extent=(startend[0], startend[1], 0, 2 * np.pi),
-# )
+gs_bottom1 = gridspec.GridSpecFromSubplotSpec(
+    2, 3, subplot_spec=gs_bottom[0,0], hspace=0.8, width_ratios=[0.2, 0.4, 0.2], height_ratios=[0.1, 0.4]
+)
+subplot(gs_bottom1[0,1])
+simpleaxis(gca())
+for i,g in enumerate(['lmn', 'adn']):
+    tmp = allr_sess[g]['sws']
+    plot(tmp.values, np.ones(len(tmp))*i + np.random.randn(len(tmp))*0.05, 'o', color = colors[g], markersize = 1)
+    plot([tmp.mean(), tmp.mean()], [i-0.2, i+0.2], linewidth=1, color = 'grey')
+ylim(-0.5, 1.5)
+xlim(0, 1)
+yticks([1, 0], [names['adn'], names['lmn']])
+xlabel("Pearson r")
 
 
-# datahmm = cPickle.load(
-#     open(os.path.join(dropbox_path, "GLM_HMM_{}.pickle".format(s)), "rb")
-# )
+##############################################
+# Hist of Fisher Z
+##############################################
 
 
-# subplot(gs_raster[2,0])
-# simpleaxis(gca())
-# ylabel("States", rotation=0, labelpad = 15)
-# plot(datahmm['bestZ'].restrict(exs['sws']), linewidth = 1)
-# yticks([0, 1, 2])
-# gca().spines["bottom"].set_bounds(exs['sws'].end[0] - 1, exs['sws'].end[0])
-# xticks([exs['sws'].end[0] - 0.5], ["0.5 s"])
-# xlim(exs[ep].loc[0, "start"], exs[ep].loc[0, "end"])
+gs_fisher = gridspec.GridSpecFromSubplotSpec(
+    2, 2, subplot_spec=gs_bottom1[1, :], hspace = 1, wspace=1.0, width_ratios=[0.1, 0.2]
+)
+
+gs_ang_diff = gridspec.GridSpecFromSubplotSpec(
+    3, 1, subplot_spec=gs_fisher[:,0], height_ratios=[0.4, 0.5, 0.4]
+)
 
 
-# ###############################
-# # GLM - HMM SWS
-# ###############################
+subplot(gs_ang_diff[1,0])
+gca().invert_yaxis()
+simpleaxis(gca())
 
-# gs3 = gridspec.GridSpecFromSubplotSpec(1, 3,
-#     subplot_spec=outergs[2,0], wspace=0.5, width_ratios=[0.3, 0.2, 0.5])
-
-
-# print("GLM HMM")
-# #############################
-# # MAnifolds
-# ax = subplot(gs3[0,0])
-# print("Manifolds")
-
-# noaxis(ax)
-
-# xlim(0, 1)
-# ylim(0, 1)
-
-# text(0.1, 1.1, "GLM 1", transform=ax.transAxes)
-# text(0.7, 1.1, "GLM 2", transform=ax.transAxes)
-# text(0.2, -0.1, "HMM transition", transform=ax.transAxes)
+[axhline(b, linewidth=0.25, color = 'grey') for b in angbins[1:-1]]    
+count = []
+for i, g in enumerate(['adn', 'lmn']):
+    tmp = allr[g].dropna()
+    angdiff = tmp['ang'].sort_values().values    
+    plot(np.arange(len(angdiff)), angdiff, '-', color = colors[g], linewidth=2)
+    title("HD neuron pair")
+    ylabel("Ang.\ndiff.\n(deg.)", rotation=0, labelpad=0, y=0.2)
+    yticks([0, np.pi], ["0", "180"])
+    ylim(np.pi, 0)
+    count.append(len(angdiff))
+count = np.array(count)
+xticks(count-1, count, rotation=90)
 
 
-# axin1 = ax.inset_axes([0.0, 0.6, 0.45, 0.45])
-# axin2 = ax.inset_axes([0.6, 0.6, 0.45, 0.45])
+for i, b in enumerate([0, 2]):   
+    subplot(gs_fisher[i,1])
+    simpleaxis(gca())
 
-# xy, _, _ = np.histogram2d(datahmm["imap"][:, 0], datahmm["imap"][:, 1], 20)
-# noaxis(axin1)
-# axin1.imshow(xy, cmap="Greys")
+    for j, g in enumerate(['adn', 'lmn']):    
+        step(p.index.values, p[g+"-"+str(b)]*100, np.mean(np.diff(zbins)), 
+            label=names[g], color=colors[g])
 
-# xy, _, _ = np.histogram2d(datahmm["imapr"][:, 0], datahmm["imapr"][:, 1], 20)
-# noaxis(axin2)
-# axin2.imshow(xy, cmap="Greys")
+        ylabel("%", labelpad=-10)
+        ylim(0, 25)
+        yticks([0, 25])
+        
+    if i == 1:
+        xlabel("$|Z_{Wake} - Z_{Sleep}|$")
+    # if i == 0: 
+    #     legend(
+    #         handlelength=0.5,
+    #         loc="center",
+    #         bbox_to_anchor=(0.5, 0.8, 0.5, 0.5),
+    #         framealpha=0,
+    #     )        
 
+#####################################
+# Cross-corrs
+#####################################
 
-# annotate('', xy=(0.4,0.8), xytext=(0.6,0.8), arrowprops=dict(arrowstyle='<->'))
-# annotate('GLM 0', xy=(0.3,0.6), xytext=(0.4,0.1), arrowprops=dict(arrowstyle='<->'))
-# annotate('', xy=(0.7,0.6), xytext=(0.5,0.2), arrowprops=dict(arrowstyle='<->'))
+gs_cc = gridspec.GridSpecFromSubplotSpec(
+    2, 2, subplot_spec=gs_bottom[0, 1], hspace = 1, wspace = 1
+)
 
+y_labels = ["Group 1", "Group 2"]
 
+for i, b in enumerate([0, 2]):
 
-# #############################
-# # Weights
-# #############################
-# gs3_2 = gridspec.GridSpecFromSubplotSpec(3, 1,
-#     subplot_spec=gs3[0,1], wspace=0.5)
+    for j, e in enumerate(['wak', 'sws']):
+        subplot(gs_cc[i,j])
+        simpleaxis(gca())
 
-# subplot(gs3_2[0,0])
-# noaxis(gca())
+        for k, g in enumerate(['adn', 'lmn']):
+            plot(meancc[e][g+'-'+str(b)], color = colors[g])
 
-# # sys.exit()
+        # ylim(np.min(meancc[e])-1, np.max(meancc[e]))
 
-# #############################
-# # Transition
-# #############################
-# good_hmm = "GLM_HMM_LMN_18-07-2024.pickle"
-# data = cPickle.load(open(dropbox_path+"/"+good_hmm, "rb"))
-
-
-
-# subplot(gs3_2[1,0])
-# noaxis(gca())
-
-# # ###############################
-# # # Durations
-# # ###############################
-# subplot(gs3_2[2,0])
-# simpleaxis(gca())
-
-# tmp = data['durations'].values
-# tmp = tmp/tmp.sum(1)[:,None]
-# bar(np.arange(3), tmp.mean(0), width = 0.4, color = colors['lmn'], yerr=tmp.std(0))
-# xticks([0, 1, 2])
-# # ylim(0, 1)
-# ylabel("%")
-# title("Durations")
+        if i == 0:
+            title(epochs[e])
+        if j == 0:
+            ylabel(y_labels[i], rotation=0, labelpad=15)
 
 
 
-# ###############################
-# # HMM CORRELATION
-# ###############################
-# gscor = gridspec.GridSpecFromSubplotSpec(
-#     2,
-#     3,
-#     subplot_spec=gs3[0, 2],
-#     wspace=0.9,
-#     hspace=0.9,
-#     width_ratios=[0.5, 0.5, 0.5],
-# )
 
 
 
-# paths = [
-#     dropbox_path + "/All_correlation_ADN.pickle",
-#     # dropbox_path+'/All_correlation_ADN_LMN.pickle',
-#     dropbox_path + "/" + good_hmm,
-# ]
 
 
-# allaxis = []
-
-# hmm_epochs = ["HMM", "Shuffle"]
-
-# for i, (p, n) in enumerate(zip(paths, names)):
-#     #
-#     data3 = cPickle.load(open(p, "rb"))
-#     allr = data3["allr"].dropna()
-
-#     for j, e in enumerate(['ep1', 'ep2']):
-#         print(n, e)
-#         #############################################################
-#         subplot(gscor[i, j])
-#         simpleaxis(gca())
-#         scatter(
-#             allr["wak"],
-#             allr[e],
-#             color=colors[n.lower()],
-#             alpha=0.5,
-#             edgecolor=None,
-#             linewidths=0,
-#             s=mkrs,
-#         )
-#         m, b = np.polyfit(allr["wak"].values, allr[e].values, 1)
-#         x = np.linspace(allr["wak"].min(), allr["wak"].max(), 5)
-#         r, p = scipy.stats.pearsonr(allr["wak"], allr[e])
-#         plot(x,x * m + b,color=corrcolor,label="r = " + str(np.round(r, 2)),linewidth=0.75)
-#         if i == 1:
-#             xlabel("Wake (r)")
-#         if j == 0:
-#             ylabel("nREM (r)")
-#         legend(handlelength=0.0,loc="center",bbox_to_anchor=(0.15, 0.9, 0.5, 0.5),framealpha=0)
-#         locator_params(axis="y", nbins=3)
-#         locator_params(axis="x", nbins=3)
-#         allaxis.append(gca())
-
-#     #############################################################
-#     subplot(gscor[i, 2])
-#     simpleaxis(gca())
-#     marfcol = [colors[n.lower()], "white"]
-
-#     if i == 0:
-#         y = data3["pearsonr"]
-#     else:
-#         y = data3["corr"]
-
-#     # y = y[y["count"] > 6]
-#     for j, e in enumerate(["ep1", "ep2"]):
-#         plot(
-#             np.ones(len(y)) * j + np.random.randn(len(y)) * 0.1,
-#             y[e],
-#             "o",
-#             markersize=2,
-#             markeredgecolor=colors[n.lower()],
-#             markerfacecolor=marfcol[j],
-#         )
-#         plot(
-#             [j - 0.2, j + 0.2],
-#             [y[e].mean(), y[e].mean()],
-#             "-",
-#             color=corrcolor,
-#             linewidth=0.75,
-#         )
-#     xticks([0, 1])
-#     xlim(-0.4, 1.4)
-
-#     ylim(0, 1.3)
-#     yticks([0, 1], [0, 1])
-#     # title(names[i], pad = 12)
-
-#     gca().spines.left.set_bounds((0, 1))
-#     ylabel("r")
-
-#     if i == 0:
-#         xticks([0, 1], ["", ""])
-#     else:
-#         xticks([0, 1], ["S 1\n    vs Wake", "S 2"])
-#         # text(
-#         #     0.5,
-#         #     -0.1,
-#         #     "vs Wake",
-#         #     horizontalalignment="center",
-#         #     verticalalignment="center",
-#         #     transform=gca().transAxes,
-#         # )
-
-#     lwdtt = 0.1
-#     plot([0, 1], [1.2, 1.2], "-", color=COLOR, linewidth=lwdtt)
-#     plot([0, 0], [1.15, 1.2], "-", color=COLOR, linewidth=lwdtt)
-#     plot([1, 1], [1.15, 1.2], "-", color=COLOR, linewidth=lwdtt)
-#     TXT = ["n.s.", "p<0.001"]
-#     text(
-#         0.5,
-#         1.4,
-#         TXT[i],
-#         horizontalalignment="center",
-#         verticalalignment="center",
-#     )
-
-
-# xlims = []
-# ylims = []
-# for ax in allaxis:
-#     xlims.append(ax.get_xlim())
-#     ylims.append(ax.get_ylim())
-# xlims = np.array(xlims)
-# ylims = np.array(ylims)
-# xl = (np.min(xlims[:, 0]), np.max(xlims[:, 1]))
-# yl = (np.min(ylims[:, 0]), np.max(ylims[:, 1]))
-# for ax in allaxis:
-#     ax.set_xlim(xl)
-#     ax.set_ylim(yl)
-
-
-
-outergs.update(top=0.96, bottom=0.07, right=0.98, left=0.05)
+outergs.update(top=0.96, bottom=0.07, right=0.98, left=0.07)
 
 
 savefig(

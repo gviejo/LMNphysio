@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2024-12-02 14:55:27
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2024-12-04 09:59:34
+# @Last Modified time: 2024-12-05 15:28:35
 
 import numpy as np
 import pandas as pd
@@ -19,7 +19,7 @@ import os
 
 dropbox_path = os.path.expanduser("~/Dropbox/LMNphysio/data")
 
-data = cPickle.load(open(os.path.join(dropbox_path, 'GLM_HMM_LMN_03-12-2024.pickle'), 'rb'))
+data = cPickle.load(open(os.path.join(dropbox_path, 'GLM_HMM_LMN_05-12-2024.pickle'), 'rb'))
 
 allradn = data['allr']['adn']
 allrlmn = data['allr']['lmn']

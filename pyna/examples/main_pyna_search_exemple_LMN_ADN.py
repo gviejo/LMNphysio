@@ -2,15 +2,18 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-08-10 17:16:25
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2024-10-26 18:20:57
+# @Last Modified time: 2024-12-14 17:18:42
 import scipy.io
 import sys, os
 import numpy as np
 import pandas as pd
 import pynapple as nap
-sys.path.append("../")
-from functions import *
-import sys
+try:
+    from functions import *
+except:
+    sys.path.append("../")
+    from functions import *
+
 from itertools import combinations, product
 from matplotlib.pyplot import *
 
@@ -29,15 +32,37 @@ path = os.path.join(data_directory, "LMN-ADN/A5011/A5011-201014A")
 
 
 
-data = nap.load_session(path, 'neurosuite')
+# data = nap.load_session(path, 'neurosuite')
+basename = os.path.basename(path)
+filepath = os.path.join(path, "kilosort4", basename + ".nwb")
 
-spikes = data.spikes.getby_threshold('rate', 1)
+nwb = nap.load_file(filepath)
 
-# spikes = nap.load_file(os.path.join(path, "kilosort4/spikes_ks4.npz"))
+spikes = nwb['units']
 # spikes = spikes.getby_threshold("rate", 1)
 
-angle = data.position['ry']
-position = data.position
+position = []
+columns = ['x', 'y', 'z', 'rx', 'ry', 'rz']
+for k in columns:
+    position.append(nwb[k].values)
+position = np.array(position)
+position = np.transpose(position)
+position = nap.TsdFrame(
+    t=nwb['x'].t,
+    d=position,
+    columns=columns,
+    time_support=nwb['position_time_support'])
+
+epochs = nwb['epochs']
+wake_ep = epochs[epochs.tags == "wake"]
+wake_ep = nwb['position_time_support']
+sws_ep = nwb['sws']
+rem_ep = nwb['rem']
+
+angle = position['ry']
+
+waveforms = nwb.nwb.units.to_dataframe()['waveform_mean']
+waveforms = np.array([waveforms[i] for i in waveforms.keys()])
 
 # # turning by pi
 # tmp = np.unwrap(position['ry'].values)
@@ -47,15 +72,6 @@ position = data.position
 
 
 dropbox_path = os.path.expanduser("~") + "/Dropbox/LMNphysio/data"
-# datahmm = cPickle.load(
-#     open(os.path.join(dropbox_path, "GLM_HMM_{}.pickle".format(s)), "rb")
-# )
-
-
-wake_ep = data.epochs['wake']
-sleep_ep = data.epochs['sleep']
-sws_ep = data.read_neuroscope_intervals('sws')
-rem_ep = data.read_neuroscope_intervals('rem')
 
 
 tuning_curves = nap.compute_1d_tuning_curves(spikes, angle, 120, minmax=(0, 2*np.pi), ep = angle.time_support.loc[[0]])
@@ -131,13 +147,13 @@ lmn = peaks[lmn].sort_values().index.values
 # ###########################################################################
 # A5011-201014
 exs = {"A5011-201014A":
-        { 'wak':nap.IntervalSet(start = 7590.0, end = 7600.0, time_units='s'),
-        'rem':nap.IntervalSet(start = 15710.150000, end= 15720.363258, time_units = 's'),
-        'sws':nap.IntervalSet(start = 4400600.000, end = 4402154.216186978, time_units = 'ms')},
+            { 'wak':nap.IntervalSet(start = 7573.53, end = 7639.0, time_units='s'),
+            'rem':nap.IntervalSet(start = 15710.150000, end= 15720.363258, time_units = 's'),
+            'sws':nap.IntervalSet(start = 4400600.000, end = 4410454.216186978, time_units = 'ms')},
         "A5043-230301A":
-        { 'wak':nap.IntervalSet(start = 4560.50, end = 4600.00),
-        'rem':nap.IntervalSet(start = 7600, end= 7627.0, time_units = 's'),
-        'sws':nap.IntervalSet(start = 1522.73, end = 1530.38)}
+            { 'wak':nap.IntervalSet(start = 4560.50, end = 4600.00),
+            'rem':nap.IntervalSet(start = 7600, end= 7627.0, time_units = 's'),
+            'sws':nap.IntervalSet(start = 1522.73, end = 1530.38)}
     }
 
 
@@ -158,7 +174,8 @@ datatosave = { 'wak':angle_wak,
               'tokeep':tokeep,
               'ex_sws':exs[os.path.basename(path)]['sws'],
               'ex_rem':exs[os.path.basename(path)]['rem'],
-              'ex_wak':exs[os.path.basename(path)]['wak']
+              'ex_wak':exs[os.path.basename(path)]['wak'],
+              'waveforms':waveforms
           }
 
 import _pickle as cPickle
@@ -175,14 +192,19 @@ sws2_ep = sws_ep[np.argsort(sws_ep.end-sws_ep.start)[-2]]
 figure()
 ax = subplot(313)
 plot(angle)
-title("wwake")
+title("wake")
 # plot(angle_wak, '--')
 subplot(311, sharex = ax)
 for i,n in enumerate(adn):
     plot(spikes[n].restrict(wake_ep).fillna(i), '|', markersize = 10)
+
+[axvline(a) for a in exs[basename]['wak'].values[0]]
+
 subplot(312, sharex = ax)
 for i,n in enumerate(lmn):
     plot(spikes[n].restrict(wake_ep).fillna(i), '|', markersize = 10)
+
+[axvline(a) for a in exs[basename]['wak'].values[0]]
 
 # sws
 figure()
