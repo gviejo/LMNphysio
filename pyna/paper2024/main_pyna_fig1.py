@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2024-12-16 14:41:04
+# @Last Modified time: 2024-12-18 10:03:08
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -48,7 +48,7 @@ def figsize(scale):
     golden_mean = (np.sqrt(5.0) - 1.0) / 2  # Aesthetic ratio (you could change this)
     # fig_width = fig_width_pt*inches_per_pt*scale    # width in inches
     fig_width = 6
-    fig_height = fig_width * golden_mean * 1.3  # height in inches
+    fig_height = fig_width * golden_mean * 1.2  # height in inches
     fig_size = [fig_width, fig_height]
     return fig_size
 
@@ -210,9 +210,9 @@ p = p.set_index(pd.Index(zbins[0:-1] + np.diff(zbins)/2))
 
 markers = ["d", "o", "v"]
 
-fig = figure(figsize=figsize(2))
+fig = figure(figsize=figsize(1))
 
-outergs = GridSpec(2, 1, hspace = 0.2)
+outergs = GridSpec(2, 1, hspace = 0.3, height_ratios=[0.14, 0.1])
 
 
 names = {'adn':"ADN", 'lmn':"LMN"}
@@ -427,7 +427,7 @@ for i, b in enumerate([0, 2]):
 #####################################
 
 gs_cc = gridspec.GridSpecFromSubplotSpec(
-    2, 2, subplot_spec=gs_bottom[0, 1], hspace = 1, wspace = 1
+    2, 2, subplot_spec=gs_bottom[0, 1], hspace = 0.5, wspace = 1
 )
 
 y_labels = ["Group 1", "Group 2"]
@@ -448,14 +448,66 @@ for i, b in enumerate([0, 2]):
         if j == 0:
             ylabel(y_labels[i], rotation=0, labelpad=15)
 
+#####################################
+# CC LMN -> ADN
+#####################################
+
+gs_scores = gridspec.GridSpecFromSubplotSpec(
+    2, 2, subplot_spec=gs_bottom[0, 2], wspace = 1, hspace = 1
+)
+
+data = cPickle.load(open(os.path.join(dropbox_path, 'CC_LMN-ADN.pickle'), 'rb'))
+allcc = data['allcc']
+
+cmap = plt.get_cmap("Set2")
+
+
+for i, e in enumerate(['wak', 'sws']):
+    subplot(gs_scores[0,i])
+    simpleaxis(gca())
+    #plot(allcc[e], alpha = 0.7, color = 'grey')
+    plot(allcc[e].mean(1), '-', color=cmap(i))
+    title(epochs[e])
+
+#####################################
+# GLM LMN -> ADN
+#####################################
+
+
+data = cPickle.load(open(os.path.join(dropbox_path, 'SCORES_GLM_LMN-ADN.pickle'), 'rb'))
+scores = data['scores']
 
 
 
+subplot(gs_scores[1,:])
+simpleaxis(gca())
+x = 0
+for i, e in enumerate(['wak', 'sws']):
+    # for j, k in enumerate(['og', 'rnd']):
+    k = 'og'
+    tmp = scores[e][k]
+    # plot(np.ones(len(tmp))*x+np.random.randn(len(tmp))*0.1, scores[e][k].values, 'o', markersize=1)
+    # plot([x-0.15, x+0.15], [scores[e][k].values.mean()]*2, color = COLOR, linewidth=1)
+    plot(scores[e][k].values, np.ones(len(tmp))*x+np.random.randn(len(tmp))*0.1, 'o', markersize=1, color=cmap(i))
+    plot([scores[e][k].values.mean()]*2, [x-0.15, x+0.15], color = COLOR, linewidth=1)
+    x += 1
+    # x += 1
+
+axvline(0, linestyle='--', color='red', linewidth=1)
+
+
+yticks([0, 1], [epochs['wak'], epochs['sws']])
+xlabel("pseudo-R2", rotation=0)
+title("GLM LMN -> ADN")
+
+text(-0.02, 2.0, "Null model", color = 'red', fontsize = 5, bbox=dict(facecolor="white", edgecolor="None"))
+
+xlim(-0.05, 0.4)
+ylim(-0.5, 2.5)
 
 
 
-
-outergs.update(top=0.96, bottom=0.07, right=0.98, left=0.07)
+outergs.update(top=0.96, bottom=0.09, right=0.98, left=0.07)
 
 
 savefig(

@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-01 19:20:07
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2024-12-16 14:13:40
+# @Last Modified time: 2024-12-17 16:38:55
 
 import numpy as np
 import pandas as pd
@@ -44,7 +44,7 @@ datasets = {
 
 cc = {g:{e:{} for e in ['wak', 'rem', 'sws']} for g in ['adn', 'lmn']}
 cc_mua = {g:{e:{} for e in ['wak', 'rem', 'sws']} for g in ['adn', 'lmn']}
-
+angdiff = {g:{} for g in ['adn', 'lmn']}
 
 for g in ['adn', 'lmn']:
     for s in datasets[g]:
@@ -149,7 +149,7 @@ for g in ['adn', 'lmn']:
                     [0.1, 0.01], [10, 1]):
 
                     print(e)
-                    
+
                     count = spikes.restrict(ep).count(bin_size)
                                                     
                     for p in tqdm(pairs):
@@ -172,16 +172,55 @@ for g in ['adn', 'lmn']:
                         cc[g][e][p] = glm.coef_[0:len(glm.coef_)//2]
                         cc_mua[g][e][p] = glm.coef_[len(glm.coef_)//2:]
 
+
+                #######################
+                # Angular differences
+                #######################
+                peaks = pd.Series(index=tcurves.columns,data = np.array([circmean(tcurves.index.values, tcurves[i].values) for i in tcurves.columns]))
+                for p, (i, j) in zip(pairs, list(combinations(spikes.keys(), 2))):
+                    angdiff[g][p] = min(np.abs(peaks[i] - peaks[j]), 2*np.pi-np.abs(peaks[i] - peaks[j]))
+
+
                 
+for g in cc.keys():
+    for e in cc[g].keys():
+        cc[g][e] = pd.DataFrame.from_dict(cc[g][e])
+        cc_mua[g][e] = pd.DataFrame.from_dict(cc_mua[g][e])
 
-# for e in allcc.keys():
-#     allcc[e] = pd.concat(allcc[e], axis=1)
+
+    angdiff[g] = pd.Series(angdiff[g])
+    angdiff[g] = angdiff[g].sort_values()
 
 
-# datatosave = {
-#     'allcc':allcc,
-#     }
+gs = GridSpec(2,2)
+for i, g in enumerate(['adn', 'lmn']):
+    for j, e in enumerate(['wak', 'sws']):
+        subplot(gs[i,j])
+        imshow(
+            cc[g][e][angdiff[g].sort_values().index].values.T,
+            aspect='auto'
+            )
+
+
+angbins = np.linspace(0, np.pi, 4).reshape(2, 2)
+
+
+gs = GridSpec(2,2)
+
+for i, e in enumerate(['wak', 'sws']):
+# for i, g in enumerate(['adn', 'lmn']):
     
-# dropbox_path = os.path.expanduser("~/Dropbox/LMNphysio/data")
-# cPickle.dump(datatosave, open(os.path.join(dropbox_path, 'All_CC_ADN.pickle'), 'wb'))
-#    
+    for j, bins in enumerate(angbins):
+        
+        subplot(gs[j,i])
+
+        for g in ['adn', 'lmn']:
+
+            idx = angdiff[g].index[np.digitize(angdiff[g].values, bins)==1]            
+            
+            tmp = cc[g][e][idx].apply(zscore)
+
+            # plot(cc[g][e][idx], color='grey', alpha=0.5)
+            plot(tmp.mean(1), color='red')
+
+show()

@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-01 19:20:07
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2024-12-16 14:57:04
+# @Last Modified time: 2024-12-17 15:07:15
 
 import numpy as np
 import pandas as pd
@@ -38,11 +38,12 @@ elif os.path.exists('/Users/gviejo/Data'):
 datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#')
 
 
-weights = {}
+scores = {'wak':{}, 'sws':{}}
 
 
-for s in datasets:
+# for s in datasets:
 # for s in ['LMN-ADN/A5030/A5030-220216A']:
+for s in ['LMN-ADN/A5024/A5024-210705A']:
     ############################################################################################### 
     # LOADING DATA
     ###############################################################################################
@@ -139,57 +140,49 @@ for s in datasets:
             # Population fit
             ###############################################################################################
 
-            sys.exit()
+            for e, ep, bin_size, window_size in zip(['wak', 'sws'], [newwake_ep, sws_ep], [0.01, 0.01], [0.1, 0.1]):
 
+                K = np.eye(int(window_size/bin_size)+1)
+                K[1+len(K)//2:,] = 0
+
+                X = spikes[lmn].restrict(ep).count(bin_size).convolve(K)
+                X = X[:,:,0:1+len(K)//2]
+                X = np.reshape(X, (len(X), -1))
+                                
+                Y = spikes[adn].restrict(ep).count(bin_size)
             
-            Y = spikes.count(bin_size, newwake_ep)
-            glm = nmo.glm.PopulationGLM(regularizer_strength=0.001, regularizer="Ridge", feature_mask=mask, solver_name="LBFGS")
-            glm.fit(basis.compute_features(Y), Y)
+                glm = nmo.glm.PopulationGLM(regularizer_strength=0.001, regularizer="Ridge", solver_name="LBFGS")
+                glm.fit(X, Y)
+
+                score_1 = glm.score(X, Y, score_type='pseudo-r2-McFadden')
+
+                sys.exit()
+
+                # Random
+                # X2 = nap.randomize.resample_timestamps(spikes[lmn].restrict(ep)).count(bin_size, ep).convolve(K)
+                # # X2 = nap.randomize.shuffle_ts_intervals(spikes[lmn].restrict(ep)).count(bin_size, ep).convolve(K)
+                # X2 = X2[:,:,0:1+len(K)//2]
+                # X2 = np.reshape(X2, (len(X2), -1))
+
+                # glm = nmo.glm.PopulationGLM(regularizer_strength=0.001, regularizer="Ridge", solver_name="LBFGS")
+                # glm.fit(X2, Y)
+
+                # score_2 = glm.score(X2, Y, score_type='pseudo-r2-McFadden')
 
 
+                # scores[e][s] = np.array([score_1, score_2])
 
-            name = basename    
-            pairs = list(combinations([name+'_'+str(n) for n in spikes.keys()], 2)) 
-            pairs = pd.MultiIndex.from_tuples(pairs)
-            
-                                            
-            for e, ep, bin_size, window_size in zip(['wak', 'sws'], [newwake_ep, sws_ep], 
-                [0.1, 0.01], [10, 1]):
-
-                print(e)
-                
-                count = spikes.restrict(ep).count(bin_size)
-                                                
-                for p in tqdm(pairs):
-
-                                            
-                    n_feature = int(p[0].split("_")[1])
-                    n_target = int(p[1].split("_")[1])
-                    
-                    feat = np.hstack((
-                            count.loc[n_feature].convolve(np.eye(int(window_size/bin_size))).values,
-                            count.loc[count.columns[count.columns!=n_feature]].sum(1).convolve(np.eye(int(window_size/bin_size))).values
-                        ))
-
-                    target = count.loc[n_target]
-
-                    glm = nmo.glm.GLM(regularizer_strength=0.001, regularizer="Ridge", solver_name="LBFGS")
-
-                    glm.fit(feat, target)
-
-                    cc[g][e][p] = glm.coef_[0:len(glm.coef_)//2]
-                    cc_mua[g][e][p] = glm.coef_[len(glm.coef_)//2:]
-
-                
-
-# for e in allcc.keys():
-#     allcc[e] = pd.concat(allcc[e], axis=1)
+                scores[e][s] = np.array([score_1, 0.0])
 
 
-# datatosave = {
-#     'allcc':allcc,
-#     }
+for e in scores.keys():
+    scores[e] = pd.DataFrame.from_dict(scores[e]).T
+    scores[e].columns = ['og', 'rnd']
+
+datatosave = {
+    'scores':scores
+    }
     
-# dropbox_path = os.path.expanduser("~/Dropbox/LMNphysio/data")
-# cPickle.dump(datatosave, open(os.path.join(dropbox_path, 'All_CC_ADN.pickle'), 'wb'))
+dropbox_path = os.path.expanduser("~/Dropbox/LMNphysio/data")
+cPickle.dump(datatosave, open(os.path.join(dropbox_path, 'SCORES_GLM_LMN-ADN.pickle'), 'wb'))
 #    

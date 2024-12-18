@@ -14,114 +14,178 @@ from matplotlib.gridspec import GridSpec
 from scipy.stats import zscore
 
 
-
 ############################################################################################### 
 # GENERAL infos
 ###############################################################################################
-data_directory = '/mnt/DataRAID2/'
-datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#')
+if os.path.exists("/mnt/Data/Data/"):
+    data_directory = "/mnt/Data/Data"
+elif os.path.exists('/mnt/DataRAID2/'):    
+    data_directory = '/mnt/DataRAID2/'
+elif os.path.exists('/mnt/ceph/users/gviejo'):    
+    data_directory = '/mnt/ceph/users/gviejo'
+elif os.path.exists('/media/guillaume/Raid2'):
+    data_directory = '/media/guillaume/Raid2'
+elif os.path.exists('/Users/gviejo/Data'):
+    data_directory = '/Users/gviejo/Data'    
 
+datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#')
 
 
 allcc = {'wak':[], 'rem':[], 'sws':[]}
 allccdown = {'adn':[], 'lmn':[]}
 
 for s in datasets:
-#for s in ['LMN-ADN/A5011/A5011-201015A']:
-    print(s)
+# for s in ['LMN-ADN/A5030/A5030-220216A']:
+# for s in ['LMN-ADN/A5024/A5024-210705A']:
     ############################################################################################### 
     # LOADING DATA
     ###############################################################################################
     path = os.path.join(data_directory, s)
-    data = nap.load_session(path, 'neurosuite')
-    spikes = data.spikes
-    position = data.position
-    wake_ep = data.epochs['wake']
-    sws_ep = data.read_neuroscope_intervals('sws')
-    rem_ep = data.read_neuroscope_intervals('rem')
-    down_ep = data.read_neuroscope_intervals('down')
-    idx = spikes._metadata[spikes._metadata["location"].str.contains("adn|lmn")].index.values
-    spikes = spikes[idx]
-    
-    ############################################################################################### 
-    # COMPUTING TUNING CURVES
-    ###############################################################################################
-    tuning_curves = nap.compute_1d_tuning_curves(spikes, position['ry'], 120, minmax=(0, 2*np.pi), ep = position.time_support.loc[[0]])
-    tuning_curves = smoothAngularTuningCurves(tuning_curves)    
-    tcurves = tuning_curves
-    SI = nap.compute_1d_mutual_info(tcurves, position['ry'], position.time_support.loc[[0]], (0, 2*np.pi))
-    peaks = pd.Series(index=tcurves.columns,data = np.array([circmean(tcurves.index.values, tcurves[i].values) for i in tcurves.columns]))
+    basename = os.path.basename(path)
+    filepath = os.path.join(path, "kilosort4", basename + ".nwb")
 
-    spikes.set_info(SI, peaks=peaks)
-
-    adn = list(spikes.getby_category("location")["adn"].getby_threshold("SI", 0.5).index)
-    lmn = list(spikes.getby_category("location")["lmn"].getby_threshold("SI", 0.1).index)
-    # nhd = list(spikes.getby_category("location")["psb"].getby_threshold("SI", 0.04, op='<').index)
-
-    
-    tokeep = adn+lmn
-    tokeep = np.array(tokeep)
-    spikes = spikes[tokeep]
-    groups = spikes._metadata.loc[tokeep].groupby("location").groups
-
-    # tcurves       = tuning_curves[tokeep]
-    # peaks             = pd.Series(index=tcurves.columns,data = np.array([circmean(tcurves.index.values, tcurves[i].values) for i in tcurves.columns]))
-
-    velocity = computeLinearVelocity(position[['x', 'z']], position.time_support.loc[[0]], 0.2)
-    newwake_ep = velocity.threshold(0.001).time_support 
-
-    ############################################################################################### 
-    # MUA CROSS CORRELOGRAM
-    ############################################################################################### 
-    groups = spikes.getby_category("location")
-
-    if len(groups['adn'])>4 and len(groups['lmn'])>4:
-        mua = {}
-        for i, n in enumerate(['lmn', 'adn']):
-            mua[i] = nap.Ts(t=np.sort(np.hstack([groups[n][j].index.values for j in groups[n].index])))
-        mua = nap.TsGroup(mua, time_support = spikes.time_support)
+    if os.path.exists(filepath):
+        # sys.exit()
+        nwb = nap.load_file(filepath)
         
-        for e, ep, bin_size, window_size in zip(['wak', 'rem', 'sws'], [newwake_ep, rem_ep, sws_ep], [0.01, 0.01, 0.01], [1, 1, 1]):
-            allcc[e].append(nap.compute_crosscorrelogram(mua, bin_size, window_size, ep, norm=True)[(0,1)])
+        spikes = nwb['units']
+        spikes = spikes.getby_threshold("rate", 1)
 
-        ######################################################################################################
-        # Cross-correlation DOWN center
-        ######################################################################################################    
-        # TAKING UP_EP AND DOWN_EP LARGER THAN 100 ms
-        down_ep = down_ep.drop_short_intervals(50, time_units = 'ms')  
+        position = []
+        columns = ['x', 'y', 'z', 'rx', 'ry', 'rz']
+        for k in columns:
+            position.append(nwb[k].values)
+        position = np.array(position)
+        position = np.transpose(position)
+        position = nap.TsdFrame(
+            t=nwb['x'].t,
+            d=position,
+            columns=columns,
+            time_support=nwb['position_time_support'])
 
-        tref = nap.Ts(
-            t=down_ep['start'].values + (down_ep['end'].values - down_ep['start'].values)/2
-            )
+        epochs = nwb['epochs']
+        wake_ep = epochs[epochs.tags == "wake"]
+        sws_ep = nwb['sws']
+        rem_ep = nwb['rem']    
 
-        for k in ['adn', 'lmn']:
-            cc_down = nap.compute_eventcorrelogram(groups[k], tref, 0.01, 0.2, sws_ep)
+        # hmm_eps = []
+        # try:
+        #     filepath = os.path.join(data_directory, s, os.path.basename(s))
+        #     hmm_eps.append(nap.load_file(filepath+"_HMM_ep0.npz"))
+        #     hmm_eps.append(nap.load_file(filepath+"_HMM_ep1.npz"))
+        #     hmm_eps.append(nap.load_file(filepath+"_HMM_ep2.npz"))
+        # except:
+        #     pass
+        
+        spikes = spikes[(spikes.location=="adn")|(spikes.location=="lmn")]
+        
+        ############################################################################################### 
+        # COMPUTING TUNING CURVES
+        ###############################################################################################
+        tuning_curves = nap.compute_1d_tuning_curves(spikes, position['ry'], 120, minmax=(0, 2*np.pi), ep = position.time_support.loc[[0]])
+        tuning_curves = smoothAngularTuningCurves(tuning_curves, 20, 4)
+        
+        SI = nap.compute_1d_mutual_info(tuning_curves, position['ry'], position.time_support.loc[[0]], minmax=(0,2*np.pi))
+        spikes.set_info(SI)
 
-            cc_down.columns = [data.basename+'_'+str(n) for n in groups[k].keys()]
-
-            allccdown[k].append(cc_down)
+        spikes = spikes[spikes.SI>0.1]
 
 
-for k in ['adn', 'lmn']:
-    allccdown[k] = pd.concat(allccdown[k], axis=1)
+        # CHECKING HALF EPOCHS
+        wake2_ep = splitWake(position.time_support.loc[[0]])    
+        tokeep2 = []
+        stats2 = []
+        tcurves2 = []   
+        for i in range(2):
+            tcurves_half = nap.compute_1d_tuning_curves(
+                spikes, position['ry'], 120, minmax=(0, 2*np.pi), 
+                ep = wake2_ep[i]
+                )
+            tcurves_half = smoothAngularTuningCurves(tcurves_half, 20, 4)
+
+            tokeep, stat = findHDCells(tcurves_half)
+            tokeep2.append(tokeep)
+            stats2.append(stat)
+            tcurves2.append(tcurves_half)       
+        tokeep = np.intersect1d(tokeep2[0], tokeep2[1])  
+        
+        spikes = spikes[tokeep]
+
+
+        adn = spikes.location[spikes.location=="adn"].index.values
+        lmn = spikes.location[spikes.location=="lmn"].index.values
+
+
+        if len(lmn)>4 and len(adn)>2:
+            print(s)
+            
+            tcurves         = tuning_curves[tokeep]
+
+            try:
+                velocity = computeLinearVelocity(position[['x', 'z']], position.time_support.loc[[0]], 0.2)
+                newwake_ep = velocity.threshold(0.003).time_support.drop_short_intervals(1)
+            except:
+                velocity = computeAngularVelocity(position['ry'], position.time_support.loc[[0]], 0.2)
+                newwake_ep = velocity.threshold(0.07).time_support.drop_short_intervals(1)
+
+
+            ############################################################################################### 
+            # MUA CROSS CORRELOGRAM
+            ############################################################################################### 
+
+            mua = nap.TsGroup({
+                0:spikes[spikes.location=='lmn'].to_tsd(),
+                1:spikes[spikes.location=='adn'].to_tsd()
+                }, metadata={"location":['lmn', 'adn']}, time_support = spikes.time_support)
+            
+            for e, ep, bin_size, window_size in zip(
+                ['wak', 'rem', 'sws'], 
+                [newwake_ep, rem_ep, sws_ep], 
+                [0.0005, 0.01, 0.0005], 
+                [1, 1, 1]):
+                allcc[e].append(
+                    nap.compute_crosscorrelogram(mua, bin_size, window_size, ep, norm=True)[(0,1)]
+                    )
+
+            # ######################################################################################################
+            # # Cross-correlation DOWN center
+            # ######################################################################################################    
+            # # TAKING UP_EP AND DOWN_EP LARGER THAN 100 ms
+            # down_ep = down_ep.drop_short_intervals(50, time_units = 'ms')  
+
+            # tref = nap.Ts(
+            #     t=down_ep['start'].values + (down_ep['end'].values - down_ep['start'].values)/2
+            #     )
+
+            # for k in ['adn', 'lmn']:
+            #     cc_down = nap.compute_eventcorrelogram(groups[k], tref, 0.01, 0.2, sws_ep)
+
+            #     cc_down.columns = [data.basename+'_'+str(n) for n in groups[k].keys()]
+
+            #     allccdown[k].append(cc_down)
+
+
+# for k in ['adn', 'lmn']:
+#     allccdown[k] = pd.concat(allccdown[k], axis=1)
 
 for e in allcc.keys():
-    allcc[e] = pd.concat(allcc[e], 1)
+    allcc[e] = pd.concat(allcc[e], axis=1)
     allcc[e] = allcc[e].apply(zscore)
 
-datatosave = {'allcc':allcc, 'allcup': allccdown}
-cPickle.dump(datatosave, open(os.path.join('/home/guillaume/Dropbox/CosyneData', 'MUA_LMN_ADN.pickle'), 'wb'))
+datatosave = {'allcc':allcc}#, 'allcup': allccdown}
+dropbox_path = os.path.expanduser("~/Dropbox/LMNphysio/data")
+cPickle.dump(datatosave, open(os.path.join(dropbox_path, 'MUA_LMN-ADN.pickle'), 'wb'))
 
 
 figure()
 for i, e in enumerate(allcc.keys()):
     subplot(1,3,i+1)
     #plot(allcc[e], alpha = 0.7, color = 'grey')
-    plot(allcc[e].mean(1))
+    plot(allcc[e].mean(1), '.-')
 show()
 
-figure()
-for i,k in enumerate(['adn', 'lmn']):
-    subplot(2,1,i+1)
-    plot(allccdown[k].mean(1))
-show()
+# figure()
+# for i,k in enumerate(['adn', 'lmn']):
+#     subplot(2,1,i+1)
+#     plot(allccdown[k].mean(1))
+# show()
