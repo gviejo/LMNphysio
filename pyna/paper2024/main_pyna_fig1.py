@@ -108,6 +108,9 @@ rcParams["ytick.color"] = COLOR
 
 colors = {"adn": "#EA9E8D", "lmn": "#8BA6A9", "psb": "#CACC90"}
 
+cmap = plt.get_cmap("Set2")
+# colors = {'adn':cmap(0), "lmn":cmap(1), "psb":cmap(2)}
+
 
 # clrs = ['sandybrown', 'olive']
 # clrs = ['#CACC90', '#8BA6A9']
@@ -448,26 +451,44 @@ for i, b in enumerate([0, 2]):
         if j == 0:
             ylabel(y_labels[i], rotation=0, labelpad=15)
 
+
+gs_final = gridspec.GridSpecFromSubplotSpec(
+    2, 1, subplot_spec=gs_bottom[0, 2], wspace = 1, hspace = 1
+)
+
 #####################################
 # CC LMN -> ADN
 #####################################
 
-gs_scores = gridspec.GridSpecFromSubplotSpec(
-    2, 2, subplot_spec=gs_bottom[0, 2], wspace = 1, hspace = 1
+gs_cc2 = gridspec.GridSpecFromSubplotSpec(
+    1, 2, subplot_spec=gs_final[0, 0], wspace = 1, hspace = 1
 )
+
 
 data = cPickle.load(open(os.path.join(dropbox_path, 'CC_LMN-ADN.pickle'), 'rb'))
 allcc = data['allcc']
 
-cmap = plt.get_cmap("Set2")
+groups = data['angdiff'].groupby(np.digitize(data['angdiff'], angbins)).groups
 
 
-for i, e in enumerate(['wak', 'sws']):
-    subplot(gs_scores[0,i])
-    simpleaxis(gca())
-    #plot(allcc[e], alpha = 0.7, color = 'grey')
-    plot(allcc[e].mean(1), '-', color=cmap(i))
-    title(epochs[e])
+
+k = 1
+subplot(gs_cc2[0,0])
+simpleaxis(gca())
+tmp = allcc[e][groups[k]]
+plot(tmp.mean(1), '-', color=cmap(4))
+title("CC LMN/ADN")
+xlabel("Time lag (s)")
+
+subplot(gs_cc2[0,1])
+simpleaxis(gca())
+tmp = allcc[e][groups[k]]
+plot(tmp.mean(1).loc[-0.01:0.01], '-', color=cmap(4))
+xlabel("Time lag (s)")
+axvline(0)
+
+sys.exit()
+
 
 #####################################
 # GLM LMN -> ADN
@@ -478,8 +499,12 @@ data = cPickle.load(open(os.path.join(dropbox_path, 'SCORES_GLM_LMN-ADN.pickle')
 scores = data['scores']
 
 
+gs_scores = gridspec.GridSpecFromSubplotSpec(
+    1, 1, subplot_spec=gs_final[1, 0]
+)
 
-subplot(gs_scores[1,:])
+
+subplot(gs_scores[0, 0])
 simpleaxis(gca())
 x = 0
 for i, e in enumerate(['wak', 'sws']):
@@ -511,7 +536,7 @@ outergs.update(top=0.96, bottom=0.09, right=0.98, left=0.07)
 
 
 savefig(
-    os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/fig1.pdf",
+    os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/fig1.png",
     dpi=200,
     facecolor="white",
 )
