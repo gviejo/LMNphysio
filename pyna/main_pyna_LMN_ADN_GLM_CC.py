@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-01 19:20:07
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2024-12-17 16:38:55
+# @Last Modified by:   gviejo
+# @Last Modified time: 2024-12-21 13:02:56
 
 import numpy as np
 import pandas as pd
 import pynapple as nap
-import nwbmatic as ntm
+# import nwbmatic as ntm
 from pylab import *
 from functions import *
 import sys
@@ -122,7 +122,7 @@ for g in ['adn', 'lmn']:
             tokeep = np.intersect1d(tokeep2[0], tokeep2[1])  
             
 
-            if len(tokeep) > 5 and rem_ep.tot_length('s') > 60:
+            if len(tokeep) > 3 and rem_ep.tot_length('s') > 60:
                 print(s)
 
                 spikes = spikes[tokeep]
@@ -166,6 +166,7 @@ for g in ['adn', 'lmn']:
                         target = count.loc[n_target]
 
                         glm = nmo.glm.GLM(regularizer_strength=0.001, regularizer="Ridge", solver_name="LBFGS")
+                        # glm = nmo.glm.GLM()
 
                         glm.fit(feat, target)
 
@@ -192,6 +193,17 @@ for g in cc.keys():
     angdiff[g] = angdiff[g].sort_values()
 
 
+datatosave = {
+    'cc':cc,
+    'cc_mua':cc_mua,
+    'angdiff':angdiff
+    }
+    
+dropbox_path = os.path.expanduser("~/Dropbox/LMNphysio/data")
+cPickle.dump(datatosave, open(os.path.join(dropbox_path, 'All_GLM_CC_LMN_ADN.pickle'), 'wb'))
+
+
+# %%
 gs = GridSpec(2,2)
 for i, g in enumerate(['adn', 'lmn']):
     for j, e in enumerate(['wak', 'sws']):
@@ -202,25 +214,25 @@ for i, g in enumerate(['adn', 'lmn']):
             )
 
 
-angbins = np.linspace(0, np.pi, 4).reshape(2, 2)
+# angbins = np.linspace(0, np.pi, 4).reshape(2, 2)
 
 
-gs = GridSpec(2,2)
+# gs = GridSpec(2,2)
 
-for i, e in enumerate(['wak', 'sws']):
-# for i, g in enumerate(['adn', 'lmn']):
+# for i, e in enumerate(['wak', 'sws']):
+# # for i, g in enumerate(['adn', 'lmn']):
     
-    for j, bins in enumerate(angbins):
+#     for j, bins in enumerate(angbins):
         
-        subplot(gs[j,i])
+#         subplot(gs[j,i])
 
-        for g in ['adn', 'lmn']:
+#         for g in ['adn', 'lmn']:
 
-            idx = angdiff[g].index[np.digitize(angdiff[g].values, bins)==1]            
+#             idx = angdiff[g].index[np.digitize(angdiff[g].values, bins)==1]            
             
-            tmp = cc[g][e][idx].apply(zscore)
+#             tmp = cc[g][e][idx].apply(zscore)
 
-            # plot(cc[g][e][idx], color='grey', alpha=0.5)
-            plot(tmp.mean(1), color='red')
+#             # plot(cc[g][e][idx], color='grey', alpha=0.5)
+#             plot(tmp.mean(1), color='red')
 
-show()
+# show()

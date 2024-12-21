@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2024-12-18 10:03:08
+# @Last Modified by:   gviejo
+# @Last Modified time: 2024-12-20 15:42:12
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -22,7 +22,7 @@ import matplotlib.image as mpimg
 
 from pycircstat.descriptive import mean as circmean
 import _pickle as cPickle
-import hsluv
+# import hsluv
 
 import os
 import sys
@@ -307,14 +307,11 @@ for i, (s, idx) in enumerate(zip(['adn', 'lmn'], [adn_idx, lmn_idx])):
     # Spike counts
     for j, e in enumerate(['wak', 'sws']):
         gs_count = gridspec.GridSpecFromSubplotSpec(
-            4, 1, subplot_spec=gs_top2[i+1,1+j], wspace=0.01, hspace=0.4
+            3, 1, subplot_spec=gs_top2[i+1,1+j], wspace=0.01, hspace=0.4
             )
-        subplot(gs_count[0,0])
-        noaxis(gca())
-        plot(spikes[idx].to_tsd(np.arange(len(idx))[::-1]).restrict(exs[e]), '|', markersize=3, markeredgewidth=0.1, color = colors[s])
         
         for k, n in enumerate(idx):            
-            subplot(gs_count[k+1,0])
+            subplot(gs_count[k,0])
             noaxis(gca())
             tmp = spikes[n].count(0.1).smooth(0.2).restrict(exs[e])
             plot(tmp, linewidth=0.2)
@@ -487,7 +484,7 @@ plot(tmp.mean(1).loc[-0.01:0.01], '-', color=cmap(4))
 xlabel("Time lag (s)")
 axvline(0)
 
-sys.exit()
+
 
 
 #####################################
@@ -536,7 +533,7 @@ outergs.update(top=0.96, bottom=0.09, right=0.98, left=0.07)
 
 
 savefig(
-    os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/fig1.png",
+    os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/fig1.pdf",
     dpi=200,
     facecolor="white",
 )
