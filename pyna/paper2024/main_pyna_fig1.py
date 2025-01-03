@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   gviejo
-# @Last Modified time: 2024-12-20 15:42:12
+# @Last Modified time: 2025-01-03 15:12:54
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -16,6 +16,8 @@ import matplotlib.gridspec as gridspec
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes, InsetPosition, mark_inset
 import matplotlib.font_manager as font_manager
 import matplotlib.patches as patches
+
+from scipy.stats import zscore
 
 # matplotlib.style.use('seaborn-paper')
 import matplotlib.image as mpimg
@@ -139,6 +141,8 @@ waveforms = data['waveforms']
 
 exs = {"wak": data["ex_wak"], "rem": data["ex_rem"], "sws": data["ex_sws"]}
 
+p_decoding = {e:data["p_"+e].restrict(exs[e]) for e in exs.keys()}
+
 # exs["wak"] = nap.IntervalSet(start=7968.0, end=7990.14)
 # exs["sws"] = nap.IntervalSet(start=12695.73, end=12701.38)
 
@@ -150,6 +154,8 @@ data = cPickle.load(open(os.path.join(dropbox_path, 'All_correlation_ADN.pickle'
 allradn = data['allr']
 r_adn = data['pearsonr']
 
+angs = {'adn':allradn['ang'], 'lmn':allrlmn['ang']}
+
 data = cPickle.load(open(os.path.join(dropbox_path, 'All_CC_LMN.pickle'), 'rb'))
 allcc_lmn = data['allcc']
 
@@ -157,32 +163,34 @@ data = cPickle.load(open(os.path.join(dropbox_path, 'All_CC_ADN.pickle'), 'rb'))
 allcc_adn = data['allcc']
 
 allcc = {'adn':allcc_adn, 'lmn':allcc_lmn}
+
+for g in allcc.keys():
+    for e in allcc[g].keys():
+        tmp = allcc[g][e][angs[g].sort_values().index]
+        tmp = tmp.apply(gaussian_filter, axis=0, sigma=15)
+        tmp = tmp.apply(zscore)
+        allcc[g][e] = tmp
+
+
 allr = {'adn':allradn, 'lmn':allrlmn}
 allr_sess = {'adn':r_adn, 'lmn':r_lmn}
 
 fz = {'adn':np.arctanh(allradn[['wak', 'sws']]), 'lmn':np.arctanh(allrlmn[['wak', 'sws']])}
 # fz = {'adn':allradn[['wak', 'sws']], 'lmn':allrlmn[['wak', 'sws']]}
-angs = {'adn':allradn['ang'], 'lmn':allrlmn['ang']}
 
 zbins = np.linspace(0, 1.5, 30)
 
 angbins = np.linspace(0, np.pi, 4)
 
-meancc = {}
+# meancc = {}
+# for e in ['wak', 'sws']:
+#     meancc[e] = {}
+#     for i, g in enumerate(['adn', 'lmn']):
+#         groups = angs[g].groupby(np.digitize(angs[g], angbins))
+#         for j in range(angbins.shape[0]-1):
+#             meancc[e][g+'-'+str(j)] = allcc[g][e][groups.groups[j+1]].mean(1)
+#     meancc[e] = pd.DataFrame.from_dict(meancc[e])
 
-for e in ['wak', 'sws']:
-
-    meancc[e] = {}
-
-    for i, g in enumerate(['adn', 'lmn']):
-    
-        groups = angs[g].groupby(np.digitize(angs[g], angbins))
-            
-        for j in range(angbins.shape[0]-1):
-
-            meancc[e][g+'-'+str(j)] = allcc[g][e][groups.groups[j+1]].mean(1)
-
-    meancc[e] = pd.DataFrame.from_dict(meancc[e])
 
 p = {}
 meanp = {}
@@ -207,6 +215,7 @@ p = p.set_index(pd.Index(zbins[0:-1] + np.diff(zbins)/2))
 # p = p.rolling(10, win_type='gaussian').sum(std=1)
 
 
+
 ###############################################################################################################
 # PLOT
 ###############################################################################################################
@@ -215,31 +224,36 @@ markers = ["d", "o", "v"]
 
 fig = figure(figsize=figsize(1))
 
-outergs = GridSpec(2, 1, hspace = 0.3, height_ratios=[0.14, 0.1])
+outergs = GridSpec(2, 1, hspace = 0.3, height_ratios=[0.1, 0.1])
 
 
 names = {'adn':"ADN", 'lmn':"LMN"}
 epochs = {'wak':'Wake', 'sws':'Sleep'}
 
 gs_top = gridspec.GridSpecFromSubplotSpec(
-    1, 3, subplot_spec=outergs[0, 0], width_ratios=[0.2, 0.5, 0.2]
+    1, 3, subplot_spec=outergs[0, 0], width_ratios=[0.3, 0.3, 0.2], wspace=0.1
+)
+
+
+gs_top_left = gridspec.GridSpecFromSubplotSpec(
+    2, 1, subplot_spec=gs_top[0, 0], hspace=0.5
 )
 
 #####################################
 # Histo
 #####################################
 gs_histo = gridspec.GridSpecFromSubplotSpec(
-    2, 2, subplot_spec=gs_top[0, 0]#, height_ratios=[0.5, 0.2, 0.2] 
+    2, 2, subplot_spec=gs_top_left[0, 0]#, height_ratios=[0.5, 0.2, 0.2] 
 )
 
-subplot(gs_histo[0, :])
+subplot(gs_histo[:, 0])
 noaxis(gca())
 img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/tmp.png")
 imshow(img, aspect="equal")
 xticks([])
 yticks([])
 
-subplot(gs_histo[1, 0])
+subplot(gs_histo[0, 1])
 noaxis(gca())
 img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/CosyneData/histo_adn.png")
 imshow(img[:, :, 0], aspect="equal", cmap="viridis")
@@ -256,23 +270,84 @@ xticks([])
 yticks([])
 
 #####################################
+# Raster
+#####################################
+gs_raster = gridspec.GridSpecFromSubplotSpec(
+    3, 2, subplot_spec=gs_top_left[1, 0]#, height_ratios=[0.5, 0.2, 0.2] 
+)
+
+
+# Raster
+for i, (g, idx) in enumerate(zip(['adn', 'lmn'], [adn, lmn])):
+    for j, e in enumerate(['wak', 'sws']):
+        subplot(gs_raster[i, j])
+        simpleaxis(gca())
+        gca().spines["left"].set_visible(False)
+        gca().spines["bottom"].set_visible(False)
+        for k,n in enumerate(idx):
+            plot(spikes[n].restrict(exs[e]).fillna(k), 
+                '|', 
+                markersize = 1, markeredgewidth=0.1,
+                color=colors[g])
+
+        if j == 0:
+            yticks([len(idx)-1], [len(idx)])
+            ylabel(names[g], rotation=0, y=0.2, labelpad=10)
+        else:
+            yticks([])
+        xticks([])
+
+
+        if i == 0:
+            title(epochs[e])
+
+# Position
+for i, e in enumerate(['wak', 'sws']):
+    subplot(gs_raster[2,i])
+    simpleaxis(gca())
+    # gca().spines["bottom"].set_visible(False)
+    im = imshow(p_decoding[e].values.T, aspect='auto', origin='lower',
+        cmap='gist_yarg', extent=(exs[e].start[0], exs[e].end[0], 0, 2*np.pi))
+    if e == "wak":
+        plot(angle.restrict(exs['wak']), linewidth=0.2)
+    
+    if i == 0:
+        yticks([0, 2*np.pi], [0, 360])
+        ylabel("H.D.\n(rad)", rotation=0, y=0.0, labelpad=10)
+    else:
+        yticks([])
+    # xticks([])
+
+    if i == 0:
+        gca().spines["bottom"].set_bounds(exs['wak'].end[0] - 3, exs['wak'].end[0])
+        xticks([exs['wak'].end[0] - 1.5], ["3 s"])
+    if i == 1:
+        gca().spines["bottom"].set_bounds(exs['sws'].end[0] - 0.5, exs['sws'].end[0])
+        xticks([exs['sws'].end[0] - 0.25], ["0.5 s"])
+
+    
+    axip = gca().inset_axes([0.15, -1.1, 0.05, 0.9])
+    cbar = colorbar(im, cax=axip)
+    axip.set_ylabel("P", rotation=0, labelpad=-25, y=0.75)
+    if i == 0:
+        axip.set_yticks([0, 0.4], [0, 0.4])
+    if i == 1:
+        axip.set_yticks([0, 0.1], [0, 0.1])
+
+
+
+#####################################
 # Examples
 #####################################
 gs_top2 = gridspec.GridSpecFromSubplotSpec(
-    3, 3, subplot_spec=gs_top[0, 1], hspace=0.5, wspace=0.5, height_ratios=[0.2, 0.5, 0.5] 
+    2, 3, subplot_spec=gs_top[0, 1], hspace=0.4, wspace=0.5
 )
 
-# Position
-
-subplot(gs_top2[0,1])
-simpleaxis(gca())
-plot(angle.restrict(exs['wak']), linewidth=0.2)
-xticks([])
 
 
 
 adn_idx = [adn[12], adn[13], adn[4]]
-lmn_idx = [lmn[9], lmn[11], lmn[3]]
+lmn_idx = [lmn[9], lmn[7], lmn[3]]
 
 
 for i, (s, idx) in enumerate(zip(['adn', 'lmn'], [adn_idx, lmn_idx])):
@@ -280,7 +355,7 @@ for i, (s, idx) in enumerate(zip(['adn', 'lmn'], [adn_idx, lmn_idx])):
     
     # Waveforms + tuning curves
     gs_neuron = gridspec.GridSpecFromSubplotSpec(
-        2, 2, subplot_spec=gs_top2[i+1, 0], wspace=0.2, hspace=0.2
+        2, 2, subplot_spec=gs_top2[i, 0], wspace=0.2, hspace=0.2
         )
     xx = [0, 1, 1]
     yy = [0, 0, 1]
@@ -305,17 +380,38 @@ for i, (s, idx) in enumerate(zip(['adn', 'lmn'], [adn_idx, lmn_idx])):
     
     
     # Spike counts
+    bin_sizes = [0.1, 0.01]
     for j, e in enumerate(['wak', 'sws']):
         gs_count = gridspec.GridSpecFromSubplotSpec(
-            3, 1, subplot_spec=gs_top2[i+1,1+j], wspace=0.01, hspace=0.4
+            3, 1, subplot_spec=gs_top2[i,1+j], wspace=0.01, hspace=0.4
             )
         
         for k, n in enumerate(idx):            
             subplot(gs_count[k,0])
-            noaxis(gca())
-            tmp = spikes[n].count(0.1).smooth(0.2).restrict(exs[e])
-            plot(tmp, linewidth=0.2)
+            simpleaxis(gca())
+            tmp = spikes[n].count(bin_sizes[j]).smooth(bin_sizes[j]*2).restrict(exs[e])
+            bar(
+                tmp.t,               
+                tmp.d,
+                tmp.t[1] - tmp.t[0],
+                linewidth=0,
+                facecolor=colors[s],
+                alpha=0.3
+                )
+            step(tmp.t, tmp.d, linewidth=0.2, color=colors[s], where='post')
+            gca().set_yticks([])
+            gca().spines["left"].set_visible(False)
 
+            if j == 0 and k == 2:
+                gca().spines["bottom"].set_bounds(exs['wak'].end[0] - 5, exs['wak'].end[0])
+                xticks([exs['wak'].end[0] - 2.5], ["5 s"])
+            elif j == 1 and k == 2:
+                gca().spines["bottom"].set_bounds(exs['sws'].end[0] - 1, exs['sws'].end[0])
+                xticks([exs['sws'].end[0] - 0.5], ["1 s"])
+            else:
+                gca().spines["bottom"].set_visible(False)
+                gca().set_xticks([])
+                gca().set_yticks([])
 
 #####################################
 # Pairwise correlation
@@ -349,7 +445,7 @@ for i, g in enumerate(['adn', 'lmn']):
 ###############################################################
 
 gs_bottom = gridspec.GridSpecFromSubplotSpec(
-    1, 3, subplot_spec=outergs[1, 0], wspace=0.6, width_ratios=[0.3, 0.2, 0.2]
+    1, 3, subplot_spec=outergs[1, 0], wspace=0.3, width_ratios=[0.4, 0.3, 0.3]
 )
 
 gs_bottom1 = gridspec.GridSpecFromSubplotSpec(
@@ -426,39 +522,135 @@ for i, b in enumerate([0, 2]):
 # Cross-corrs
 #####################################
 
+gs_bottom2 = gridspec.GridSpecFromSubplotSpec(
+    3, 1, subplot_spec=gs_bottom[0, 1], hspace = 0.4, wspace = 1,
+    height_ratios=[0.4, 0.3, 0.4]
+)
+
+
 gs_cc = gridspec.GridSpecFromSubplotSpec(
-    2, 2, subplot_spec=gs_bottom[0, 1], hspace = 0.5, wspace = 1
+    1, 3, subplot_spec=gs_bottom2[0, 0], wspace = 0.8, width_ratios=[0.5, 0.5, 0.1]
 )
 
-y_labels = ["Group 1", "Group 2"]
 
-for i, b in enumerate([0, 2]):
-
-    for j, e in enumerate(['wak', 'sws']):
-        subplot(gs_cc[i,j])
-        simpleaxis(gca())
-
-        for k, g in enumerate(['adn', 'lmn']):
-            plot(meancc[e][g+'-'+str(b)], color = colors[g])
-
-        # ylim(np.min(meancc[e])-1, np.max(meancc[e]))
-
-        if i == 0:
-            title(epochs[e])
-        if j == 0:
-            ylabel(y_labels[i], rotation=0, labelpad=15)
+vmin = np.minimum(*[np.min(allcc[g]['sws'].values) for g in ['adn', 'lmn']])
+vmax = np.maximum(*[np.max(allcc[g]['sws'].values) for g in ['adn', 'lmn']])
 
 
-gs_final = gridspec.GridSpecFromSubplotSpec(
-    2, 1, subplot_spec=gs_bottom[0, 2], wspace = 1, hspace = 1
+for k, g in enumerate(['adn', 'lmn']):
+    subplot(gs_cc[0,k])
+    simpleaxis(gca())
+    Z = allcc[g]['sws'].loc[-1:1]
+    im = imshow(Z.values.T, 
+        aspect='auto', vmin=vmin, vmax=vmax,
+        cmap='bwr'
+        )
+
+    if k == 0:
+        ylabel("Z", rotation=0, labelpad=10)
+        xlabel("Time lag (s)", x = 1.5)
+
+    xticks([0, len(Z)//2, len(Z)], [-1, 0, 1])
+    title(names[g])
+    yticks([])
+
+
+axip = gca().inset_axes([1.1, 0, 0.07, 1])
+colorbar(im, cax=axip)
+
+
+#####################################
+# CC GLM
+#####################################
+
+data = cPickle.load(open(os.path.join(dropbox_path, 'All_GLM_CC_LMN_ADN.pickle'), 'rb'))
+glm_cc = data['cc']
+angdiff = data['angdiff']
+
+# meanglmcc = {}
+# for e in ['wak', 'sws']:
+#     meanglmcc[e] = {}
+#     for i, g in enumerate(['adn', 'lmn']):
+#         groups = angdiff[g].groupby(np.digitize(angdiff[g], angbins))
+#         for j in range(angbins.shape[0]-1):
+#             meanglmcc[e][g+'-'+str(j)] = glm_cc[g][e][groups.groups[j+1]].mean(1)
+#     meanglmcc[e] = pd.DataFrame.from_dict(meanglmcc[e])
+
+
+gs_cc = gridspec.GridSpecFromSubplotSpec(
+    1, 3, subplot_spec=gs_bottom2[2, 0], wspace = 0.8, width_ratios=[0.5, 0.5, 0.1]
 )
+
+# for i, b in enumerate([0, 2]):
+
+vmin = np.minimum(*[np.min(glm_cc[g]['sws'].values) for g in ['adn', 'lmn']])
+vmax = np.maximum(*[np.max(glm_cc[g]['sws'].values) for g in ['adn', 'lmn']])
+
+
+
+for k, g in enumerate(['adn', 'lmn']):
+    subplot(gs_cc[0,k])
+    simpleaxis(gca())
+    
+    tmp = glm_cc[g]['sws'][angdiff[g].sort_values().index].apply(zscore)
+    tmp = tmp.apply(gaussian_filter, axis=0, sigma=3)
+    
+
+    im = imshow(tmp.values.T, aspect='auto', vmin=vmin, vmax=vmax,
+        cmap='bwr'
+        )
+
+    yticks([])
+    xticks([0, len(tmp)//2, len(tmp)], [-0.5, 0, 0.5])    
+    
+    if k == 0:
+        ylabel(r"$\beta_t$", rotation=0, labelpad=10)
+        xlabel("Time lag (s)", x=1.5)
+
+axip = gca().inset_axes([1.1, 0, 0.07, 1])
+colorbar(im, cax=axip)
+
+
+
+# axip = gca().inset_axes([-0.6, 1.25, 1, 0.5])
+axip = subplot(gs_bottom2[1,0])
+noaxis(axip)
+axip.patch.set_alpha(0.0)
+axip.annotate('Pop.', xy=(0.7,0.3), xytext=(0.1, 0.58), color = COLOR,
+    arrowprops=dict(facecolor='green',
+        headwidth=1.5,
+        headlength=1,
+        width=0.01,
+        ec='grey'
+        ),
+    fontsize = 6
+    )
+axip.annotate('', xy=(0.7,0.1), xytext=(0.4, 0.1), 
+    arrowprops=dict(facecolor=COLOR,
+        headwidth=1.5,
+        headlength=1,
+        width=0.01,
+        ec='grey'                
+        ),            
+    )        
+axip.text(0.0, 0.0, "Unit", fontsize = 6)
+axip.text(0.8, 0.0, "Unit", fontsize = 6)
+axip.text(0.5, -0.25, r"$\beta_t$", fontsize = 6)
+axip.set_xlim(-0.5, 1.6)
+axip.set_ylim(0, 2)
+# axip.text(0.6, 0.5, r"$\beta_t^{P}$", fontsize = 6)
+
+
 
 #####################################
 # CC LMN -> ADN
 #####################################
+gs_final = gridspec.GridSpecFromSubplotSpec(
+    2, 1, subplot_spec=gs_bottom[0, 2], wspace = 1, hspace = 1
+)
 
 gs_cc2 = gridspec.GridSpecFromSubplotSpec(
-    1, 2, subplot_spec=gs_final[0, 0], wspace = 1, hspace = 1
+    1, 2, subplot_spec=gs_final[0, 0], wspace = 0.6, hspace = 1
 )
 
 
@@ -473,18 +665,19 @@ k = 1
 subplot(gs_cc2[0,0])
 simpleaxis(gca())
 tmp = allcc[e][groups[k]]
+tmp = pd.DataFrame(index=tmp.index, data=tmp.values[::-1])
 plot(tmp.mean(1), '-', color=cmap(4))
-title("CC LMN/ADN")
+title("CC LMN -> ADN (Sleep)", x=1.5)
 xlabel("Time lag (s)")
+# gca().add_patch(Rectangle((-0.01, 2), 0.02, 1.4, facecolor="blue"))
 
 subplot(gs_cc2[0,1])
 simpleaxis(gca())
-tmp = allcc[e][groups[k]]
+
 plot(tmp.mean(1).loc[-0.01:0.01], '-', color=cmap(4))
-xlabel("Time lag (s)")
-axvline(0)
-
-
+xlabel("(ms)")
+axvline(0, color = 'grey', linewidth=0.5)
+xticks([-0.01, 0, 0.01], [-10, 0, 10])
 
 
 #####################################
@@ -497,12 +690,12 @@ scores = data['scores']
 
 
 gs_scores = gridspec.GridSpecFromSubplotSpec(
-    1, 1, subplot_spec=gs_final[1, 0]
+    1, 2, subplot_spec=gs_final[1, 0], width_ratios=[0.2, 0.9]
 )
 
 
-subplot(gs_scores[0, 0])
-simpleaxis(gca())
+subplot(gs_scores[0, 1])
+simpleaxis(gca())   
 x = 0
 for i, e in enumerate(['wak', 'sws']):
     # for j, k in enumerate(['og', 'rnd']):
@@ -529,11 +722,11 @@ ylim(-0.5, 2.5)
 
 
 
-outergs.update(top=0.96, bottom=0.09, right=0.98, left=0.07)
+outergs.update(top=0.96, bottom=0.09, right=0.98, left=0.1)
 
 
 savefig(
-    os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/fig1.pdf",
+    os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/fig1.png",
     dpi=200,
     facecolor="white",
 )

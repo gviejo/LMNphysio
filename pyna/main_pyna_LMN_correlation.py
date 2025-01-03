@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-01 12:03:19
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2024-12-03 10:18:41
+# @Last Modified by:   gviejo
+# @Last Modified time: 2025-01-03 11:54:47
 
 # %%
 import numpy as np
@@ -89,7 +89,7 @@ for s in datasets:
         # except:
         #     pass
 
-        spikes = spikes[spikes.location == "lmn"]        
+        spikes = spikes[spikes.location == "lmn"]
     
         if len(spikes):
             ############################################################################################### 

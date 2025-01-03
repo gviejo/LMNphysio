@@ -135,7 +135,10 @@ for s in datasets:
         ###############################################################################################         
         
         
-        for e, ep, bin_size, window_size in zip(['wak', 'rem', 'sws'], [newwake_ep, rem_ep, sws_ep], [0.01, 0.01, 0.01], [1, 1, 1]):
+        for e, ep, bin_size, window_size in zip(['wak', 'rem', 'sws'], 
+            [newwake_ep, rem_ep, sws_ep], 
+            [0.01, 0.01, 0.001], [1, 1, 1]):
+
             tmp = nap.compute_crosscorrelogram(
                     tuple(spikes.getby_category("location").values()),
                     bin_size, 

@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2024-12-03 21:14:15
+# @Last Modified by:   gviejo
+# @Last Modified time: 2025-01-03 15:08:19
 # %%
 import numpy as np
 import pandas as pd
@@ -20,7 +20,7 @@ from scipy.ndimage import gaussian_filter1d
 from GLM_HMM import GLM_HMM_nemos
 # from GLM import HankelGLM, ConvolvedGLM, CorrelationGLM
 import nemos as nmo
-import nwbmatic as ntm
+# import nwbmatic as ntm
 
 # nap.nap_config.set_backend("jax")
 nap.nap_config.suppress_conversion_warnings = True
@@ -53,8 +53,8 @@ durations = []
 spkcounts = []
 corr = {'adn':[], 'lmn':[]}
 
-for s in datasets:
-# for s in ['LMN-ADN/A5044/A5044-240401A']:
+# for s in datasets:
+for s in ['LMN-ADN/A5043/A5043-230228A']:
 # for s in ['LMN/A1411/A1411-200910A']:
     print(s)
     ############################################################################################### 
@@ -88,6 +88,7 @@ for s in datasets:
         sws_ep = nwb['sws']
         rem_ep = nwb['rem']
 
+        sws_ep = nap.IntervalSet(sws_ep.start, sws_ep.end)
         # sys.exit()
 
         spikes = spikes[(spikes.location == "adn") | (spikes.location == "lmn")]
@@ -123,6 +124,7 @@ for s in datasets:
                 stats2.append(stat)
                 tcurves2.append(tcurves_half)       
             tokeep = np.intersect1d(tokeep2[0], tokeep2[1])
+
             # try:
             #     maxch = pd.read_csv(data.nwb_path + "/maxch.csv", index_col=0)['0']
                 
@@ -130,9 +132,10 @@ for s in datasets:
             #     meanwf, maxch = data.load_mean_waveforms(spike_count=100)
             #     maxch.to_csv(data.nwb_path + "/maxch.csv")        
             
-            spikes = spikes[tokeep]
+            spikes          = spikes[tokeep]
             tcurves         = tuning_curves[tokeep]
             peaks           = pd.Series(index=tcurves.columns,data = np.array([circmean(tcurves.index.values, tcurves[i].values) for i in tcurves.columns]))
+            spikes['peaks'] = peaks
 
             # spikes.set_info(maxch = maxch[tokeep])
             if np.sum(spikes.location=="lmn") > 5:
@@ -140,11 +143,13 @@ for s in datasets:
                 allspikes = spikes
                 
                 spikes = spikes[spikes.location=='lmn']
+                spikes['order'] = np.argsort(spikes.peaks)
                 
-                # figure()
-                # for i in range(len(tokeep)):
-                #     subplot(4, 6, i+1, projection='polar')
-                #     plot(tcurves[tokeep[i]])
+                figure()
+                for i in range(len(tokeep)):
+                    subplot(4, 6, i+1, projection='polar')
+                    plot(tcurves[tokeep[i]])
+                    title(allspikes.location.values[i])
                 
                 try: 
                     velocity = computeLinearVelocity(position[['x', 'z']], position.time_support.loc[[0]], 0.2)
@@ -165,8 +170,8 @@ for s in datasets:
                 ############################################
                 print("fitting GLM")
 
-                basis = nmo.basis.RaisedCosineBasisLog(
-                    n_basis_funcs=3, shift=False, mode="conv", window_size=int(window_size/bin_size)
+                basis = nmo.basis.RaisedCosineLogConv(
+                    n_basis_funcs=3, window_size=int(window_size/bin_size), conv_kwargs={'shift':False}
                     )
 
                 mask = np.repeat(1-np.eye(len(spikes)), 3, axis=0)
@@ -199,7 +204,7 @@ for s in datasets:
                 ############################################
                 
                 hmm = GLM_HMM_nemos((glm0, glm, rglm))
-                # hmm = GLM_HMM((glm, rglm))
+                # hmm = GLM_HMM_nemos((glm, rglm))
 
                 Y = spikes.count(bin_size, sws_ep)
                 X = basis.compute_features(Y)
@@ -209,31 +214,35 @@ for s in datasets:
 
                 
 
-                # #ex_ep = nap.IntervalSet(10810.81, 10847.15)
-                # #(10846, 10854)
+                #ex_ep = nap.IntervalSet(10810.81, 10847.15)
+                #(10846, 10854)
+                ex_ep = epochs[0].intersect(sws_ep)
 
-                # figure()
-                # gs = GridSpec(4,1)
-                # ax = subplot(gs[0,0])
-                # plot(hmm.Z)
-                # ylabel("state")     
+                figure()
+                gs = GridSpec(3,1)
+                ax = subplot(gs[0,0])
+                plot(hmm.Z.restrict(ex_ep))
+                ylabel("state")     
                 
-                # subplot(gs[1,0], sharex=ax)
-                # plot(spikes_adn.restrict(sws_ep).to_tsd("peaks"), '|', markersize=20)
+                subplot(gs[1,0], sharex=ax)
+                spikes_adn = allspikes[allspikes.location=='adn']
+                spikes_adn['order'] = np.argsort(spikes_adn.peaks)
+                plot(spikes_adn.restrict(ex_ep).to_tsd("peaks"), '|', markersize=15)
 
-                # subplot(gs[2,0], sharex=ax)
-                # plot(spikes.restrict(sws_ep).to_tsd("peaks"), '|', markersize=20)
-                # ylabel("Spikes")
-                # ylim(0, 2*np.pi)
+                subplot(gs[2,0], sharex=ax)
+                plot(spikes.restrict(ex_ep).to_tsd("peaks"), '|', markersize=15)
+                ylabel("Spikes")
+                ylim(0, 2*np.pi)
                 
                 # subplot(gs[3,0], sharex=ax)
-                # [plot(hmm.O[:,i], label = str(i)) for i in range(3)]
+                # [plot(hmm.O[:,i].restrict(ex_ep), label = str(i)) for i in range(3)]
                 # ylabel("P(O)")
                 # legend()
 
+                tight_layout()
+                show()
 
-                # show()
-                # sys.exit()
+                sys.exit()
                 
                 
                 if all([len(ep)>1 for ep in hmm.eps.values()]):

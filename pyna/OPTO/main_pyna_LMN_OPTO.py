@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: gviejo
 # @Date:   2023-08-29 13:46:37
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2024-09-17 10:59:56
+# @Last Modified by:   gviejo
+# @Last Modified time: 2025-01-03 11:56:21
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -36,7 +36,11 @@ elif os.path.exists('/mnt/ceph/users/gviejo'):
 elif os.path.exists('/media/guillaume/Raid2'):
     data_directory = '/media/guillaume/Raid2'
 
-datasets = yaml.safe_load(open("/mnt/ceph/users/gviejo/datasets_OPTO.yaml", "r"))
+datasets = yaml.safe_load(
+    open(os.path.join(
+        data_directory,
+        "datasets_OPTO.yaml"), "r"))
+
 datasets = datasets['opto']['opto_lmn_psb']
 
 SI_thr = {
@@ -58,152 +62,171 @@ for ep in ['wake', 'sleep']:
         # LOADING DATA
         ###############################################################################################
         path = os.path.join(data_directory, "OPTO", s)
-        data = ntm.load_session(path, 'neurosuite')
-        try:
-            spikes = nap.load_file(os.path.join(path, "kilosort4/spikes_ks4.npz"))
-            spikes = spikes.getby_threshold("rate", 1)
-        except:
-            spikes = data.spikes        
-        position = data.position
-        wake_ep = data.epochs['wake'].loc[[0]]
-        sleep_ep = data.epochs["sleep"]
-        try:
-            sws_ep = data.read_neuroscope_intervals('sws')
-        except:
-            sws_ep = nap.IntervalSet([], [])
-        # rem_ep = data.read_neuroscope_intervals('rem')
-        # down_ep = data.read_neuroscope_intervals('down')
-        spikes = spikes.getby_threshold("rate", 1.0)
-        idx = spikes._metadata[spikes._metadata["location"].str.contains("lmn")].index.values
-        spikes = spikes[idx]
-
-        ############################################################################################### 
-        # LOADING OPTO INFO
-        ###############################################################################################            
-        try:
-            os.remove(os.path.join(path, os.path.basename(path))+"_opto_ep.npz")
-            opto_ep = nap.load_file(os.path.join(path, os.path.basename(path))+"_opto_ep.npz")
-        except:
-            opto_ep = []
-            epoch = 0
-            while len(opto_ep) == 0:
-                try:
-                    opto_ep = loadOptoEp(path, epoch=epoch, n_channels = 2, channel = 0)
-                    opto_ep = opto_ep.intersect(data.epochs[ep])
-                except:
-                    pass                    
-                epoch += 1
-                if epoch == 10:
-                    sys.exit()
-            opto_ep.save(os.path.join(path, os.path.basename(path))+"_opto_ep")
-
-        if ep == "sleep":
-            opto_ep = opto_ep.intersect(sws_ep)
-
-
-        ############################################################################################### 
-        # COMPUTING TUNING CURVES
-        ###############################################################################################
-        tuning_curves = nap.compute_1d_tuning_curves(spikes, position['ry'], 120, minmax=(0, 2*np.pi), ep = position.time_support.loc[[0]])
-        tuning_curves = smoothAngularTuningCurves(tuning_curves)    
-        tcurves = tuning_curves        
-        SI = nap.compute_1d_mutual_info(tcurves, position['ry'], position.time_support.loc[[0]], (0, 2*np.pi))
-        spikes.set_info(SI)
-        spikes.set_info(max_fr = tcurves.max())
+        basename = os.path.basename(path)
+        filepath = os.path.join(path, "kilosort4", basename + ".nwb")
         
+        if os.path.exists(filepath):
 
-        # figure()
-        # for i in range(len(spikes)):
-        #     subplot(6,6,i+1, projection='polar')
-        #     plot(tuning_curves[spikes.keys()[i]])
-        #     title(np.round(spikes.SI[spikes.keys()[i]], 3))
-        # show()
+            nwb = nap.load_file(filepath)
+            sys.exit()
+            spikes = nwb['units']
+            spikes = spikes.getby_threshold("rate", 1)
 
-        spikes = spikes.getby_threshold("SI", SI_thr["lmn"])
-        spikes = spikes.getby_threshold("rate", 1.0)
-        spikes = spikes.getby_threshold("max_fr", 3.0)
+            position = []
+            columns = ['x', 'y', 'z', 'rx', 'ry', 'rz']
+            for k in columns:
+                position.append(nwb[k].values)
+            position = np.array(position)
+            position = np.transpose(position)
+            position = nap.TsdFrame(
+                t=nwb['x'].t,
+                d=position,
+                columns=columns,
+                time_support=nwb['position_time_support'])
 
-        tokeep = spikes.index
-        tcurves = tcurves[tokeep]
-        tuning_curves = tcurves
-        peaks = pd.Series(index=tcurves.columns, data = np.array([circmean(tcurves.index.values, tcurves[i].values) for i in tcurves.columns]))
-        order = np.argsort(peaks.values)
-        spikes.set_info(order=order, peaks=peaks)
-
-
-        ############################################################################################### 
-        # FIRING RATE MODULATION
-        ###############################################################################################    
-        if ep == "wake":
-            stim_duration = 10.0
-        if ep == "sleep":
-            stim_duration = 1.0
-
-        opto_ep = opto_ep[(opto_ep['end'] - opto_ep['start'])>=stim_duration-0.001]
-
-        # peth = nap.compute_perievent(spikes[tokeep], nap.Ts(opto_ep.start), minmax=(-stim_duration, 2*stim_duration))
-        # frates = pd.DataFrame({n:np.sum(peth[n].count(0.05), 1).values for n in peth.keys()})
-
-        frates = nap.compute_eventcorrelogram(spikes[tokeep], nap.Ts(opto_ep.start), stim_duration/20., stim_duration*2, norm=True)
-
-        frates.columns = [data.basename+"_"+str(i) for i in frates.columns]
-
-        ############################################################################################### 
-        # PEARSON CORRELATION
-        ###############################################################################################        
-        if len(tokeep) > 2 and ep == "sleep":
+            epochs = nwb['epochs']
+            wake_ep = epochs[epochs.tags == "wake"]
+            sws_ep = nwb['sws']
+            rem_ep = nwb['rem']
             
-            velocity = np.abs(computeAngularVelocity(position['ry'], position.time_support.loc[[0]], 0.2))
-            newwake_ep = velocity.threshold(0.02).time_support.drop_short_intervals(1).merge_close_intervals(1)
-
-            rates = {}
-            sws2_ep = nap.IntervalSet(start=opto_ep.start-stim_duration, end=opto_ep.start)
-            sws2_ep = sws2_ep.intersect(sws_ep)
-            sws2_ep.drop_short_intervals(stim_duration-0.001)
-
-
-            for e, iset, bin_size, std in zip(['wak', 'sws', 'opto'], [newwake_ep, sws2_ep, opto_ep], [0.3, 0.03, 0.03], [1, 1, 1]):
-                count = spikes.count(bin_size, iset)
-                rate = count/bin_size
-                rate = rate.as_dataframe()
-                rate = rate.apply(lambda x: gaussian_filter1d(x, sigma=std, mode='constant'))
-                rate = rate.apply(zscore)                    
-                rates[e] = nap.TsdFrame(rate)            
             
-            pairs = [data.basename+"_"+i+"-"+j for i,j in list(combinations(np.array(spikes.keys()).astype(str), 2))]
-            r = pd.DataFrame(index = pairs, columns = rates.keys(), dtype = np.float32)
+            # hmm_eps = []
+            # try:
+            #     filepath = os.path.join(data_directory, s, os.path.basename(s))
+            #     hmm_eps.append(nap.load_file(filepath+"_HMM_ep0.npz"))
+            #     hmm_eps.append(nap.load_file(filepath+"_HMM_ep1.npz"))
+            #     hmm_eps.append(nap.load_file(filepath+"_HMM_ep2.npz"))
+            # except:
+            #     pass
 
-            for e in rates.keys():
-                tmp = np.corrcoef(rates[e].values.T)
-                if len(tmp):
-                    r[e] = tmp[np.triu_indices(tmp.shape[0], 1)]
+            spikes = spikes[spikes.location == "lmn"]
+            ############################################################################################### 
+            # LOADING OPTO INFO
+            ###############################################################################################            
+            try:
+                os.remove(os.path.join(path, os.path.basename(path))+"_opto_ep.npz")
+                opto_ep = nap.load_file(os.path.join(path, os.path.basename(path))+"_opto_ep.npz")
+            except:
+                opto_ep = []
+                epoch = 0
+                while len(opto_ep) == 0:
+                    try:
+                        opto_ep = loadOptoEp(path, epoch=epoch, n_channels = 2, channel = 0)
+                        opto_ep = opto_ep.intersect(data.epochs[ep])
+                    except:
+                        pass                    
+                    epoch += 1
+                    if epoch == 10:
+                        sys.exit()
+                opto_ep.save(os.path.join(path, os.path.basename(path))+"_opto_ep")
 
-            allr.append(r)
+            if ep == "sleep":
+                opto_ep = opto_ep.intersect(sws_ep)
+
+
+            ############################################################################################### 
+            # COMPUTING TUNING CURVES
+            ###############################################################################################
+            tuning_curves = nap.compute_1d_tuning_curves(spikes, position['ry'], 120, minmax=(0, 2*np.pi), ep = position.time_support.loc[[0]])
+            tuning_curves = smoothAngularTuningCurves(tuning_curves)    
+            tcurves = tuning_curves        
+            SI = nap.compute_1d_mutual_info(tcurves, position['ry'], position.time_support.loc[[0]], (0, 2*np.pi))
+            spikes.set_info(SI)
+            spikes.set_info(max_fr = tcurves.max())
+            
+
+            # figure()
+            # for i in range(len(spikes)):
+            #     subplot(6,6,i+1, projection='polar')
+            #     plot(tuning_curves[spikes.keys()[i]])
+            #     title(np.round(spikes.SI[spikes.keys()[i]], 3))
+            # show()
+
+            spikes = spikes.getby_threshold("SI", SI_thr["lmn"])
+            spikes = spikes.getby_threshold("rate", 1.0)
+            spikes = spikes.getby_threshold("max_fr", 3.0)
+
+            tokeep = spikes.index
+            tcurves = tcurves[tokeep]
+            tuning_curves = tcurves
+            peaks = pd.Series(index=tcurves.columns, data = np.array([circmean(tcurves.index.values, tcurves[i].values) for i in tcurves.columns]))
+            order = np.argsort(peaks.values)
+            spikes.set_info(order=order, peaks=peaks)
+
+
+            ############################################################################################### 
+            # FIRING RATE MODULATION
+            ###############################################################################################    
+            if ep == "wake":
+                stim_duration = 10.0
+            if ep == "sleep":
+                stim_duration = 1.0
+
+            opto_ep = opto_ep[(opto_ep['end'] - opto_ep['start'])>=stim_duration-0.001]
+
+            # peth = nap.compute_perievent(spikes[tokeep], nap.Ts(opto_ep.start), minmax=(-stim_duration, 2*stim_duration))
+            # frates = pd.DataFrame({n:np.sum(peth[n].count(0.05), 1).values for n in peth.keys()})
+
+            frates = nap.compute_eventcorrelogram(spikes[tokeep], nap.Ts(opto_ep.start), stim_duration/20., stim_duration*2, norm=True)
+
+            frates.columns = [data.basename+"_"+str(i) for i in frates.columns]
+
+            ############################################################################################### 
+            # PEARSON CORRELATION
+            ###############################################################################################        
+            if len(tokeep) > 2 and ep == "sleep":
+                
+                velocity = np.abs(computeAngularVelocity(position['ry'], position.time_support.loc[[0]], 0.2))
+                newwake_ep = velocity.threshold(0.02).time_support.drop_short_intervals(1).merge_close_intervals(1)
+
+                rates = {}
+                sws2_ep = nap.IntervalSet(start=opto_ep.start-stim_duration, end=opto_ep.start)
+                sws2_ep = sws2_ep.intersect(sws_ep)
+                sws2_ep.drop_short_intervals(stim_duration-0.001)
+
+
+                for e, iset, bin_size, std in zip(['wak', 'sws', 'opto'], [newwake_ep, sws2_ep, opto_ep], [0.3, 0.03, 0.03], [1, 1, 1]):
+                    count = spikes.count(bin_size, iset)
+                    rate = count/bin_size
+                    rate = rate.as_dataframe()
+                    rate = rate.apply(lambda x: gaussian_filter1d(x, sigma=std, mode='constant'))
+                    rate = rate.apply(zscore)                    
+                    rates[e] = nap.TsdFrame(rate)            
+                
+                pairs = [data.basename+"_"+i+"-"+j for i,j in list(combinations(np.array(spikes.keys()).astype(str), 2))]
+                r = pd.DataFrame(index = pairs, columns = rates.keys(), dtype = np.float32)
+
+                for e in rates.keys():
+                    tmp = np.corrcoef(rates[e].values.T)
+                    if len(tmp):
+                        r[e] = tmp[np.triu_indices(tmp.shape[0], 1)]
+
+                allr.append(r)
+
+                #######################
+                # Session correlation
+                #######################
+
+                tmp = pd.DataFrame(index=[data.basename])
+                tmp['sws'] = scipy.stats.pearsonr(r['wak'], r['sws'])[0]
+                tmp['opto'] = scipy.stats.pearsonr(r['wak'], r['opto'])[0]
+                tmp['n'] = len(spikes)
+                corr.append(tmp)        
 
             #######################
-            # Session correlation
+            # SAVING
             #######################
+            allfr[ep].append(frates)
+            metadata = spikes._metadata
+            metadata.index = frates.columns
+            allmeta[ep].append(metadata)
+            tuning_curves.columns = frates.columns
+            alltc[ep].append(tuning_curves)       
 
-            tmp = pd.DataFrame(index=[data.basename])
-            tmp['sws'] = scipy.stats.pearsonr(r['wak'], r['sws'])[0]
-            tmp['opto'] = scipy.stats.pearsonr(r['wak'], r['opto'])[0]
-            tmp['n'] = len(spikes)
-            corr.append(tmp)        
-
-        #######################
-        # SAVING
-        #######################
-        allfr[ep].append(frates)
-        metadata = spikes._metadata
-        metadata.index = frates.columns
-        allmeta[ep].append(metadata)
-        tuning_curves.columns = frates.columns
-        alltc[ep].append(tuning_curves)       
-
-                        
-    allfr[ep] = pd.concat(allfr[ep], 1)
-    allmeta[ep] = pd.concat(allmeta[ep], 0)
-    alltc[ep] = pd.concat(alltc[ep], 1)
+                            
+        allfr[ep] = pd.concat(allfr[ep], 1)
+        allmeta[ep] = pd.concat(allmeta[ep], 0)
+        alltc[ep] = pd.concat(alltc[ep], 1)
 
 
 allr = pd.concat(allr, 0)

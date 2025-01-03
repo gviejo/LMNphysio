@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-08-10 17:16:25
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2024-12-14 17:18:42
+# @Last Modified by:   gviejo
+# @Last Modified time: 2024-12-30 11:24:05
 import scipy.io
 import sys, os
 import numpy as np
@@ -124,11 +124,23 @@ tcurves = tuning_curves
 
 wake_ep = wake_ep.loc[[0]]
 
-angle_wak, proba_angle_wak = nap.decode_1d(tuning_curves[lmn], spikes2[lmn], wake_ep, 0.3, feature = angle.restrict(wake_ep.loc[[0]]))
 
-angle_sws, proba_sws = nap.decode_1d(tuning_curves[lmn], spikes2[lmn], sws_ep, 0.02)
+# sys.exit()
 
-angle_rem, proba_rem = nap.decode_1d(tuning_curves[lmn], spikes2[lmn], rem_ep, 0.3)
+angle_wak, proba_angle_wak = nap.decode_1d(tuning_curves[adn], spikes2[adn], wake_ep, 0.3, feature = angle.restrict(wake_ep.loc[[0]]))
+
+# sys.exit()
+
+ex_sws = nap.IntervalSet(start = 13653.07, end=13654.86, time_units = 's')
+
+
+angle_sws, proba_sws = nap.decode_1d(
+    tuning_curves[tokeep], 
+    spikes2[tokeep].count(0.02, ex_sws).smooth(0.06), 
+    ex_sws, 
+    0.02)
+
+angle_rem, proba_rem = nap.decode_1d(tuning_curves[adn], spikes2[adn], rem_ep, 0.3)
 
 
 #############################
@@ -144,12 +156,12 @@ lmn = peaks[lmn].sort_values().index.values
 
 ###########################################################################
 #SAVING
-# ###########################################################################
+###########################################################################
 # A5011-201014
 exs = {"A5011-201014A":
-            { 'wak':nap.IntervalSet(start = 7573.53, end = 7639.0, time_units='s'),
+            { 'wak':nap.IntervalSet(start = 9604.5, end = 9613.7, time_units='s'),
             'rem':nap.IntervalSet(start = 15710.150000, end= 15720.363258, time_units = 's'),
-            'sws':nap.IntervalSet(start = 4400600.000, end = 4410454.216186978, time_units = 'ms')},
+            'sws':nap.IntervalSet(start = 13653.07, end=13654.86, time_units = 's')},
         "A5043-230301A":
             { 'wak':nap.IntervalSet(start = 4560.50, end = 4600.00),
             'rem':nap.IntervalSet(start = 7600, end= 7627.0, time_units = 's'),
@@ -188,6 +200,10 @@ cPickle.dump(datatosave, open(filepath, 'wb'))
 
 sws2_ep = sws_ep[np.argsort(sws_ep.end-sws_ep.start)[-2]]
 
+
+adn_idx = [adn[12], adn[13], adn[4]]
+lmn_idx = [lmn[9], lmn[11], lmn[3]]
+
 # wake
 figure()
 ax = subplot(313)
@@ -208,15 +224,27 @@ for i,n in enumerate(lmn):
 
 # sws
 figure()
-ax = subplot(313)
-plot(angle_sws.restrict(sws_ep), '--')
+ax = subplot(411)
 title("sws")
-subplot(311, sharex = ax)
 for i,n in enumerate(adn):
-    plot(spikes[n].restrict(sws_ep).fillna(i), '|', markersize = 15, markeredgewidth=5)
-subplot(312, sharex = ax)
+    plot(spikes[n].restrict(sws_ep).fillna(i), '|', markersize = 10, markeredgewidth=5)
+    if n in adn_idx:
+        plot(spikes[n].restrict(sws_ep).fillna(i), '+', markersize = 5)
+
+subplot(412, sharex = ax)
 for i,n in enumerate(lmn):
     plot(spikes[n].restrict(sws_ep).fillna(i), '|', markersize = 15, markeredgewidth=5)
+
+subplot(413, sharex=ax)
+tmp = spikes[adn_idx].restrict(sws_ep).count(0.03)
+step(tmp.t, tmp.d)
+
+subplot(414, sharex=ax)
+tmp = spikes[lmn_idx].restrict(sws_ep).count(0.03)
+step(tmp.t, tmp.d)
+show()
+
+
 
 
 # rem
