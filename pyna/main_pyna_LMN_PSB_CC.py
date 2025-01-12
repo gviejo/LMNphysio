@@ -1,7 +1,8 @@
-#!/usr/bin/env python
-'''
-
-'''
+# -*- coding: utf-8 -*-
+# @Author: gviejo
+# @Date:   2025-01-04 06:11:33
+# @Last Modified by:   gviejo
+# @Last Modified time: 2025-01-09 07:58:12
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -28,26 +29,29 @@ elif os.path.exists('/media/guillaume/Raid2'):
 elif os.path.exists('/Users/gviejo/Data'):
     data_directory = '/Users/gviejo/Data'    
 
-datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#')
+datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN_PSB.list'), delimiter = '\n', dtype = str, comments = '#')
 
 
 allcc = {'wak':[], 'rem':[], 'sws':[]}
-allccdown = {'adn':[], 'lmn':[]}
+allccdown = {'psb':[], 'lmn':[]}
 
 angdiff = {}
 
+hd_info = {}
+
+alltcurves = []
+
 for s in datasets:
-# for s in ['LMN-ADN/A5030/A5030-220216A']:
-# for s in ['LMN-ADN/A5024/A5024-210705A']:
+
     ############################################################################################### 
     # LOADING DATA
     ###############################################################################################
     path = os.path.join(data_directory, s)
     basename = os.path.basename(path)
-    filepath = os.path.join(path, "kilosort4", basename + ".nwb")
+    filepath = os.path.join(path, "pynapplenwb", basename + ".nwb")
 
     if os.path.exists(filepath):
-        # sys.exit()
+        
         nwb = nap.load_file(filepath)
         
         spikes = nwb['units']
@@ -79,7 +83,10 @@ for s in datasets:
         # except:
         #     pass
         
-        spikes = spikes[(spikes.location=="adn")|(spikes.location=="lmn")]
+        psb_spikes = spikes[spikes.location=="psb"]
+
+        spikes = spikes[(spikes.location=="psb")|(spikes.location=="lmn")]
+        
         
         ############################################################################################### 
         # COMPUTING TUNING CURVES
@@ -114,13 +121,16 @@ for s in datasets:
         spikes = spikes[tokeep]
 
 
-        adn = spikes.location[spikes.location=="adn"].index.values
+        psb = spikes.location[spikes.location=="psb"].index.values
         lmn = spikes.location[spikes.location=="lmn"].index.values
 
     
         print(s)
         
         tcurves         = tuning_curves[tokeep]
+        # tcurves = tuning_curves
+        
+
 
         try:
             velocity = computeLinearVelocity(position[['x', 'z']], position.time_support.loc[[0]], 0.2)
@@ -139,13 +149,12 @@ for s in datasets:
             [newwake_ep, rem_ep, sws_ep], 
             [0.01, 0.01, 0.001], [1, 1, 1]):
 
-            dict_spk = spikes.getby_category("location")
-
             tmp = nap.compute_crosscorrelogram(
-                    (dict_spk['lmn'], dict_spk['adn']),
+                    # tuple(spikes.getby_category("location").values()),
+                    (spikes[lmn], spikes[psb]),
                     bin_size, 
                     window_size, 
-                    ep, norm=True)
+                    ep, norm=True)        
 
 
             pairs = [(basename + "_" + str(n), basename + "_" + str(m)) for n, m in tmp.columns]
@@ -155,26 +164,37 @@ for s in datasets:
             allcc[e].append(tmp)
 
 
-            #######################
-            # Angular differences
-            #######################
-            peaks = pd.Series(index=tcurves.columns,data = np.array([circmean(tcurves.index.values, tcurves[i].values) for i in tcurves.columns]))
-            for p in pairs:
-                i = int(p[0].split("_")[1])
-                j = int(p[1].split("_")[1])
-                angdiff[p] = min(np.abs(peaks[i] - peaks[j]), 2*np.pi-np.abs(peaks[i] - peaks[j]))
+        #######################
+        # Angular differences
+        #######################
+        peaks = pd.Series(index=tcurves.columns,data = np.array([circmean(tcurves.index.values, tcurves[i].values) for i in tcurves.columns]))
+        for p in pairs:
+            i = int(p[0].split("_")[1])
+            j = int(p[1].split("_")[1])
+            angdiff[p] = min(np.abs(peaks[i] - peaks[j]), 2*np.pi-np.abs(peaks[i] - peaks[j]))
+            
+            hd_info[p] = SI.loc[[i,j]].values.flatten()
 
+
+        tcurves.columns = [basename + "_" + str(n) for n in tcurves.columns]
+        alltcurves.append(tcurves)
+
+        # sys.exit()
 
 
 for e in allcc.keys():
     allcc[e] = pd.concat(allcc[e], axis=1)
 
 angdiff = pd.Series(angdiff)
+hd_info = pd.DataFrame(hd_info).T
+hd_info.columns = ['lmn', 'psb']
+
+alltcurves = pd.concat(alltcurves, axis=1)
 
 
 # datatosave = {'allcc':allcc, 'angdiff':angdiff}#, 'allcup': allccdown}
 # dropbox_path = os.path.expanduser("~/Dropbox/LMNphysio/data")
-# cPickle.dump(datatosave, open(os.path.join(dropbox_path, 'CC_LMN-ADN.pickle'), 'wb'))
+# cPickle.dump(datatosave, open(os.path.join(dropbox_path, 'CC_LMN-PSB.pickle'), 'wb'))
 
 
 figure()
@@ -182,10 +202,73 @@ for i, e in enumerate(allcc.keys()):
     subplot(1,3,i+1)
     #plot(allcc[e], alpha = 0.7, color = 'grey')
     plot(allcc[e].mean(1), '.-')
+    title(e)
 show()
 
 # figure()
-# for i,k in enumerate(['adn', 'lmn']):
+# for i,k in enumerate(['psb', 'lmn']):
 #     subplot(2,1,i+1)
 #     plot(allccdown[k].mean(1))
 # show()
+
+
+angbins = np.linspace(0, np.pi, 4)
+idx = np.digitize(angdiff, angbins)-1
+
+ang0 = angdiff[idx==0].index
+
+cc = allcc['sws'][ang0]
+
+cc = cc[cc.idxmax().sort_values().index] 
+
+# imshow(cc.values.T, aspect='auto')
+
+# bins = np.linspace(hd_info['psb'].min(), hd_info['psb'].max(), 9)
+bins = np.geomspace(hd_info['psb'].min(), hd_info['psb'].max(), 9)
+
+idx = np.digitize(hd_info['psb'], bins)-1
+
+ccg = {}
+for i in np.unique(idx):
+    ccg[i] = allcc['sws'][hd_info.index[idx==i]].mean(1)
+ccg = pd.DataFrame(ccg)
+
+
+
+figure()
+for i in range(ccg.shape[1]):
+    subplot(3,3,i+1)
+    plot(ccg[i].loc[-0.1:0.1])
+show()
+
+
+maxt = allcc['sws'].idxmax()
+
+idx = maxt[(maxt>-0.02) & (maxt<0.0)].index.values
+
+new_idx = allcc['sws'][idx].max().sort_values().index.values[::-1]
+
+
+figure()
+for i in range(54):
+    ax = subplot(6,9,i+1)    
+    plot(allcc['sws'][new_idx[i]].loc[-0.1:0.1])
+    axvline(0)
+
+figure()
+for i in range(54):
+    ax = subplot(6,9,i+1, projection='polar')    
+    p = new_idx[i]
+    plot(alltcurves[p[0]])
+    plot(alltcurves[p[1]])
+
+
+
+figure()
+subplot(121, projection='polar')
+plot(alltcurves[new_idx[0][0]], label='lmn')
+plot(alltcurves[new_idx[0][1]], label='psb')
+legend()
+subplot(122)
+plot(allcc['sws'][new_idx[0]])
+show()

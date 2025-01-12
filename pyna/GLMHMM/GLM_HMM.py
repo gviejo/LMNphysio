@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2024-12-05 12:15:25
+# @Last Modified by:   gviejo
+# @Last Modified time: 2025-01-05 16:15:21
 import numpy as np
 import os, sys
 from scipy.optimize import minimize
@@ -13,7 +13,7 @@ from scipy.ndimage import gaussian_filter1d, gaussian_filter
 from scipy.stats import poisson
 from scipy.optimize import minimize
 from sklearn.linear_model import PoissonRegressor
-from numba import njit
+from numba import njit, jit
 from multiprocessing import Pool
 from sklearn.preprocessing import StandardScaler
 import pynapple as nap
@@ -83,7 +83,7 @@ def optimize_transition(args):
     # A = np.eye(K) + np.random.rand(K, K)*0.1
     A = np.random.rand(K, K)
     A = A/A.sum(1)[:,None]
-    for i in range(100):
+    for i in range(200):
         alpha, scaling = forward(A, T, K, O, init)                
         beta = backward(A, T, K, O, scaling)
         # Expectation
@@ -267,6 +267,150 @@ def optimize_intercept(args):
     Z = np.argmax(G, 1)
 
     return A, Z, W, np.hstack(scores)    
+
+def fit_transition(K, T, O):    
+    score = []
+    init = np.random.rand(K)
+    init = init/init.sum()
+    # A = np.eye(K) + np.random.rand(K, K)*0.1
+    # A = np.random.rand(K, K)
+    # A = A/A.sum(1)[:,None]    
+    def sigmoid(x):
+        return 1/(1+np.exp(-x))
+
+    def func(a, T, K, O, init):
+        p = sigmoid(a)
+        A = np.array([p[0], 1-p[0], 1-p[1], p[1]])
+        A = A.reshape(K, K)
+        alpha, scaling = forward(A, T, K, O, init)
+        return -np.sum(np.log(scaling))
+
+    res = minimize(func, np.random.randn(K), (T, K, O, init), tol=1e-10)
+
+    p = sigmoid(res.x)
+    A = np.array([p[0], 1-p[0], 1-p[1], p[1]])
+    A = A.reshape(K, K)
+
+
+@jit(nopython=True, cache=True)
+def jitrestrict_with_count(time_array, starts, ends, dtype=np.int64):
+    n = len(time_array)
+    m = len(starts)
+    ix = np.zeros(n, dtype=np.int64)
+    count = np.zeros(m, dtype=dtype)
+
+    k = 0
+    t = 0
+    x = 0
+
+    while ends[k] < time_array[t]:
+        k += 1
+
+    while k < m:
+        # Outside
+        while t < n:
+            if time_array[t] >= starts[k]:
+                break
+            t += 1
+
+        # Inside
+        while t < n:
+            if time_array[t] > ends[k]:
+                k += 1
+                break
+            else:
+                ix[x] = t
+                count[k] += 1
+                x += 1
+            t += 1
+
+        if k == m:
+            break
+        if t == n:
+            break
+
+    return ix[0:x], count
+
+
+@jit(nopython=True, cache=True)
+def jitcount(time_array, starts, ends, bin_size, overlap):
+    idx, countin = jitrestrict_with_count(time_array, starts, ends)
+    time_array = time_array[idx]
+
+    m = starts.shape[0]
+
+    nb_bins = np.zeros(m, dtype=np.int32)
+    for k in range(m):
+        if (ends[k] - starts[k]) > bin_size:
+            # nb_bins[k] = int(np.ceil((ends[k] + bin_size - starts[k]) / bin_size))
+            nb_bins[k] = int(np.ceil((ends[k] + bin_size - starts[k]) / (bin_size-overlap)))
+        else:
+            nb_bins[k] = 1
+
+    nb = np.sum(nb_bins)
+    bins = np.zeros(nb, dtype=np.float64)
+    cnt = np.zeros(nb, dtype=np.int64)
+
+    k = 0 #
+    t = 0 # Spike
+    b = 0 # Bins
+    t_0 = 0
+
+    while k < m:
+        maxb = b + nb_bins[k]
+        maxt = t + countin[k]
+        lbound = starts[k]
+
+        while b < maxb:
+            xpos = lbound + bin_size / 2
+            if xpos > ends[k]:
+                break
+            else:
+                bins[b] = xpos
+                rbound = np.round(lbound + bin_size, 9)
+                while t < maxt:
+                    if time_array[t] < rbound:  # similar to numpy hisrogram
+                        cnt[b] += 1                        
+                        
+                        if time_array[t] > rbound-overlap:
+                            t_0 += 1
+
+                        t += 1
+
+                    else:
+                        break
+
+                lbound += (bin_size-overlap)
+                lbound = np.round(lbound, 9)
+                b += 1
+                t -= t_0 # Goind backward for t
+                t_0 = 0
+
+        t = maxt
+        k += 1
+
+    new_time_array = bins[0:b]
+    new_data_array = cnt[0:b]
+
+    return (new_time_array, new_data_array)
+
+
+def overlap_count(spikes, bin_size, overlap, ep):
+    Y = []
+    starts = ep.start
+    ends = ep.end    
+    for n in spikes.keys():
+        time_array = spikes[n].t
+
+        t, c = jitcount(time_array, starts, ends, bin_size, overlap)
+
+        Y.append(c)
+
+    Y = np.array(Y)
+    Y = np.transpose(Y)
+
+    return nap.TsdFrame(t=t, d=Y, columns = spikes.keys())
+
 
 class GLM_HMM(object):
 
@@ -498,9 +642,12 @@ class GLM_HMM_nemos(object):
 
         self.O = self.O[tokeep.values]
 
-        T = len(self.O)        
+        T = len(self.O)
 
-        for _ in range(5):
+
+        A = fit_transition(self.K, T, np.asarray(self.O.values))
+
+        for _ in range(2):
             A, Z, score = optimize_transition((self.K, T, np.asarray(self.O.values)))
             # A, Z, W, score = optimize_intercept((self.K, self.T, self.initial_W, self.X, self.Y))
             self.scores.append(score)

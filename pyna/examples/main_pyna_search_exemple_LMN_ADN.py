@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-08-10 17:16:25
 # @Last Modified by:   gviejo
-# @Last Modified time: 2024-12-30 11:24:05
+# @Last Modified time: 2025-01-08 12:27:10
 import scipy.io
 import sys, os
 import numpy as np
@@ -82,7 +82,7 @@ r = correlate_TC_half_epochs(spikes, angle, 120, (0, 2*np.pi))
 spikes.set_info(halfr = r)
 
 
-adn = spikes.getby_category("location")['adn'].getby_threshold('SI', 0.2).getby_threshold('halfr', 0.5).index
+adn = spikes.getby_category("location")['adn'].getby_threshold('SI', 0.1).getby_threshold('halfr', 0.5).index
 lmn = spikes.getby_category("location")['lmn'].getby_threshold('SI', 0.1).getby_threshold('halfr', 0.5).index
 
 tokeep = list(adn) + list(lmn)

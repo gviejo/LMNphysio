@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   gviejo
-# @Last Modified time: 2025-01-03 15:12:54
+# @Last Modified time: 2025-01-12 08:12:33
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -123,6 +123,7 @@ cmap = plt.get_cmap("Set2")
 dropbox_path = os.path.expanduser("~") + "/Dropbox/LMNphysio/data"
 
 s = "A5011-201014A"
+name = s
 
 data = cPickle.load(open(dropbox_path + "/DATA_FIG_LMN_ADN_{}.pickle".format(s), "rb"))
 decoding = {
@@ -309,11 +310,11 @@ for i, e in enumerate(['wak', 'sws']):
     im = imshow(p_decoding[e].values.T, aspect='auto', origin='lower',
         cmap='gist_yarg', extent=(exs[e].start[0], exs[e].end[0], 0, 2*np.pi))
     if e == "wak":
-        plot(angle.restrict(exs['wak']), linewidth=0.2)
+        plot(smoothAngle(angle, 5).restrict(exs['wak']), linewidth=0.2)
     
     if i == 0:
         yticks([0, 2*np.pi], [0, 360])
-        ylabel("H.D.\n(rad)", rotation=0, y=0.0, labelpad=10)
+        ylabel("H.D.\n(deg)", rotation=0, y=0.0, labelpad=10)
     else:
         yticks([])
     # xticks([])
@@ -346,9 +347,8 @@ gs_top2 = gridspec.GridSpecFromSubplotSpec(
 
 
 
-adn_idx = [adn[12], adn[13], adn[4]]
+adn_idx = [adn[12], adn[13], adn[1]]
 lmn_idx = [lmn[9], lmn[7], lmn[3]]
-
 
 for i, (s, idx) in enumerate(zip(['adn', 'lmn'], [adn_idx, lmn_idx])):
     
@@ -390,6 +390,8 @@ for i, (s, idx) in enumerate(zip(['adn', 'lmn'], [adn_idx, lmn_idx])):
             subplot(gs_count[k,0])
             simpleaxis(gca())
             tmp = spikes[n].count(bin_sizes[j]).smooth(bin_sizes[j]*2).restrict(exs[e])
+            tmp = tmp.smooth(5/tmp.rate)
+
             bar(
                 tmp.t,               
                 tmp.d,
@@ -413,6 +415,11 @@ for i, (s, idx) in enumerate(zip(['adn', 'lmn'], [adn_idx, lmn_idx])):
                 gca().set_xticks([])
                 gca().set_yticks([])
 
+            if k == 0 and j==0:
+                ylabel("Pair\n1", rotation=0, y=-0.9, fontsize=5)
+            if k == 1 and j==0:
+                ylabel("Pair\n2", rotation=0, y=-0.9, fontsize=5)
+
 #####################################
 # Pairwise correlation
 #####################################
@@ -424,7 +431,7 @@ xlims = (min(np.nanmin(allr['adn']['wak']), np.nanmin(allr['lmn']['wak'])), max(
 ylims = (min(np.nanmin(allr['adn']['sws']), np.nanmin(allr['lmn']['sws'])), max(np.nanmax(allr['adn']['sws']), np.nanmax(allr['lmn']['sws'])))
 minmax = (min(xlims[0],ylims[0]), max(xlims[1],ylims[1]))
 
-for i, g in enumerate(['adn', 'lmn']):
+for i, (g, idx) in enumerate(zip(['adn', 'lmn'], [adn_idx, lmn_idx])):
     subplot(gs_corr1[i,-1], aspect='equal')
     simpleaxis(gca())
     tmp = allr[g].dropna()
@@ -438,7 +445,25 @@ for i, g in enumerate(['adn', 'lmn']):
     xlim(*minmax)
     ylim(*minmax)
     title(names[g])
+
+    # # Annotation
+    idx = [name+"_"+str(j) for j in idx]
     
+    # sys.exit()
+
+    p1 = tmp.loc[(idx[0],idx[1]),['wak','sws']].values
+    p2 = tmp.loc[(idx[0],idx[2]),['wak','sws']].values
+    
+    plot(p1[0], p1[1], 'o', mec=colors[g], mfc="white", alpha=1, markersize=2)
+    plot(p2[0], p2[1], 'o', mec=colors[g], mfc="white", alpha=1, markersize=2)
+
+    annotate("P1", xy=p1, xytext=p1+0.05, fontsize = 5)
+    annotate("P2", xy=p2, xytext=p2+0.05, fontsize = 5)
+
+    # print(p1)
+    # print(p2)
+    # sys.exit()
+
     
 ###############################################################
 ## BOTTOM
@@ -505,7 +530,7 @@ for i, b in enumerate([0, 2]):
             label=names[g], color=colors[g])
 
         ylabel("%", labelpad=-10)
-        ylim(0, 25)
+        # ylim(0, 25)
         yticks([0, 25])
         
     if i == 1:
@@ -665,20 +690,31 @@ k = 1
 subplot(gs_cc2[0,0])
 simpleaxis(gca())
 tmp = allcc[e][groups[k]]
-tmp = pd.DataFrame(index=tmp.index, data=tmp.values[::-1])
+tmp = pd.DataFrame(index=tmp.index, data=tmp.values[::-1]).apply(zscore).loc[-0.01:0.01]
 plot(tmp.mean(1), '-', color=cmap(4))
+# plot(tmp.mean(1).loc[-0.01:0.01], '-', color=cmap(4))
+# imshow(tmp.values.T, aspect='auto', cmap='jet')
+# m = tmp.mean(1).loc[-0.01:0.01]
+# s = tmp.std(1).loc[-0.01:0.01]
+# fill_between(m.index.values, m.values-s, m.values+s, color=cmap(4), alpha=0.1)
+axvline(0, color = 'grey', linewidth=0.5)
 title("CC LMN -> ADN (Sleep)", x=1.5)
-xlabel("Time lag (s)")
-# gca().add_patch(Rectangle((-0.01, 2), 0.02, 1.4, facecolor="blue"))
+xlabel("Time lag (ms)")
+# ylabel("Norm.", rotation=0, y=0.8)
+xticks([-0.01, 0, 0.01], [-10, 0, 10])
+# # gca().add_patch(Rectangle((-0.01, 2), 0.02, 1.4, facecolor="blue"))
+# sys.exit()
+
 
 subplot(gs_cc2[0,1])
 simpleaxis(gca())
 
-plot(tmp.mean(1).loc[-0.01:0.01], '-', color=cmap(4))
-xlabel("(ms)")
+tmp = allcc['sws'][groups[1]].loc[-0.01:0.01].idxmax()*-1.0
+h, b = np.histogram(tmp, np.linspace(-0.01, 0.01, 21))
+
+bar(b[0:-1], h, np.diff(b).mean(), color=cmap(4))
 axvline(0, color = 'grey', linewidth=0.5)
 xticks([-0.01, 0, 0.01], [-10, 0, 10])
-
 
 #####################################
 # GLM LMN -> ADN
@@ -726,7 +762,7 @@ outergs.update(top=0.96, bottom=0.09, right=0.98, left=0.1)
 
 
 savefig(
-    os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/fig1.png",
+    os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/fig1.pdf",
     dpi=200,
     facecolor="white",
 )

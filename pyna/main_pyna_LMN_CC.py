@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-01 12:03:19
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2024-12-03 16:00:09
+# @Last Modified by:   gviejo
+# @Last Modified time: 2025-01-08 12:51:07
 
 # %%
 import numpy as np
@@ -47,6 +47,7 @@ allcc = {e:[] for e in ['wak', 'rem', 'sws']}
 
 
 for s in datasets:
+# for s in ["LMN-ADN/A5011/A5011-201014A"]:
 # for s in ['LMN-ADN/A5021/A5021-210521A']:
     ############################################################################################### 
     # LOADING DATA

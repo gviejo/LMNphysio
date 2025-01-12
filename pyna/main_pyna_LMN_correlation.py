@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-01 12:03:19
 # @Last Modified by:   gviejo
-# @Last Modified time: 2025-01-03 11:54:47
+# @Last Modified time: 2025-01-08 15:26:30
 
 # %%
 import numpy as np
@@ -47,6 +47,7 @@ allr = []
 pearson = {}
 
 for s in datasets:
+# for s in ["LMN-ADN/A5011/A5011-201014A"]:
 # for s in ['LMN-ADN/A5021/A5021-210521A']:
     ############################################################################################### 
     # LOADING DATA
@@ -194,7 +195,7 @@ for s in datasets:
                 #######################
                 allr.append(r)
 
-
+                # sys.exit()
 
 allr = pd.concat(allr)
 
