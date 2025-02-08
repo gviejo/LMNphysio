@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-02-28 16:16:36
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2024-12-05 14:40:01
+# @Last Modified time: 2025-02-08 18:04:46
 import numpy as np
 from numba import jit
 import pandas as pd
@@ -318,6 +318,29 @@ def read_neuroscope_intervals(path, basename, name):
     df = tmp.reshape(len(tmp) // 2, 2)
     isets = nap.IntervalSet(df[:, 0], df[:, 1], time_units="ms")
     return isets
+
+def write_neuroscope_intervals(path, basename, name, isets):
+    path2file = os.path.join(path, basename + "." + name + ".evt")
+
+    start = isets.as_units("ms")["start"].values
+    ends = isets.as_units("ms")["end"].values
+
+    datatowrite = np.vstack((start, ends)).T.flatten()
+
+    n = len(isets)
+
+    texttowrite = np.vstack(
+        (
+            (np.repeat(np.array([name + " start"]), n)),
+            (np.repeat(np.array([name + " end"]), n)),
+        )
+    ).T.flatten()
+    
+    f = open(path2file, "w")
+    for t, n in zip(datatowrite, texttowrite):
+        f.writelines("{:1.6f}".format(t) + "\t" + n + "\n")
+    f.close()
+
 
 def decode_pytorch(spikes, eptrain, bin_size_train, eptest, bin_size_test, angle, std = 1):
     count = spikes.count(bin_size_train, eptrain)

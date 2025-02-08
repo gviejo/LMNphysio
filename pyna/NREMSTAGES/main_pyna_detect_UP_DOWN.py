@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-06-14 16:45:11
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-01-04 18:51:21
+# @Last Modified time: 2025-02-08 18:09:11
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -16,16 +16,26 @@ from functions import *
 ############################################################################################### 
 # GENERAL infos
 ###############################################################################################
-# data_directory = '/mnt/DataGuillaume/'
+if os.path.exists("/mnt/Data/Data/"):
+    data_directory = "/mnt/Data/Data"
+elif os.path.exists('/mnt/DataRAID2/'):    
+    data_directory = '/mnt/DataRAID2/'
+elif os.path.exists('/mnt/ceph/users/gviejo'):    
+    data_directory = '/mnt/ceph/users/gviejo'
+elif os.path.exists('/media/guillaume/Raid2'):
+    data_directory = '/media/guillaume/Raid2'
+elif os.path.exists('/Users/gviejo/Data'):
+    data_directory = '/Users/gviejo/Data'
 
-# infos = getAllInfos(data_directory, datasets)
+datasets = np.hstack([
+    np.genfromtxt(os.path.join(data_directory,'datasets_LMN_PSB.list'), delimiter = '\n', dtype = str, comments = '#'),
+    np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#'),
+    # np.genfromtxt(os.path.join(data_directory,'datasets_LMN_PSB.list'), delimiter = '\n', dtype = str, comments = '#'),
+    ])
 
-data_directory = '/mnt/DataRAID2/'
-datasets = np.genfromtxt('/mnt/DataRAID2/datasets_LMN_ADN.list', delimiter = '\n', dtype = str, comments = '#')
-# datasets = ['LMN-PSB-2/A3019/A3019-220701A']
-# infos = getAllInfos(data_directory, datasets)
 
-# sys.exit()
+datasets = np.unique(datasets)
+
 
 for s in datasets:
 # for s in ['LMN-PSB/A3018/A3018-220613A']:
@@ -34,45 +44,63 @@ for s in datasets:
     # LOADING DATA
     ###############################################################################################
     path = os.path.join(data_directory, s)
-    data = nap.load_session(path, 'neurosuite')
-    spikes = data.spikes
-    position = data.position
-    wake_ep = data.epochs['wake']
-    sws_ep = data.read_neuroscope_intervals('sws')
 
-    angle = position['ry']
-    tuning_curves = nap.compute_1d_tuning_curves(spikes, angle, 120, minmax=(0, 2*np.pi), ep = angle.time_support.loc[[0]])
-    tuning_curves = smoothAngularTuningCurves(tuning_curves, window = 20, deviation = 3.0)
-    SI = nap.compute_1d_mutual_info(tuning_curves, angle, angle.time_support.loc[[0]], minmax=(0,2*np.pi))
-    spikes.set_info(SI)
-    r = correlate_TC_half_epochs(spikes, angle, 120, (0, 2*np.pi))
-    spikes.set_info(halfr = r)
+    basename = os.path.basename(path)
+    filepath = os.path.join(path, "pynapplenwb", basename + ".nwb")
 
-    adn = spikes.getby_category("location")['adn'].getby_threshold('SI', 0.4).getby_threshold('halfr', 0.5).index
-    lmn = spikes.getby_category("location")['lmn'].getby_threshold('SI', 0.2).getby_threshold('halfr', 0.5).index
+    if os.path.exists(filepath):
 
-    tokeep = adn
+        nwb = nap.load_file(filepath)
+        
+        spikes = nwb['units']
+        spikes = spikes.getby_threshold("rate", 1)
 
-    spikes = spikes[tokeep]
+        position = []
+        columns = ['x', 'y', 'z', 'rx', 'ry', 'rz']
+        for k in columns:
+            position.append(nwb[k].values)
+        position = np.array(position)
+        position = np.transpose(position)
+        position = nap.TsdFrame(
+            t=nwb['x'].t,
+            d=position,
+            columns=columns,
+            time_support=nwb['position_time_support'])
 
+        epochs = nwb['epochs']
+        wake_ep = epochs[epochs.tags == "wake"]
+        try:
+            sws_ep = nwb['sws']
+            rem_ep = nwb['rem']
+        except:
+            sws_ep = read_neuroscope_intervals(path, basename, 'sws')
+            rem_ep = read_neuroscope_intervals(path, basename, 'rem')
+        nwb.close()
 
-    #################################################################################################
-    #DETECTION UP/DOWN States
-    #################################################################################################
-    total = spikes.count(0.01, sws_ep).sum(1)/0.01
-    total2 = total.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=2)
-    total2 = nap.Tsd(total2, time_support = sws_ep)
-    down_ep = total2.threshold(np.percentile(total2, 20), method='below').time_support
-    down_ep = down_ep.merge_close_intervals(0.25)
-    down_ep = down_ep.drop_short_intervals(0.05)
-    down_ep = down_ep.drop_long_intervals(2)
+        if "adn" in spikes.location.values:
+            spikes = spikes[spikes.location=="adn"]
 
-    up_ep = sws_ep.set_diff(down_ep)
-    top_ep = total2.threshold(np.percentile(total2, 80), method='above').time_support
+        if "psb" in spikes.location.values:
+            spikes = spikes[spikes.location=="psb"]
+        
 
-    data.write_neuroscope_intervals('.up.evt', up_ep, 'PyUp')
-    data.write_neuroscope_intervals('.down.evt', down_ep, 'PyDown')
-    data.write_neuroscope_intervals('.top.evt', top_ep, 'PyTop')
+        #################################################################################################
+        #DETECTION UP/DOWN States
+        #################################################################################################
+        total = spikes.count(0.01, sws_ep).sum(1)/0.01
+        total2 = total.smooth(2*0.01)
+        
+        down_ep = total2.threshold(np.percentile(total2, 20), method='below').time_support
+        down_ep = down_ep.merge_close_intervals(0.25)
+        down_ep = down_ep.drop_short_intervals(0.05)
+        down_ep = down_ep.drop_long_intervals(2)
+
+        up_ep = sws_ep.set_diff(down_ep)
+        top_ep = total2.threshold(np.percentile(total2, 80), method='above').time_support
+
+        write_neuroscope_intervals(path, basename, 'up', up_ep)
+        write_neuroscope_intervals(path, basename, 'down', down_ep)
+        write_neuroscope_intervals(path, basename, 'top', top_ep)
 
 
 
