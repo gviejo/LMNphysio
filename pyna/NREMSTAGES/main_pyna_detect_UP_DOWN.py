@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-06-14 16:45:11
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-02-08 18:09:11
+# @Last Modified time: 2025-02-24 16:49:32
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -30,7 +30,7 @@ elif os.path.exists('/Users/gviejo/Data'):
 datasets = np.hstack([
     np.genfromtxt(os.path.join(data_directory,'datasets_LMN_PSB.list'), delimiter = '\n', dtype = str, comments = '#'),
     np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#'),
-    # np.genfromtxt(os.path.join(data_directory,'datasets_LMN_PSB.list'), delimiter = '\n', dtype = str, comments = '#'),
+    np.genfromtxt(os.path.join(data_directory,'datasets_LMN_PSB.list'), delimiter = '\n', dtype = str, comments = '#'),
     ])
 
 
@@ -44,12 +44,12 @@ for s in datasets:
     # LOADING DATA
     ###############################################################################################
     path = os.path.join(data_directory, s)
-
     basename = os.path.basename(path)
-    filepath = os.path.join(path, "pynapplenwb", basename + ".nwb")
+    filepath = os.path.join(path, "kilosort4", basename + ".nwb")
 
-    if os.path.exists(filepath):
-
+    if not os.path.exists(filepath):
+        print(f"\nMissing ks4 nwb for {s}\n")
+    else:    
         nwb = nap.load_file(filepath)
         
         spikes = nwb['units']
@@ -69,12 +69,9 @@ for s in datasets:
 
         epochs = nwb['epochs']
         wake_ep = epochs[epochs.tags == "wake"]
-        try:
-            sws_ep = nwb['sws']
-            rem_ep = nwb['rem']
-        except:
-            sws_ep = read_neuroscope_intervals(path, basename, 'sws')
-            rem_ep = read_neuroscope_intervals(path, basename, 'rem')
+        
+        sws_ep = nwb['sws']
+        rem_ep = nwb['rem']
         nwb.close()
 
         if "adn" in spikes.location.values:

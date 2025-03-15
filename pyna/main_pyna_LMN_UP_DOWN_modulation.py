@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-01 12:03:19
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-02-08 18:30:57
+# @Last Modified time: 2025-02-24 17:16:10
 
 # %%
 import numpy as np
@@ -57,7 +57,7 @@ for s in datasets:
     path = os.path.join(data_directory, s)
 
     basename = os.path.basename(path)
-    filepath = os.path.join(path, "pynapplenwb", basename + ".nwb")
+    filepath = os.path.join(path, "kilosort4", basename + ".nwb")
 
     if os.path.exists(filepath):
 
@@ -80,12 +80,9 @@ for s in datasets:
 
         epochs = nwb['epochs']
         wake_ep = epochs[epochs.tags == "wake"]
-        try:
-            sws_ep = nwb['sws']
-            rem_ep = nwb['rem']
-        except:
-            sws_ep = read_neuroscope_intervals(path, basename, 'sws')
-            rem_ep = read_neuroscope_intervals(path, basename, 'rem')
+        
+        sws_ep = nwb['sws']
+        rem_ep = nwb['rem']
 
         nwb.close()
         
@@ -126,7 +123,7 @@ for s in datasets:
             tcurves2.append(tcurves_half)       
         tokeep = np.intersect1d(tokeep2[0], tokeep2[1])
     
-        if len(tokeep) > 3:
+        if len(tokeep) > 8:
 
             spikes = spikes[tokeep]
             # groups = spikes._metadata.loc[tokeep].groupby("location").groups

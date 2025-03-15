@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: gviejo
 # @Date:   2025-01-04 06:11:33
-# @Last Modified by:   gviejo
-# @Last Modified time: 2025-01-09 07:58:12
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2025-02-24 16:55:31
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -48,7 +48,7 @@ for s in datasets:
     ###############################################################################################
     path = os.path.join(data_directory, s)
     basename = os.path.basename(path)
-    filepath = os.path.join(path, "pynapplenwb", basename + ".nwb")
+    filepath = os.path.join(path, "kilosort4", basename + ".nwb")
 
     if os.path.exists(filepath):
         

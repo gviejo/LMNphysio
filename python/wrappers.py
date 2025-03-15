@@ -509,10 +509,10 @@ def loadTTLPulse(file, n_channels = 1, channel = 0, fs = 20000):
 		data = data[:,channel].flatten().astype(np.int32)
 	peaks,_ = scipy.signal.find_peaks(np.diff(data), height=30000)
 	timestep = np.arange(0, len(data))/fs
-	# analogin = pd.Series(index = timestep, data = data)
+	analogin = pd.Series(index = timestep, data = data)
 	peaks+=1
 	ttl = pd.Series(index = timestep[peaks], data = data[peaks])    
-	return ttl
+	return ttl, analogin
 
 def loadAuxiliary(path, n_probe = 1, fs = 20000):
 	"""

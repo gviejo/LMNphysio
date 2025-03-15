@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-12-16 14:24:56
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2024-07-24 11:26:37
+# @Last Modified time: 2025-03-14 15:24:11
 import scipy.io
 import sys, os
 import numpy as np
@@ -20,7 +20,7 @@ from matplotlib.pyplot import *
 # sns.set_theme()
 
 
-path = '/mnt/ceph/users/gviejo/OPTO/A8000/A8066/A8066-240216A'
+path = '/mnt/ceph/users/gviejo/OPTO/B2800/B2811/B2811-240920A'
 #path = '/mnt/Data2/LMN-PSB-2/A3018/A3018-220614A'
 
 data = ntm.load_session(path, 'neurosuite')

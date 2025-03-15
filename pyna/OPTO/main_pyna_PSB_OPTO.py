@@ -2,7 +2,7 @@
 # @Author: gviejo
 # @Date:   2023-08-29 13:46:37
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2024-07-25 12:05:01
+# @Last Modified time: 2025-03-03 12:17:25
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -146,9 +146,9 @@ for ep in ['wake', 'sleep']:
         tuning_curves.columns = frates.columns
         alltc[ep].append(tuning_curves)        
                         
-    allfr[ep] = pd.concat(allfr[ep], 1)
-    allmeta[ep] = pd.concat(allmeta[ep], 0)
-    alltc[ep] = pd.concat(alltc[ep], 1)
+    allfr[ep] = pd.concat(allfr[ep])
+    allmeta[ep] = pd.concat(allmeta[ep])
+    alltc[ep] = pd.concat(alltc[ep])
 
 # allr = pd.concat(allr, 0)
 # corr = pd.concat(corr, 0)
@@ -163,7 +163,7 @@ figure()
 gs = GridSpec(2, 2)
 for i, ep, sl, msl in zip(range(2), ['wake', 'sleep'], [slice(-4,14), slice(-1,2)], [slice(-4,0), slice(-1,0)]):
     order = allmeta[ep].sort_values(by="SI").index.values
-    tmp = allfr[ep][order].loc[sl]    
+    tmp = allfr[ep][order]#.loc[sl]
     tmp = tmp.apply(lambda x: gaussian_filter1d(x, sigma=1, mode='constant'))
     subplot(gs[0,i])
     plot(tmp)
