@@ -2,7 +2,7 @@
 # @Author: gviejo
 # @Date:   2023-08-29 13:46:37
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-03-15 18:29:43
+# @Last Modified time: 2025-03-17 14:15:31
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -14,6 +14,7 @@ from functions import *
 from pycircstat.descriptive import mean as circmean
 import _pickle as cPickle
 from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
+from matplotlib.backends.backend_pdf import PdfPages
 from itertools import combinations
 from scipy.stats import zscore
 from scipy.ndimage import gaussian_filter1d
@@ -241,141 +242,143 @@ for st in allfr.keys():
         
 
 
+pdf_filename = os.path.expanduser("~/Dropbox/LMNphysio/summary_opto/fig_OPTO_SLEEP.pdf")
+
+with PdfPages(pdf_filename) as pdf:
 
 
-figure()
-gs = GridSpec(2, 3)
-for i, keys in zip(range(3), [('adn', 'opto', 'ipsi'), ('adn', 'opto', 'bilateral'), ('lmn', 'opto', 'ipsi')]):
-    # order = allmeta[ep].sort_values(by="SI").index.values
-    # tmp = allfr[ep][order].loc[sl]    
-    tmp = allfr[keys[0]][keys[1]][keys[2]].loc[-1:2]
-    tmp = tmp.apply(lambda x: gaussian_filter1d(x, sigma=1, mode='constant'))
-    subplot(gs[0,i])
-    plot(tmp, color = 'grey', alpha=0.2)
-    plot(tmp.mean(1), color = 'blue')
-    axvline(0)
-    axvline(1)
-    xlim(-1, 2)
-    ylim(0.0, 4.0)
-    title("-".join(keys))
-    subplot(gs[1,i])    
-    # tmp = tmp - tmp.loc[msl].mean(0)
-    # tmp = tmp / tmp.std(0)    
-    imshow(tmp.values.T, cmap = 'jet', aspect='auto')
-    # title(ep)
-tight_layout()
+    fig = figure()
+    gs = GridSpec(2, 3)
+    for i, keys in zip(range(3), [('adn', 'opto', 'ipsi'), ('adn', 'opto', 'bilateral'), ('lmn', 'opto', 'ipsi')]):
+        # order = allmeta[ep].sort_values(by="SI").index.values
+        # tmp = allfr[ep][order].loc[sl]    
+        tmp = allfr[keys[0]][keys[1]][keys[2]].loc[-1:2]
+        tmp = tmp.apply(lambda x: gaussian_filter1d(x, sigma=1, mode='constant'))
+        subplot(gs[0,i])
+        plot(tmp, color = 'grey', alpha=0.2)
+        plot(tmp.mean(1), color = 'blue')
+        axvline(0)
+        axvline(1)
+        xlim(-1, 2)
+        ylim(0.0, 4.0)
+        title("-".join(keys))
+        subplot(gs[1,i])    
+        # tmp = tmp - tmp.loc[msl].mean(0)
+        # tmp = tmp / tmp.std(0)    
+        imshow(tmp.values.T, cmap = 'jet', aspect='auto')
+        # title(ep)
+    tight_layout()
+    pdf.savefig(fig)
+    close(fig)
+
+    cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
 
+    fig = figure(figsize=(28, 12))
+    gs = GridSpec(2, 1)
+    gstop = GridSpecFromSubplotSpec(1, 3, gs[0,0])
+    for i, keys in zip(range(3), [('lmn', 'opto', 'ipsi'), ('adn', 'opto', 'ipsi'), ('adn', 'opto', 'bilateral')]):
+    # for i, st in enumerate(['adn', 'lmn']):
+        gs2 = GridSpecFromSubplotSpec(1, 2, gstop[0,i])
 
-savefig(os.path.expanduser("~/Dropbox/LMNphysio/summary_opto/fig_LMN_OPTO.png"))
+        st, gr, sd = keys
 
-cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
+        # Opto vs ctrl
+        subplot(gs2[0,0])
+        e = 'opto'
+        for j, gr in enumerate(['opto', 'ctrl']):
 
+            if sd not in allr[st][gr].keys():
+                continue
 
-figure(figsize=(28, 12))
-gs = GridSpec(2, 1)
-gstop = GridSpecFromSubplotSpec(1, 3, gs[0,0])
-for i, keys in zip(range(3), [('lmn', 'opto', 'ipsi'), ('adn', 'opto', 'ipsi'), ('adn', 'opto', 'bilateral')]):
-# for i, st in enumerate(['adn', 'lmn']):
-    gs2 = GridSpecFromSubplotSpec(1, 2, gstop[0,i])
+            r, p = scipy.stats.pearsonr(allr[st][gr][sd]['wak'], allr[st][gr][sd][e]) # Wak vs opto
 
-    st, gr, sd = keys
+            plot(allr[st][gr][sd]['wak'], allr[st][gr][sd][e], 'o', color = cycle[j], alpha = 0.5, label = 'r = '+str(np.round(r, 3)) + f"; {gr}")
 
-    # Opto vs ctrl
-    subplot(gs2[0,0])
-    e = 'opto'
-    for j, gr in enumerate(['opto', 'ctrl']):
+            m, b = np.polyfit(allr[st][gr][sd]['wak'].values, allr[st][gr][sd][e].values, 1)
+            x = np.linspace(allr[st][gr][sd]['wak'].min(), allr[st][gr][sd]['wak'].max(),5)
+            plot(x, x*m + b)
+            xlabel('wak')
+            ylabel(e)
+            xlim(allr[st][gr][sd]['wak'].min(), allr[st][gr][sd]['wak'].max())
+            # ylim(allr[st].iloc[:,1:].min().min(), allr[st].iloc[:,1:].max().max())
+            ylim(allr[st][gr][sd]['wak'].min(), allr[st][gr][sd]['wak'].max())
+            legend()
+            title(f"{st.upper()} "+" chrimson vs tdtomato" + f"\n {sd}")
+                
+        # Opto vs preopto
+        subplot(gs2[0,1])    
+        gr = 'opto'
+        labels = ['light', 'nolight']
+        for k, e in enumerate(['opto', 'sws']):
 
-        if sd not in allr[st][gr].keys():
-            continue
+            r, p = scipy.stats.pearsonr(allr[st][gr][sd]['wak'], allr[st][gr][sd][e])
 
-        r, p = scipy.stats.pearsonr(allr[st][gr][sd]['wak'], allr[st][gr][sd][e]) # Wak vs opto
+            plot(allr[st][gr][sd]['wak'], allr[st][gr][sd][e], 'o', color = cycle[k], alpha = 0.5, label = 'r = '+str(np.round(r, 3)) + f"; {labels[k]}")
 
-        plot(allr[st][gr][sd]['wak'], allr[st][gr][sd][e], 'o', color = cycle[j], alpha = 0.5, label = 'r = '+str(np.round(r, 3)) + f"; {gr}")
+            m, b = np.polyfit(allr[st][gr][sd]['wak'].values, allr[st][gr][sd][e].values, 1)
+            x = np.linspace(allr[st][gr][sd]['wak'].min(), allr[st][gr][sd]['wak'].max(),5)
+            plot(x, x*m + b)
+            xlabel('wak')
+            ylabel(e)
+            xlim(allr[st][gr][sd]['wak'].min(), allr[st][gr][sd]['wak'].max())
+            # ylim(allr[st].iloc[:,1:].min().min(), allr[st].iloc[:,1:].max().max())
+            ylim(allr[st][gr][sd]['wak'].min(), allr[st][gr][sd]['wak'].max())
+            legend()
+            title(f"{st.upper()} "+" chrimson light vs no light")
 
-        m, b = np.polyfit(allr[st][gr][sd]['wak'].values, allr[st][gr][sd][e].values, 1)
-        x = np.linspace(allr[st][gr][sd]['wak'].min(), allr[st][gr][sd]['wak'].max(),5)
-        plot(x, x*m + b)
-        xlabel('wak')
-        ylabel(e)
-        xlim(allr[st][gr][sd]['wak'].min(), allr[st][gr][sd]['wak'].max())
-        # ylim(allr[st].iloc[:,1:].min().min(), allr[st].iloc[:,1:].max().max())
-        ylim(allr[st][gr][sd]['wak'].min(), allr[st][gr][sd]['wak'].max())
-        legend()
-        title(f"{st.upper()} "+" chrimson vs tdtomato" + f"\n {sd}")
-            
-    # Opto vs preopto
-    subplot(gs2[0,1])    
-    gr = 'opto'
-    labels = ['light', 'nolight']
-    for k, e in enumerate(['opto', 'sws']):
+    gsbot = GridSpecFromSubplotSpec(1, 2, gs[1,0])
+    orders = {
+        "adn" : [('adn', 'opto', 'ipsi', 'opto'), ('adn', 'opto', 'ipsi', 'sws'), ('adn', 'ctrl', 'ipsi', 'opto'), ('adn', 'opto', 'bilateral', 'opto')],
+        "lmn" : [('lmn', 'opto', 'ipsi', 'opto'), ('lmn', 'opto', 'ipsi', 'sws'), ('lmn', 'ctrl', 'ipsi', 'opto')]
+    }
+    for i, st in enumerate(['lmn', 'adn']):
 
-        r, p = scipy.stats.pearsonr(allr[st][gr][sd]['wak'], allr[st][gr][sd][e])
+        gs3 = GridSpecFromSubplotSpec(1, 2, gsbot[0,i])
 
-        plot(allr[st][gr][sd]['wak'], allr[st][gr][sd][e], 'o', color = cycle[k], alpha = 0.5, label = 'r = '+str(np.round(r, 3)) + f"; {labels[k]}")
+        # Pearson per sesion
+        subplot(gs3[0,0])
+        for j, keys in enumerate(orders[st]):
+            st, gr, sd, k = keys
 
-        m, b = np.polyfit(allr[st][gr][sd]['wak'].values, allr[st][gr][sd][e].values, 1)
-        x = np.linspace(allr[st][gr][sd]['wak'].min(), allr[st][gr][sd]['wak'].max(),5)
-        plot(x, x*m + b)
-        xlabel('wak')
-        ylabel(e)
-        xlim(allr[st][gr][sd]['wak'].min(), allr[st][gr][sd]['wak'].max())
-        # ylim(allr[st].iloc[:,1:].min().min(), allr[st].iloc[:,1:].max().max())
-        ylim(allr[st][gr][sd]['wak'].min(), allr[st][gr][sd]['wak'].max())
-        legend()
-        title(f"{st.upper()} "+" chrimson light vs no light")
+            corr2 = corr[st][gr][sd]
+            corr2 = corr2[corr2['n']>3][k]
+        
+            plot(np.random.randn(len(corr2))*0.1+np.ones(len(corr2))*j, corr2, 'o', markersize=6)
 
-gsbot = GridSpecFromSubplotSpec(1, 2, gs[1,0])
-orders = {
-    "adn" : [('adn', 'opto', 'ipsi', 'opto'), ('adn', 'opto', 'ipsi', 'sws'), ('adn', 'ctrl', 'ipsi', 'opto'), ('adn', 'opto', 'bilateral', 'opto')],
-    "lmn" : [('lmn', 'opto', 'ipsi', 'opto'), ('lmn', 'opto', 'ipsi', 'sws'), ('lmn', 'ctrl', 'ipsi', 'opto')]
-}
-for i, st in enumerate(['lmn', 'adn']):
+        ylim(-1, 1)
+        # xticks(np.arange(len(orders[st])), ["\n".join(o) for o in orders[st]])
+        if st == "adn":
+            xticks([0, 1, 2, 3], ['chrimson\nipsilateral', 'chrimson\npre-opto', 'tdtomate\n(control)', 'chrimson\nbilateral'])
+        else:
+            xticks([0, 1, 2], ['chrimson\nipsilateral', 'chrimson\npre-opto', 'tdtomate\n(control)'])
 
-    gs3 = GridSpecFromSubplotSpec(1, 2, gsbot[0,i])
+        ylabel("Pearson r")
+        title(st.upper())
+        
+        # # Firing rate
+        subplot(gs3[0,1])
+        count = 0    
+        for j, keys in enumerate(orders[st]):
+            st, gr, sd, k = keys
+            if k == "sws": continue
+            chfr = change_fr[st][gr][sd]
+            delta = (chfr['opto'] - chfr['pre'])/chfr['pre']
+            plot(np.random.randn(len(delta))*0.076+np.ones(len(chfr))*count, delta, 'o', markersize=6)
+            count += 1        
+        title(st.upper())
+        ylabel("Delta firing rate")
+        ylim(-1, 1)
+        if st == "adn":
+            xticks([0, 1, 2], ['chrimson\nipsilateral', 'tdtomate\n(control)', 'chrimson\nbilateral'])
+        else:
+            xticks([0, 1], ['chrimson\nipsilateral', 'tdtomate\n(control)'])
+        
 
-    # Pearson per sesion
-    subplot(gs3[0,0])
-    for j, keys in enumerate(orders[st]):
-        st, gr, sd, k = keys
+    gs.update(right=0.98, left=0.1)
+    pdf.savefig(fig)
+    close(fig)
 
-        corr2 = corr[st][gr][sd]
-        corr2 = corr2[corr2['n']>3][k]
-    
-        plot(np.random.randn(len(corr2))*0.1+np.ones(len(corr2))*j, corr2, 'o', markersize=6)
-
-    ylim(-1, 1)
-    # xticks(np.arange(len(orders[st])), ["\n".join(o) for o in orders[st]])
-    if st == "adn":
-        xticks([0, 1, 2, 3], ['chrimson\nipsilateral', 'chrimson\npre-opto', 'tdtomate\n(control)', 'chrimson\nbilateral'])
-    else:
-        xticks([0, 1, 2], ['chrimson\nipsilateral', 'chrimson\npre-opto', 'tdtomate\n(control)'])
-
-    ylabel("Pearson r")
-    title(st.upper())
-    
-    # # Firing rate
-    subplot(gs3[0,1])
-    count = 0    
-    for j, keys in enumerate(orders[st]):
-        st, gr, sd, k = keys
-        if k == "sws": continue
-        chfr = change_fr[st][gr][sd]
-        delta = (chfr['opto'] - chfr['pre'])/chfr['pre']
-        plot(np.random.randn(len(delta))*0.076+np.ones(len(chfr))*count, delta, 'o', markersize=6)
-        count += 1        
-    title(st.upper())
-    ylabel("Delta firing rate")
-    ylim(-1, 1)
-    if st == "adn":
-        xticks([0, 1, 2], ['chrimson\nipsilateral', 'tdtomate\n(control)', 'chrimson\nbilateral'])
-    else:
-        xticks([0, 1], ['chrimson\nipsilateral', 'tdtomate\n(control)'])
-    
-
-gs.update(right=0.98, left=0.1)
-savefig(os.path.expanduser("~/Dropbox/LMNphysio/summary_opto/fig_OPTO_SLEEP.png"))
-show()
 
 
 # ##################################################################

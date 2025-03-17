@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-02-28 16:16:36
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-02-08 18:04:46
+# @Last Modified time: 2025-03-17 13:03:36
 import numpy as np
 from numba import jit
 import pandas as pd
@@ -204,11 +204,13 @@ def plot_tc(tuning_curves, spikes):
             gca().set_xticklabels([])
     show()
 
-def centerTuningCurves(tcurve):
+def centerTuningCurves_with_mean(tcurve, by=None):
     """
-    center tuning curves by peak
+    center tuning curves by mean
     """
-    peak            = pd.Series(index=tcurve.columns,data = np.array([circmean(tcurve.index.values, tcurve[i].values) for i in tcurve.columns]))
+    if by is None:
+        by = tcurve
+    peak            = pd.Series(index=by.columns,data = np.array([circmean(by.index.values, by[i].values) for i in by.columns]))
     new_tcurve      = []
     for p in tcurve.columns:    
         x = tcurve[p].index.values - tcurve[p].index[np.searchsorted(tcurve[p].index, peak[p])-1]
@@ -219,11 +221,13 @@ def centerTuningCurves(tcurve):
     new_tcurve = pd.DataFrame(index = np.linspace(-np.pi, np.pi, tcurve.shape[0]+1)[0:-1], data = np.array(new_tcurve).T, columns = tcurve.columns)
     return new_tcurve
 
-def centerTuningCurves2(tcurve):
+def centerTuningCurves_with_peak(tcurve, by=None):
     """
     center tuning curves by peak index
     """
-    peak            = tcurve.idxmax()
+    if by is None:
+        by = tcurve
+    peak            = by.idxmax()
     new_tcurve      = []
     for p in tcurve.columns:    
         x = tcurve[p].index.values - tcurve[p].index[np.searchsorted(tcurve[p].index, peak[p])-1]
@@ -232,7 +236,9 @@ def centerTuningCurves2(tcurve):
         tmp = pd.Series(index = x, data = tcurve[p].values).sort_index()
         new_tcurve.append(tmp.values)
     new_tcurve = pd.DataFrame(index = np.linspace(-np.pi, np.pi, tcurve.shape[0]+1)[0:-1], data = np.array(new_tcurve).T, columns = tcurve.columns)
-    return new_tcurve    
+    return new_tcurve
+    
+
 
 def compute_ISI_HD(spikes, angle, ep, bins):
     nb_bin_hd = 31
