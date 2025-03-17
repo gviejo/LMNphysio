@@ -2,7 +2,7 @@
 # @Author: gviejo
 # @Date:   2023-08-29 13:46:37
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-03-17 14:09:14
+# @Last Modified time: 2025-03-17 18:23:27
 # %%
 import numpy as np
 import pandas as pd
@@ -45,7 +45,7 @@ datasets = yaml.safe_load(
 
 
 SI_thr = {
-    'adn':0.5, 
+    'adn':0.2, 
     'lmn':0.1,
     'psb':1.0
     }

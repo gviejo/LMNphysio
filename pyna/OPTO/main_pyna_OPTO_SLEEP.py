@@ -2,7 +2,7 @@
 # @Author: gviejo
 # @Date:   2023-08-29 13:46:37
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-03-17 14:15:31
+# @Last Modified time: 2025-03-17 18:28:21
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -44,7 +44,7 @@ datasets = yaml.safe_load(
 
 
 SI_thr = {
-    'adn':0.5, 
+    'adn':0.2, 
     'lmn':0.1,
     'psb':1.0
     }
@@ -83,7 +83,8 @@ for st in ['adn', 'lmn']:
                 allfr[st][gr][sd] =[]
 
                 for s in dataset:
-                    
+                    print(s)
+
                     ############################################################################################### 
                     # LOADING DATA
                     ###############################################################################################
@@ -265,7 +266,8 @@ with PdfPages(pdf_filename) as pdf:
         subplot(gs[1,i])    
         # tmp = tmp - tmp.loc[msl].mean(0)
         # tmp = tmp / tmp.std(0)    
-        imshow(tmp.values.T, cmap = 'jet', aspect='auto')
+        imshow(tmp.values.T, cmap = 'jet', aspect='auto', vmin = 0, vmax = 2)
+        colorbar()
         # title(ep)
     tight_layout()
     pdf.savefig(fig)
