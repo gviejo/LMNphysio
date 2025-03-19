@@ -2,7 +2,7 @@
 # @Author: gviejo
 # @Date:   2023-08-29 13:46:37
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-03-17 18:28:21
+# @Last Modified time: 2025-03-19 17:14:12
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -69,7 +69,7 @@ for st in ['adn', 'lmn']:
         corr[st][gr] = {}
         allfr[st][gr] = {}
 
-        for sd in ['ipsi', 'bilateral']:
+        for sd in ['ipsi', 'bilateral', 'contra']:
 
             try:
                 dataset = datasets[st][gr][sd]['sleep']
@@ -249,8 +249,8 @@ with PdfPages(pdf_filename) as pdf:
 
 
     fig = figure()
-    gs = GridSpec(2, 3)
-    for i, keys in zip(range(3), [('adn', 'opto', 'ipsi'), ('adn', 'opto', 'bilateral'), ('lmn', 'opto', 'ipsi')]):
+    gs = GridSpec(2, 4)
+    for i, keys in zip(range(4), [('lmn', 'opto', 'ipsi'), ('adn', 'opto', 'ipsi'), ('adn', 'opto', 'contra'), ('adn', 'opto', 'bilateral')]):
         # order = allmeta[ep].sort_values(by="SI").index.values
         # tmp = allfr[ep][order].loc[sl]    
         tmp = allfr[keys[0]][keys[1]][keys[2]].loc[-1:2]
@@ -278,8 +278,8 @@ with PdfPages(pdf_filename) as pdf:
 
     fig = figure(figsize=(28, 12))
     gs = GridSpec(2, 1)
-    gstop = GridSpecFromSubplotSpec(1, 3, gs[0,0])
-    for i, keys in zip(range(3), [('lmn', 'opto', 'ipsi'), ('adn', 'opto', 'ipsi'), ('adn', 'opto', 'bilateral')]):
+    gstop = GridSpecFromSubplotSpec(1, 4, gs[0,0])
+    for i, keys in zip(range(4), [('lmn', 'opto', 'ipsi'), ('adn', 'opto', 'ipsi'), ('adn', 'opto', 'contra'), ('adn', 'opto', 'bilateral')]):
     # for i, st in enumerate(['adn', 'lmn']):
         gs2 = GridSpecFromSubplotSpec(1, 2, gstop[0,i])
 
@@ -331,7 +331,7 @@ with PdfPages(pdf_filename) as pdf:
 
     gsbot = GridSpecFromSubplotSpec(1, 2, gs[1,0])
     orders = {
-        "adn" : [('adn', 'opto', 'ipsi', 'opto'), ('adn', 'opto', 'ipsi', 'sws'), ('adn', 'ctrl', 'ipsi', 'opto'), ('adn', 'opto', 'bilateral', 'opto')],
+        "adn" : [('adn', 'opto', 'ipsi', 'opto'), ('adn', 'opto', 'ipsi', 'sws'), ('adn', 'ctrl', 'ipsi', 'opto'), ('adn', 'opto', 'bilateral', 'opto'), ('adn', 'opto', 'contra', 'opto')],
         "lmn" : [('lmn', 'opto', 'ipsi', 'opto'), ('lmn', 'opto', 'ipsi', 'sws'), ('lmn', 'ctrl', 'ipsi', 'opto')]
     }
     for i, st in enumerate(['lmn', 'adn']):
@@ -351,7 +351,7 @@ with PdfPages(pdf_filename) as pdf:
         ylim(-1, 1)
         # xticks(np.arange(len(orders[st])), ["\n".join(o) for o in orders[st]])
         if st == "adn":
-            xticks([0, 1, 2, 3], ['chrimson\nipsilateral', 'chrimson\npre-opto', 'tdtomate\n(control)', 'chrimson\nbilateral'])
+            xticks([0, 1, 2, 3, 4], ['chrimson\nipsilateral', 'chrimson\npre-opto', 'tdtomate\n(control)', 'chrimson\nbilateral', 'chrimson\ncontralateral'])
         else:
             xticks([0, 1, 2], ['chrimson\nipsilateral', 'chrimson\npre-opto', 'tdtomate\n(control)'])
 
@@ -372,7 +372,7 @@ with PdfPages(pdf_filename) as pdf:
         ylabel("Delta firing rate")
         ylim(-1, 1)
         if st == "adn":
-            xticks([0, 1, 2], ['chrimson\nipsilateral', 'tdtomate\n(control)', 'chrimson\nbilateral'])
+            xticks([0, 1, 2, 3], ['chrimson\nipsilateral', 'tdtomate\n(control)', 'chrimson\nbilateral', 'chrimson\ncontralateral'])
         else:
             xticks([0, 1], ['chrimson\nipsilateral', 'tdtomate\n(control)'])
         
