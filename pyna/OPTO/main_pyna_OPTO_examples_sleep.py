@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2025-03-17 14:23:16
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-03-19 16:48:32
+# @Last Modified time: 2025-03-20 17:48:22
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -70,7 +70,7 @@ sessions_exs = {
 
 # for i, grp in enumerate(sessions.keys()[[1]]):
 
-grp = "adn-bilateral"
+grp = "lmn-ipsilateral"
 s = sessions[grp]
 st = grp.split("-")[0]
 
@@ -127,13 +127,13 @@ order = np.argsort(peaks.sort_values().index)
 spikes.set_info(order=order, peaks=peaks)
 # tuning_curves.columns = [basename+"_"+str(i) for i in tuning_curves.columns]
 
-# figure()
-# for i, n in enumerate(tcurves.columns):
-#     subplot(6,4,i+1, projection='polar')
-#     plot(tcurves[n], label=f"{spikes.group[n]} {np.round(spikes.SI[n], 2)}")
-#     legend()
+figure()
+for i, n in enumerate(tcurves.columns):
+    subplot(6,6,i+1, projection='polar')
+    plot(tcurves[n], label=f"{spikes.group[n]} {np.round(spikes.SI[n], 2)}")
+    legend()
 
-#     plot([peaks[n], peaks[n]], [0, tcurves[n].max()])
+    plot([peaks[n], peaks[n]], [0, tcurves[n].max()])
 
 
 # subplot(gs[i,0])
@@ -147,56 +147,71 @@ spikes.set_info(order=order, peaks=peaks)
 # ax2.plot(position['ry'].restrict(sessions_exs[sessions[grp]]), '.')
 
 # title(grp + " " + len(spikes))
-
+a, p = nap.decode_1d(tcurves, spikes, sws_ep, 0.02)
 
 figure()
+ax = subplot(211)
 for n in spikes.keys():
     cl = hsv_to_rgb([spikes.peaks[n]/(2*np.pi), 1, 1])
     plot(spikes[n].restrict(sws_ep).fillna(spikes.order[n]), '|', color=cl, markersize=20, mew=5)
 [axvspan(s, e, alpha=0.5) for s, e in opto_ep.values]
-# ylim(0, 2*np.pi)
-ax2 = gca().twinx()
-ax2.set_ylim(0, 2*np.pi)
+
+subplot(212, sharex=ax)
+for e in sws_ep:
+    tmp = p.restrict(e)
+    pcolormesh(tmp.t, tmp.columns.values, tmp.values.T, cmap='jet')
+
+# # ylim(0, 2*np.pi)
+# ax2 = gca().twinx()
+# ax2.set_ylim(0, 2*np.pi)
 
 
 
     ###################################################
 
 # tight_layout()
-# savefig(os.path.expanduser("~/Dropbox/LMNphysio/summary_opto/fig_examples_wake.png"))
+# savefig(os.path.expanduser("~/Dropbox/LMNphysio/summary_opto/fig_examples_sleep.png"))
         
 
-sys.exit()
+# sys.exit()
 
 
 
 
-# manifold
+# # manifold
 
-pre_opto = nap.IntervalSet(opto_ep.start-1.0, opto_ep.end)
+# pre_opto = nap.IntervalSet(opto_ep.start-1.0, opto_ep.end)
 
-count = spikes.restrict(pre_opto).count(0.02).smooth(0.05)
-X = StandardScaler().fit_transform(count)
-# A = np.unwrap(position['ry']).bin_average(0.2, ep=position.time_support[1])%(2*np.pi)
-# RGB = getRGB(position['ry'], position.time_support[1], 0.2)
+# count = spikes.restrict(pre_opto).count(0.02).smooth(0.05)
 
-imap = MDS(n_components=2, dissimilarity="euclidean", random_state=42).fit_transform(X)
-# imap = Isomap(n_components=2, n_neighbors=10).fit_transform(X)
-# imap = KernelPCA(n_components=2, kernel='cosine').fit_transform(X)
-imap = nap.TsdFrame(t=count.t, d=imap)
+# count = count[(count.sum(1)>1).values]
 
+# X = StandardScaler().fit_transform(count)
+# # A = np.unwrap(position['ry']).bin_average(0.2, ep=position.time_support[1])%(2*np.pi)
+# # RGB = getRGB(position['ry'], position.time_support[1], 0.2)
 
-figure()
-scatter(imap[:,0].d, imap[:,1].d, color='grey')
-tmp = imap.restrict(opto_ep)
-scatter(tmp[:,0].d, tmp[:,1].d, color='red')
-show()
+# imap = MDS(n_components=2, dissimilarity="euclidean", random_state=42).fit_transform(X)
+# # imap = Isomap(n_components=2, n_neighbors=10).fit_transform(X)
+# # imap = KernelPCA(n_components=2, kernel='cosine').fit_transform(X)
+# imap = nap.TsdFrame(t=count.t, d=imap)
 
 
-from mpl_toolkits.mplot3d import axes3d
-ax = plt.figure().add_subplot(projection='3d')
-ax.scatter(imap[:,0], imap[:,1], imap[:,2], c='grey', alpha=0.5)
-tmp = imap.restrict(opto_ep)
-ax.scatter(tmp[:,0], tmp[:,1], tmp[:,2], c='red')
+# figure()
+# subplot(211)
+# scatter(imap[:,0].d, imap[:,1].d, color='grey')
+# tmp = imap.restrict(opto_ep)
+# scatter(tmp[:,0].d, tmp[:,1].d, color='red')
+# subplot(212)
+# tmp = imap.restrict(pre_opto.set_diff(opto_ep))
+# scatter(tmp[:,0].d, tmp[:,1].d, color='grey')
+
+# show()
+
+
+# # from mpl_toolkits.mplot3d import axes3d
+# # ax = plt.figure().add_subplot(projection='3d')
+# # ax.scatter(imap[:,0], imap[:,1], imap[:,2], c='grey', alpha=0.5)
+# # tmp = imap.restrict(opto_ep)
+# # ax.scatter(tmp[:,0], tmp[:,1], tmp[:,2], c='red')
 
 
