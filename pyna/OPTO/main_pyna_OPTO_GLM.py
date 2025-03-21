@@ -2,7 +2,7 @@
 # @Author: gviejo
 # @Date:   2023-08-29 13:46:37
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-03-20 17:07:18
+# @Last Modified time: 2025-03-21 11:23:16
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -240,36 +240,9 @@ for st in ['adn', 'lmn']:
 
         
 
-sys.exit()
 pdf_filename = os.path.expanduser("~/Dropbox/LMNphysio/summary_opto/fig_OPTO_GLM.pdf")
 
 with PdfPages(pdf_filename) as pdf:
-
-
-    fig = figure()
-    gs = GridSpec(2, 4)
-    for i, keys in zip(range(4), [('lmn', 'opto', 'ipsi'), ('adn', 'opto', 'ipsi'), ('adn', 'opto', 'contra'), ('adn', 'opto', 'bilateral')]):
-        # order = allmeta[ep].sort_values(by="SI").index.values
-        # tmp = allfr[ep][order].loc[sl]    
-        tmp = allfr[keys[0]][keys[1]][keys[2]].loc[-1:2]
-        tmp = tmp.apply(lambda x: gaussian_filter1d(x, sigma=1, mode='constant'))
-        subplot(gs[0,i])
-        plot(tmp, color = 'grey', alpha=0.2)
-        plot(tmp.mean(1), color = 'blue')
-        axvline(0)
-        axvline(1)
-        xlim(-1, 2)
-        ylim(0.0, 4.0)
-        title("-".join(keys))
-        subplot(gs[1,i])    
-        # tmp = tmp - tmp.loc[msl].mean(0)
-        # tmp = tmp / tmp.std(0)    
-        imshow(tmp.values.T, cmap = 'jet', aspect='auto', vmin = 0, vmax = 2)
-        colorbar()
-        # title(ep)
-    tight_layout()
-    pdf.savefig(fig)
-    close(fig)
 
     cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
@@ -290,6 +263,9 @@ with PdfPages(pdf_filename) as pdf:
 
             if sd not in allr[st][gr].keys():
                 continue
+
+            allr[st][gr][sd] = allr[st][gr][sd] - allr[st][gr][sd].mean(0)
+            allr[st][gr][sd] = allr[st][gr][sd] / allr[st][gr][sd].std(0)
 
             r, p = scipy.stats.pearsonr(allr[st][gr][sd]['wak'], allr[st][gr][sd][e]) # Wak vs opto
 
@@ -356,23 +332,23 @@ with PdfPages(pdf_filename) as pdf:
         ylabel("Pearson r")
         title(st.upper())
         
-        # # Firing rate
-        subplot(gs3[0,1])
-        count = 0    
-        for j, keys in enumerate(orders[st]):
-            st, gr, sd, k = keys
-            if k == "sws": continue
-            chfr = change_fr[st][gr][sd]
-            delta = (chfr['opto'] - chfr['pre'])/chfr['pre']
-            plot(np.random.randn(len(delta))*0.076+np.ones(len(chfr))*count, delta, 'o', markersize=6)
-            count += 1        
-        title(st.upper())
-        ylabel("Delta firing rate")
-        ylim(-1, 1)
-        if st == "adn":
-            xticks([0, 1, 2, 3], ['chrimson\nipsilateral', 'tdtomate\n(control)', 'chrimson\nbilateral', 'chrimson\ncontralateral'])
-        else:
-            xticks([0, 1], ['chrimson\nipsilateral', 'tdtomate\n(control)'])
+        # # # Firing rate
+        # subplot(gs3[0,1])
+        # count = 0    
+        # for j, keys in enumerate(orders[st]):
+        #     st, gr, sd, k = keys
+        #     if k == "sws": continue
+        #     chfr = change_fr[st][gr][sd]
+        #     delta = (chfr['opto'] - chfr['pre'])/chfr['pre']
+        #     plot(np.random.randn(len(delta))*0.076+np.ones(len(chfr))*count, delta, 'o', markersize=6)
+        #     count += 1        
+        # title(st.upper())
+        # ylabel("Delta firing rate")
+        # ylim(-1, 1)
+        # if st == "adn":
+        #     xticks([0, 1, 2, 3], ['chrimson\nipsilateral', 'tdtomate\n(control)', 'chrimson\nbilateral', 'chrimson\ncontralateral'])
+        # else:
+        #     xticks([0, 1], ['chrimson\nipsilateral', 'tdtomate\n(control)'])
         
 
     gs.update(right=0.98, left=0.1)
