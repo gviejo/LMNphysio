@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
-# @Last Modified by:   gviejo
-# @Last Modified time: 2025-01-05 16:15:21
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2025-04-01 20:07:40
 import numpy as np
 import os, sys
 from scipy.optimize import minimize
@@ -645,7 +645,7 @@ class GLM_HMM_nemos(object):
         T = len(self.O)
 
 
-        A = fit_transition(self.K, T, np.asarray(self.O.values))
+        # A = fit_transition(self.K, T, np.asarray(self.O.values))
 
         for _ in range(2):
             A, Z, score = optimize_transition((self.K, T, np.asarray(self.O.values)))

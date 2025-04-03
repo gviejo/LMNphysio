@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-02-28 16:16:36
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-03-17 13:03:36
+# @Last Modified time: 2025-03-31 17:02:55
 import numpy as np
 from numba import jit
 import pandas as pd
@@ -513,3 +513,64 @@ def downsample(tsd, up, down):
     dtsd = scipy.signal.resample_poly(tsd.values.astype(np.float32), up, down)
     dt = tsd.index.values[np.arange(0, tsd.shape[0], down)]
     return nap.Tsd(t=dt, d=dtsd, time_support = tsd.time_support)
+
+def load_opto_data(path, st):
+    SI_thr = {
+        'adn':0.2, 
+        'lmn':0.1,
+        'psb':1.0
+        }    
+    basename = os.path.basename(path)
+    filepath = os.path.join(path, "kilosort4", basename + ".nwb")
+    nwb = nap.load_file(filepath)
+    spikes = nwb['units']
+    spikes = spikes.getby_threshold("rate", 1)
+
+    position = []
+    columns = ['x', 'y', 'z', 'rx', 'ry', 'rz']
+    for k in columns:
+        if k == 'ry':
+            ry = nwb[k].values[:]
+            position.append((ry + np.pi)%(2*np.pi))
+        else:
+            position.append(nwb[k].values)
+
+    position = np.array(position)
+    position = np.transpose(position)
+    position = nap.TsdFrame(
+        t=nwb['x'].t,
+        d=position,
+        columns=columns,
+        time_support=nwb['position_time_support'])
+
+    epochs = nwb['epochs']
+    wake_ep = epochs[epochs.tags == "wake"]
+    opto_ep = nwb["opto"]
+    sws_ep = nwb['sws']
+    nwb.close()
+
+    spikes = spikes[spikes.location == st]
+    opto_ep = opto_ep.intersect(sws_ep)
+    stim_duration = 1.0
+    opto_ep = opto_ep[(opto_ep['end'] - opto_ep['start'])>=stim_duration-0.001]
+
+    tuning_curves = nap.compute_1d_tuning_curves(spikes, position['ry'], 120, minmax=(0, 2*np.pi), ep = position.time_support.loc[[0]])
+    tuning_curves = smoothAngularTuningCurves(tuning_curves)
+    tcurves = tuning_curves
+    SI = nap.compute_1d_mutual_info(tcurves, position['ry'], position.time_support.loc[[0]], (0, 2*np.pi))
+    spikes.set_info(SI)
+    spikes.set_info(max_fr = tcurves.max())
+
+    spikes = spikes.getby_threshold("SI", SI_thr[st])
+    spikes = spikes.getby_threshold("rate", 1.0)
+    spikes = spikes.getby_threshold("max_fr", 3.0)
+
+    tokeep = spikes.index
+    tcurves = tcurves[tokeep]
+
+    # peaks = pd.Series(index=tcurves.columns, data = np.array([circmean(tcurves.index.values, tcurves[i].values) for i in tcurves.columns]))
+    peaks = tcurves.idxmax()
+    order = np.argsort(peaks.reset_index(drop='True').sort_values().index)
+    spikes.set_info(order=order, peaks=peaks)
+
+    return spikes, position, {'wake_ep':wake_ep, 'opto_ep':opto_ep, 'sws_ep':sws_ep}

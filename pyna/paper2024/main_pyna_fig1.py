@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   gviejo
-# @Last Modified time: 2025-01-12 08:12:33
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2025-01-31 17:30:00
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -767,3 +767,5 @@ savefig(
     facecolor="white",
 )
 # show()
+
+

@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   gviejo
-# @Last Modified time: 2025-01-03 06:33:02
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2025-04-01 13:47:26
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -159,6 +159,72 @@ imshow(img, aspect="equal")
 xticks([])
 yticks([])
 
+
+#####################################
+# Examples LMN IPSILATERAL
+#####################################
+st = 'adn'
+
+gs2 = gridspec.GridSpecFromSubplotSpec(2, 1, gs_top[0,1])
+
+s = "A8000/A8066/A8066-240216B"
+ex = nap.IntervalSet(4076.9, 4083.6)
+path = os.path.join(data_directory, "OPTO", s)
+
+spikes, position, eps = load_opto_data(path, st)
+opto_ep = eps['opto_ep']
+
+exex = nap.IntervalSet(ex.start[0] - 10, ex.end[0] + 10)
+p = spikes.count(0.01, exex).smooth(0.04, size_factor=20)
+d=np.array([p.loc[i] for i in spikes.order.sort_values().index]).T
+p = nap.TsdFrame(t=p.t, d=d, time_support=p.time_support)
+p = np.sqrt(p / p.max(0))
+    
+    
+ax = subplot(gs2[0,0])
+simpleaxis(gca())
+for n in spikes.keys():
+    # cl = hsv_to_rgb([spikes.peaks[n]/(2*np.pi), 1, 1])
+    plot(spikes[n].restrict(ex).fillna(spikes.order[n]), '|', color=colors[st], markersize=2.1, mew=0.5)
+
+[axvspan(s, e, alpha=0.1) for s, e in opto_ep.intersect(ex).values]
+# ylim(-2, len(spikes)+2)
+xticks([])
+yticks([])
+
+
+subplot(gs2[1,0])
+noaxis(gca())
+tmp = p.restrict(ex)
+d = gaussian_filter(tmp.values, 1)
+tmp2 = nap.TsdFrame(t=tmp.index.values, d=d)
+
+pcolormesh(tmp2.index.values, 
+        np.arange(0, tmp2.shape[1]),
+        tmp2.values.T, cmap='GnBu', antialiased=True)
+yticks([])
+
+#####################################
+# Firing rate
+#####################################
+gs_fr = gridspec.GridSpecFromSubplotSpec(
+    2, 1, subplot_spec=gs_top[0, 2]#, height_ratios=[0.5, 0.2, 0.2] 
+)
+
+subplot(gs_fr[0,0])
+
+
+subplot(gs_fr[1,0])
+
+
+##########################################
+# ADN OPTO SLEEP
+##########################################
+data = cPickle.load(open(os.path.expanduser("~/Dropbox/LMNphysio/data/OPTO_SLEEP.pickle"), 'rb'))
+
+allr = data['allr']
+corr = data['corr']
+change_fr = data['change_fr']
 
 
 

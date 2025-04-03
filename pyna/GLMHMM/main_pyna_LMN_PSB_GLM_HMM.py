@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
-# @Last Modified by:   gviejo
-# @Last Modified time: 2025-01-05 16:16:03
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2025-04-02 17:53:20
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -36,7 +36,10 @@ elif os.path.exists('/mnt/ceph/users/gviejo'):
     data_directory = '/mnt/ceph/users/gviejo'
 elif os.path.exists('/media/guillaume/Raid2'):
     data_directory = '/media/guillaume/Raid2'
+elif os.path.exists('/Users/gviejo/Data'):
+    data_directory = '/Users/gviejo/Data'
 
+    
 datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN_PSB.list'), delimiter = '\n', dtype = str, comments = '#')
 
 
@@ -206,14 +209,14 @@ for s in datasets:
                 # hmm = GLM_HMM_nemos((glm0, glm, rglm))
                 hmm = GLM_HMM_nemos((glm, rglm))
 
-                # Y = spikes.count(bin_size, sws_ep)
-                # X = basis.compute_features(Y)
+                Y = spikes.count(bin_size, sws_ep)
+                X = basis.compute_features(Y)
                 
-                Yo = overlap_count(spikes, 0.01, 0.008, sws_ep[0:5])
-                Xo = basis.compute_features(Yo)
+                # Yo = overlap_count(spikes, 0.01, 0.008, sws_ep[0:5])
+                # Xo = basis.compute_features(Yo)
                 # sys.exit()
 
-                hmm.fit_transition(Xo, Yo)
+                hmm.fit_transition(X, Y)
                 
                 ##################################################
                 # PSB FIRING AT Transition

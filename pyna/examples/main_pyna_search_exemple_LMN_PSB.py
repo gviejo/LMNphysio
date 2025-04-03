@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-08-10 17:16:25
-# @Last Modified by:   gviejo
-# @Last Modified time: 2025-01-07 12:41:12
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2025-04-02 17:53:29
 import scipy.io
 import sys, os
 import numpy as np
@@ -26,6 +26,8 @@ elif os.path.exists('/mnt/ceph/users/gviejo'):
     data_directory = '/mnt/ceph/users/gviejo'
 elif os.path.exists('/media/guillaume/Raid2'):
     data_directory = '/media/guillaume/Raid2'
+elif os.path.exists('/Users/gviejo/Data'):
+    data_directory = '/Users/gviejo/Data'
 
 # path = '/mnt/DataRAID2/LMN-ADN/A5043/A5043-230301A'
 path = os.path.join(data_directory, "LMN-PSB/A3019/A3019-220701A")
@@ -34,7 +36,8 @@ path = os.path.join(data_directory, "LMN-PSB/A3019/A3019-220701A")
 
 # data = nap.load_session(path, 'neurosuite')
 basename = os.path.basename(path)
-filepath = os.path.join(path, "pynapplenwb", basename + ".nwb")
+# filepath = os.path.join(path, "pynapplenwb", basename + ".nwb")
+filepath = os.path.join(path, "kilosort4", basename + ".nwb")
 
 nwb = nap.load_file(filepath)
 

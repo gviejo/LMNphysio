@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
-# @Last Modified by:   gviejo
-# @Last Modified time: 2025-01-03 15:08:19
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2025-04-02 16:52:39
 # %%
 import numpy as np
 import pandas as pd
@@ -14,6 +14,7 @@ from functions import *
 from pycircstat.descriptive import mean as circmean
 import _pickle as cPickle
 from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
+from matplotlib.backends.backend_pdf import PdfPages
 from itertools import combinations
 from scipy.stats import zscore
 from scipy.ndimage import gaussian_filter1d
@@ -30,7 +31,7 @@ nap.nap_config.suppress_conversion_warnings = True
 ###############################################################################################
 if os.path.exists("/mnt/Data/Data/"):
     data_directory = "/mnt/Data/Data"
-elif os.path.exists('/mnt/DataRAID2/'):
+elif os.path.exists('/mnt/DataRAID2/'):    
     data_directory = '/mnt/DataRAID2/'
 elif os.path.exists('/mnt/ceph/users/gviejo'):    
     data_directory = '/mnt/ceph/users/gviejo'
@@ -53,8 +54,8 @@ durations = []
 spkcounts = []
 corr = {'adn':[], 'lmn':[]}
 
-# for s in datasets:
-for s in ['LMN-ADN/A5043/A5043-230228A']:
+for s in datasets:
+# for s in ['LMN-ADN/A5043/A5043-230228A']:
 # for s in ['LMN/A1411/A1411-200910A']:
     print(s)
     ############################################################################################### 
@@ -64,7 +65,9 @@ for s in ['LMN-ADN/A5043/A5043-230228A']:
     basename = os.path.basename(path)
     filepath = os.path.join(path, "kilosort4", basename + ".nwb")
 
-    if os.path.exists(filepath):
+    if not os.path.exists(filepath):
+        print(f"Missing nwb for {s}")
+    else:
 
         nwb = nap.load_file(filepath)
         
@@ -136,20 +139,21 @@ for s in ['LMN-ADN/A5043/A5043-230228A']:
             tcurves         = tuning_curves[tokeep]
             peaks           = pd.Series(index=tcurves.columns,data = np.array([circmean(tcurves.index.values, tcurves[i].values) for i in tcurves.columns]))
             spikes['peaks'] = peaks
+            
 
             # spikes.set_info(maxch = maxch[tokeep])
-            if np.sum(spikes.location=="lmn") > 5:
+            if np.sum(spikes.location=="lmn") >= 4:
                 
                 allspikes = spikes
                 
                 spikes = spikes[spikes.location=='lmn']
                 spikes['order'] = np.argsort(spikes.peaks)
                 
-                figure()
-                for i in range(len(tokeep)):
-                    subplot(4, 6, i+1, projection='polar')
-                    plot(tcurves[tokeep[i]])
-                    title(allspikes.location.values[i])
+                # figure()
+                # for i in range(len(tokeep)):
+                #     subplot(4, 6, i+1, projection='polar')
+                #     plot(tcurves[tokeep[i]])
+                #     title(allspikes.location.values[i])
                 
                 try: 
                     velocity = computeLinearVelocity(position[['x', 'z']], position.time_support.loc[[0]], 0.2)
@@ -162,7 +166,7 @@ for s in ['LMN-ADN/A5043/A5043-230228A']:
                 # HMM GLM
                 ###############################################################################################
                 
-                bin_size = 0.01
+                bin_size = 0.015
                 window_size = bin_size*50.0
                 
 
@@ -178,6 +182,7 @@ for s in ['LMN-ADN/A5043/A5043-230228A']:
 
                 # Ring
                 Y = spikes.count(bin_size, newwake_ep)
+                Y = np.sqrt(Y/Y.max(0))                
                 glm = nmo.glm.PopulationGLM(regularizer_strength=0.001, regularizer="Ridge", feature_mask=mask, solver_name="LBFGS")
                 glm.fit(basis.compute_features(Y), Y)
 
@@ -185,28 +190,30 @@ for s in ['LMN-ADN/A5043/A5043-230228A']:
                 spikes2 = nap.randomize.shuffle_ts_intervals(spikes.restrict(newwake_ep))
                 spikes2.set_info(group = spikes._metadata["group"])
                 Y2 = spikes2.count(bin_size, newwake_ep)
-
+                Y2 = np.sqrt(Y2/Y2.max(0))
                 rglm = nmo.glm.PopulationGLM(regularizer_strength=0.001, regularizer="Ridge", feature_mask=mask, solver_name="LBFGS")
                 rglm.fit(basis.compute_features(Y2), Y2)
                 
                 # Null
-                spikes0 = nap.TsGroup(
-                    {i:nap.Ts(
-                        np.sort(np.random.choice(spikes[i].t, int(0.0*len(spikes[i])), replace=False))
-                        ) for i in spikes.keys()}, time_support=newwake_ep)
-                Y0 = spikes0.count(bin_size, newwake_ep)
+                # spikes0 = nap.TsGroup(
+                #     {i:nap.Ts(
+                #         np.sort(np.random.choice(spikes[i].t, int(0.0*len(spikes[i])), replace=False))
+                #         ) for i in spikes.keys()}, time_support=newwake_ep)
+                # Y0 = spikes0.count(bin_size, newwake_ep)
                 
-                glm0 = nmo.glm.PopulationGLM(regularizer_strength=0.001, regularizer="Ridge", feature_mask=mask, solver_name="LBFGS")
-                glm0.fit(basis.compute_features(Y0), Y0)
+                # glm0 = nmo.glm.PopulationGLM(regularizer_strength=0.001, regularizer="Ridge", feature_mask=mask, solver_name="LBFGS")
+                # glm0.fit(basis.compute_features(Y0), Y0)
 
+                # sys.exit()
 
                 # HMM
                 ############################################
                 
-                hmm = GLM_HMM_nemos((glm0, glm, rglm))
-                # hmm = GLM_HMM_nemos((glm, rglm))
+                # hmm = GLM_HMM_nemos((glm0, glm, rglm))
+                hmm = GLM_HMM_nemos((glm, rglm))
 
                 Y = spikes.count(bin_size, sws_ep)
+                Y = np.sqrt(Y/Y.max(0))
                 X = basis.compute_features(Y)
                 
                 hmm.fit_transition(X, Y)
@@ -214,35 +221,35 @@ for s in ['LMN-ADN/A5043/A5043-230228A']:
 
                 
 
-                #ex_ep = nap.IntervalSet(10810.81, 10847.15)
-                #(10846, 10854)
-                ex_ep = epochs[0].intersect(sws_ep)
+                # #ex_ep = nap.IntervalSet(10810.81, 10847.15)
+                # #(10846, 10854)
+                # ex_ep = epochs[0].intersect(sws_ep)
 
-                figure()
-                gs = GridSpec(3,1)
-                ax = subplot(gs[0,0])
-                plot(hmm.Z.restrict(ex_ep))
-                ylabel("state")     
+                # figure()
+                # gs = GridSpec(3,1)
+                # ax = subplot(gs[0,0])
+                # plot(hmm.Z.restrict(ex_ep))
+                # ylabel("state")     
                 
-                subplot(gs[1,0], sharex=ax)
-                spikes_adn = allspikes[allspikes.location=='adn']
-                spikes_adn['order'] = np.argsort(spikes_adn.peaks)
-                plot(spikes_adn.restrict(ex_ep).to_tsd("peaks"), '|', markersize=15)
+                # subplot(gs[1,0], sharex=ax)
+                # spikes_adn = allspikes[allspikes.location=='adn']
+                # spikes_adn['order'] = np.argsort(spikes_adn.peaks)
+                # plot(spikes_adn.restrict(ex_ep).to_tsd("peaks"), '|', markersize=15)
 
-                subplot(gs[2,0], sharex=ax)
-                plot(spikes.restrict(ex_ep).to_tsd("peaks"), '|', markersize=15)
-                ylabel("Spikes")
-                ylim(0, 2*np.pi)
+                # subplot(gs[2,0], sharex=ax)
+                # plot(spikes.restrict(ex_ep).to_tsd("peaks"), '|', markersize=15)
+                # ylabel("Spikes")
+                # ylim(0, 2*np.pi)
                 
-                # subplot(gs[3,0], sharex=ax)
-                # [plot(hmm.O[:,i].restrict(ex_ep), label = str(i)) for i in range(3)]
-                # ylabel("P(O)")
-                # legend()
+                # # subplot(gs[3,0], sharex=ax)
+                # # [plot(hmm.O[:,i].restrict(ex_ep), label = str(i)) for i in range(3)]
+                # # ylabel("P(O)")
+                # # legend()
 
-                tight_layout()
-                show()
+                # tight_layout()
+                # show()
 
-                sys.exit()
+                # sys.exit()
                 
                 
                 if all([len(ep)>1 for ep in hmm.eps.values()]):
@@ -256,12 +263,12 @@ for s in ['LMN-ADN/A5043/A5043-230228A']:
                     # PEARSON CORRELATION
                     ###############################################################################################                                            
                     rates = {}
-                    for e, ep, bin_size, std in zip(['wak', 'rem', 'sws'], [newwake_ep, rem_ep, sws_ep], [0.1, 0.1, 0.02], [3, 3, 3]):
+                    for e, ep, bin_size, std in zip(['wak', 'rem', 'sws'], [newwake_ep, rem_ep, sws_ep], [0.3, 0.3, 0.02], [2, 2, 2]):
                         ep = ep.drop_short_intervals(bin_size*22)
                         count = allspikes.count(bin_size, ep)
                         rate = count/bin_size
                         # rate = rate.as_dataframe()
-                        rate = rate.smooth(std=bin_size*std, windowsize=bin_size*20).as_dataframe()
+                        rate = rate.smooth(std=bin_size*std, size_factor=21).as_dataframe()
                         rate = rate.apply(zscore)            
                         rates[e] = nap.TsdFrame(rate)
 
@@ -344,7 +351,8 @@ spkcounts = pd.concat(spkcounts)
 # print(scipy.stats.wilcoxon(corr.iloc[:,-2], corr.iloc[:,-1]))
 
 # %%
-figure()
+
+fig = figure(figsize=(15, 8))
 epochs = ['sws'] + ['ep'+str(i) for i in range(len(eps))]
 gs = GridSpec(2, len(epochs))
 for i, e in enumerate(epochs):
@@ -381,7 +389,9 @@ tmp = spkcounts.values.T
 # tmp = tmp/tmp.sum(0)
 plot(tmp, 'o-')
 
+# tight_layout()
 show()
+
 
 # %%
 
@@ -390,23 +400,23 @@ show()
 # FOR FIGURE 1
 ##################################################################
 
-datatosave = {
-    "corr":corr,
-    "allr":allr,
-    "durations":durations,
-    # "hmm":hmm,
-    # "glm":glm,
-    # "glmr":rglm
-}
+# datatosave = {
+#     "corr":corr,
+#     "allr":allr,
+#     "durations":durations,
+#     # "hmm":hmm,
+#     # "glm":glm,
+#     # "glmr":rglm
+# }
 
 
-dropbox_path = os.path.expanduser("~/Dropbox/LMNphysio/data")
-today = datetime.date.today()
-file_name = "GLM_HMM_LMN_"+ today.strftime("%d-%m-%Y") + ".pickle"
+# dropbox_path = os.path.expanduser("~/Dropbox/LMNphysio/data")
+# today = datetime.date.today()
+# file_name = "GLM_HMM_LMN_"+ today.strftime("%d-%m-%Y") + ".pickle"
 
-import _pickle as cPickle
+# import _pickle as cPickle
 
-with open(os.path.join(dropbox_path, file_name), "wb") as f:
-    cPickle.dump(datatosave, f)
+# with open(os.path.join(dropbox_path, file_name), "wb") as f:
+#     cPickle.dump(datatosave, f)
 
 

@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2025-03-17 14:23:16
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-03-20 17:48:22
+# @Last Modified time: 2025-03-31 15:09:58
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -17,7 +17,7 @@ from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 from matplotlib.backends.backend_pdf import PdfPages
 from itertools import combinations
 from scipy.stats import zscore
-from scipy.ndimage import gaussian_filter1d
+from scipy.ndimage import gaussian_filter1d, gaussian_filter
 import yaml
 import warnings
 from sklearn.preprocessing import StandardScaler
@@ -38,6 +38,8 @@ elif os.path.exists('/mnt/ceph/users/gviejo'):
     data_directory = '/mnt/ceph/users/gviejo'
 elif os.path.exists('/media/guillaume/Raid2'):
     data_directory = '/media/guillaume/Raid2'
+elif os.path.exists('/Users/gviejo/Data'):
+    data_directory = '/Users/gviejo/Data'
 
 datasets = yaml.safe_load(
     open(os.path.join(
@@ -53,16 +55,149 @@ SI_thr = {
 
 
 sessions = {
-	"adn-ipsilateral": "B2800/B2810/B2810-240925C",
-	"adn-bilateral":   "B2800/B2809/B2809-240904B",
-	"lmn-ipsilateral": "A8000/A8066/A8066-240216B"
+	"adn-ipsilateral": "B3700/B3704/B3704-240608A", #14
+	"adn-bilateral":   "B2800/B2809/B2809-240904B", #17 
+	# "lmn-ipsilateral": "A8000/A8062/A8062-231126B", #17
+    "lmn-ipsilateral": "A8000/A8066/A8066-240216B" #27
 	}
 
 sessions_exs = {
-	"B2800/B2810/B2810-240925C": nap.IntervalSet(8269, 8379),
-    "B2800/B2809/B2809-240904B": nap.IntervalSet(6255, 6358),
-    "A8000/A8066/A8066-240216B": nap.IntervalSet(5130, 5232),
+    "adn-ipsilateral" : {
+        "B3700/B3704/B3704-240608A" : [
+            nap.IntervalSet(4110.6, 4117.5),
+            nap.IntervalSet(4126.0, 4132.6),
+            nap.IntervalSet(4261.0, 4266.9)
+        ]
+    },
+    "lmn-ipsilateral" : {
+        "A8000/A8066/A8066-240216B" : [
+            nap.IntervalSet(3986.3, 3994.18), # Lmn ipsilateral
+            nap.IntervalSet(4033.1, 4037.5), # Lmn ipsilateral
+            nap.IntervalSet(4076.9, 4083.6) # Lmn ipsilateral
+        ]
+    },
+    "adn-bilateral" : {
+        "B2800/B2809/B2809-240904B" : [
+            nap.IntervalSet(3882.6, 3890.42),
+            nap.IntervalSet(3897.29, 3905.7),
+            nap.IntervalSet(4108.0, 4114.7),
+        ]
+    }   
 }
+
+
+############################################################################################################
+############################################################################################################
+############################################################################################################
+
+fig = figure()
+gs = GridSpec(3,3)
+
+
+for i, gr in enumerate(['lmn-ipsilateral', 'adn-ipsilateral', 'adn-bilateral']):
+
+    s = list(sessions_exs[gr].keys())[0]
+    st = gr.split("-")[0]
+
+    path = os.path.join(data_directory, "OPTO", s)
+    basename = os.path.basename(path)
+    filepath = os.path.join(path, "kilosort4", basename + ".nwb")
+    nwb = nap.load_file(filepath)
+    spikes = nwb['units']
+    spikes = spikes.getby_threshold("rate", 1)
+
+    position = []
+    columns = ['x', 'y', 'z', 'rx', 'ry', 'rz']
+    for k in columns:
+        if k == 'ry':
+            ry = nwb[k].values[:]
+            position.append((ry + np.pi)%(2*np.pi))
+        else:
+            position.append(nwb[k].values)
+
+    position = np.array(position)
+    position = np.transpose(position)
+    position = nap.TsdFrame(
+        t=nwb['x'].t,
+        d=position,
+        columns=columns,
+        time_support=nwb['position_time_support'])
+
+    epochs = nwb['epochs']
+    wake_ep = epochs[epochs.tags == "wake"]
+    opto_ep = nwb["opto"]
+    sws_ep = nwb['sws']
+    nwb.close()
+
+    spikes = spikes[spikes.location == st]
+    opto_ep = opto_ep.intersect(sws_ep)
+    stim_duration = 1.0
+    opto_ep = opto_ep[(opto_ep['end'] - opto_ep['start'])>=stim_duration-0.001]
+
+    tuning_curves = nap.compute_1d_tuning_curves(spikes, position['ry'], 120, minmax=(0, 2*np.pi), ep = position.time_support.loc[[0]])
+    tuning_curves = smoothAngularTuningCurves(tuning_curves)
+    tcurves = tuning_curves
+    SI = nap.compute_1d_mutual_info(tcurves, position['ry'], position.time_support.loc[[0]], (0, 2*np.pi))
+    spikes.set_info(SI)
+    spikes.set_info(max_fr = tcurves.max())
+
+    spikes = spikes.getby_threshold("SI", SI_thr[st])
+    spikes = spikes.getby_threshold("rate", 1.0)
+    spikes = spikes.getby_threshold("max_fr", 3.0)
+
+    tokeep = spikes.index
+    tcurves = tcurves[tokeep]
+
+    # peaks = pd.Series(index=tcurves.columns, data = np.array([circmean(tcurves.index.values, tcurves[i].values) for i in tcurves.columns]))
+    peaks = tcurves.idxmax()
+    order = np.argsort(peaks.reset_index(drop='True').sort_values().index)
+    spikes.set_info(order=order, peaks=peaks)
+    # tuning_curves.columns = [basename+"_"+str(i) for i in tuning_curves.columns]
+
+    p = spikes.count(0.01, sws_ep).smooth(0.04, size_factor=20)
+    d=np.array([p.loc[i] for i in spikes.order.sort_values().index]).T
+    p = nap.TsdFrame(t=p.t, d=d, time_support=p.time_support)
+    p = np.sqrt(p / p.max(0))
+    
+
+    for j, ex in enumerate(sessions_exs[gr][s]):
+
+        gs2 = GridSpecFromSubplotSpec(2, 1, gs[j,i])
+        
+        ax = subplot(gs2[0,0])
+        for n in spikes.keys():
+            cl = hsv_to_rgb([spikes.peaks[n]/(2*np.pi), 1, 1])
+            plot(spikes[n].restrict(ex).fillna(spikes.order[n]), '|', color=cl, markersize=2.1, mew=0.5)
+            # plot(spikes[n].restrict(opto_ep2).fillna(n), '|', color=cl, markersize=5, mew=2.5)
+        [axvspan(s, e, alpha=0.5) for s, e in opto_ep.intersect(ex).values]
+        # ylim(-2, len(spikes)+2)
+        xticks([])
+        yticks([])
+        if j == 0:
+            title(gr)
+
+
+        subplot(gs2[1,0], sharex=ax)
+        tmp = p.restrict(ex)
+        d = gaussian_filter(tmp.values, 1)
+        tmp2 = nap.TsdFrame(t=tmp.index.values, d=d)
+        
+        pcolormesh(tmp2.index.values, 
+                np.arange(0, tmp2.shape[1]),
+                tmp2.values.T, cmap='jet')
+        yticks([])
+
+tight_layout()
+savefig(os.path.expanduser("~/Dropbox/LMNphysio/summary_opto/fig_examples_sleep.pdf"))
+
+
+sys.exit()
+
+
+############################################################################################################
+############################################################################################################
+############################################################################################################
+
 
 
 # fig = figure(figsize=(20, 8))
@@ -70,7 +205,7 @@ sessions_exs = {
 
 # for i, grp in enumerate(sessions.keys()[[1]]):
 
-grp = "lmn-ipsilateral"
+grp = "adn-bilateral"
 s = sessions[grp]
 st = grp.split("-")[0]
 
@@ -87,7 +222,12 @@ spikes = spikes.getby_threshold("rate", 1)
 position = []
 columns = ['x', 'y', 'z', 'rx', 'ry', 'rz']
 for k in columns:
-    position.append(nwb[k].values)
+    if k == 'ry':
+        ry = nwb[k].values[:]
+        position.append((ry + np.pi)%(2*np.pi))
+    else:
+        position.append(nwb[k].values)
+
 position = np.array(position)
 position = np.transpose(position)
 position = nap.TsdFrame(
@@ -123,7 +263,7 @@ tcurves = tcurves[tokeep]
 
 # peaks = pd.Series(index=tcurves.columns, data = np.array([circmean(tcurves.index.values, tcurves[i].values) for i in tcurves.columns]))
 peaks = tcurves.idxmax()
-order = np.argsort(peaks.sort_values().index)
+order = np.argsort(peaks.reset_index(drop='True').sort_values().index)
 spikes.set_info(order=order, peaks=peaks)
 # tuning_curves.columns = [basename+"_"+str(i) for i in tuning_curves.columns]
 
@@ -147,27 +287,51 @@ for i, n in enumerate(tcurves.columns):
 # ax2.plot(position['ry'].restrict(sessions_exs[sessions[grp]]), '.')
 
 # title(grp + " " + len(spikes))
-a, p = nap.decode_1d(tcurves, spikes, sws_ep, 0.02)
+
+opto_ep2 = nap.IntervalSet(opto_ep.start[40]-1.0, opto_ep.end[80]+1.0)
+opto_ep2 = opto_ep2.intersect(sws_ep)
+
+# a, p = nap.decode_1d(tcurves, spikes.count(0.005, opto_ep2).smooth(0.02), opto_ep2, 0.02)
+
+p = spikes.count(0.01, opto_ep2).smooth(0.04)
+# p = p - p.mean(0)
+# p = p / p.std(0)
+p = np.sqrt(p / p.max(0))
+
 
 figure()
 ax = subplot(211)
 for n in spikes.keys():
     cl = hsv_to_rgb([spikes.peaks[n]/(2*np.pi), 1, 1])
-    plot(spikes[n].restrict(sws_ep).fillna(spikes.order[n]), '|', color=cl, markersize=20, mew=5)
-[axvspan(s, e, alpha=0.5) for s, e in opto_ep.values]
+    plot(spikes[n].restrict(opto_ep2).fillna(spikes.order[n]), '|', color=cl, markersize=10, mew=2.5)
+    # plot(spikes[n].restrict(opto_ep2).fillna(n), '|', color=cl, markersize=5, mew=2.5)
+[axvspan(s, e, alpha=0.5) for s, e in opto_ep.intersect(opto_ep2).values]
+# ylim(-2, len(spikes)+2)
 
 subplot(212, sharex=ax)
-for e in sws_ep:
+for e in opto_ep2:
     tmp = p.restrict(e)
-    pcolormesh(tmp.t, tmp.columns.values, tmp.values.T, cmap='jet')
+    
+    d=np.array([tmp.loc[i] for i in spikes.order.sort_values().index]).T    
+    d = gaussian_filter(d, 1)
 
+    tmp2 = nap.TsdFrame(t=tmp.index.values, d=d)
+    
+    
+    
+    pcolormesh(tmp2.index.values, 
+        np.arange(0, tmp2.shape[1]),
+        tmp2.values.T, cmap='jet')
+    # imshow(tmp2.values.T, extent=(tmp2.t[0], tmp2.t[-1], 0, tmp2.shape[1]), origin='lower', cmap='jet', aspect='auto')
 # # ylim(0, 2*np.pi)
 # ax2 = gca().twinx()
 # ax2.set_ylim(0, 2*np.pi)
+show()
 
 
 
-    ###################################################
+
+###################################################
 
 # tight_layout()
 # savefig(os.path.expanduser("~/Dropbox/LMNphysio/summary_opto/fig_examples_sleep.png"))
@@ -178,20 +342,23 @@ for e in sws_ep:
 
 
 
-# # manifold
+# manifold
 
 # pre_opto = nap.IntervalSet(opto_ep.start-1.0, opto_ep.end)
 
-# count = spikes.restrict(pre_opto).count(0.02).smooth(0.05)
+# count = spikes.count(0.025, pre_opto).smooth(0.08)
+# # p = p - p.mean(0)
+# # p = p / p.std(0)
+# count = np.sqrt(count / count.max(0))
 
-# count = count[(count.sum(1)>1).values]
+
 
 # X = StandardScaler().fit_transform(count)
 # # A = np.unwrap(position['ry']).bin_average(0.2, ep=position.time_support[1])%(2*np.pi)
 # # RGB = getRGB(position['ry'], position.time_support[1], 0.2)
 
-# imap = MDS(n_components=2, dissimilarity="euclidean", random_state=42).fit_transform(X)
-# # imap = Isomap(n_components=2, n_neighbors=10).fit_transform(X)
+# # imap = MDS(n_components=2, dissimilarity="euclidean", random_state=42).fit_transform(X)
+# imap = Isomap(n_components=2, n_neighbors=10).fit_transform(X)
 # # imap = KernelPCA(n_components=2, kernel='cosine').fit_transform(X)
 # imap = nap.TsdFrame(t=count.t, d=imap)
 

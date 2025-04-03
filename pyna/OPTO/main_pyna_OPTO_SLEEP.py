@@ -2,7 +2,7 @@
 # @Author: gviejo
 # @Date:   2023-08-29 13:46:37
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-03-19 17:14:12
+# @Last Modified time: 2025-04-01 14:36:29
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -25,6 +25,7 @@ warnings.simplefilter('ignore', category=UserWarning)
 
 
 
+
 ############################################################################################### 
 # GENERAL infos
 ###############################################################################################
@@ -36,6 +37,8 @@ elif os.path.exists('/mnt/ceph/users/gviejo'):
     data_directory = '/mnt/ceph/users/gviejo'
 elif os.path.exists('/media/guillaume/Raid2'):
     data_directory = '/media/guillaume/Raid2'
+elif os.path.exists('/Users/gviejo/Data'):
+    data_directory = '/Users/gviejo/Data'
 
 datasets = yaml.safe_load(
     open(os.path.join(
@@ -171,7 +174,7 @@ for st in ['adn', 'lmn']:
                     ############################################################################################### 
                     # PEARSON CORRELATION
                     ###############################################################################################        
-                    if len(tokeep) > 3:
+                    if len(tokeep) > 4:
                         
                         velocity = np.abs(computeAngularVelocity(position['ry'], position.time_support.loc[[0]], 0.2))
                         newwake_ep = velocity.threshold(0.02).time_support.drop_short_intervals(1).merge_close_intervals(1)
@@ -183,32 +186,93 @@ for st in ['adn', 'lmn']:
                         rates = {}
                         for e, iset, bin_size, std in zip(['wak', 'sws', 'opto'], [newwake_ep, sws2_ep, opto_ep], [0.3, 0.02, 0.02], [2, 2, 2]):
                             count = spikes.count(bin_size, iset)
-                            rate = count/bin_size
-                            rate = rate.smooth(std=bin_size*std).as_dataframe()
+                            rate = count/bin_size                            
+                            rate = rate.smooth(std=bin_size*std, size_factor=21).as_dataframe()                            
+                            # rate = rate[rate.sum(1)>10]
                             rate = rate.apply(zscore)                    
                             rates[e] = rate
+
                         
                         pairs = [basename+"_"+i+"-"+j for i,j in list(combinations(np.array(spikes.keys()).astype(str), 2))]
-                        r = pd.DataFrame(index = pairs, columns = rates.keys(), dtype = np.float32)
+                        r = pd.DataFrame(index = pairs, columns = rates.keys(), dtype = np.float32)                        
 
                         for e in rates.keys():
                             tmp = np.corrcoef(rates[e].values.T)
                             if len(tmp):
                                 r[e] = tmp[np.triu_indices(tmp.shape[0], 1)]
 
+                        # # Doing some bootstrap by sampling the opto and sws
+                        # r_bs = {'sws':[], 'opto':[]}
+                        # for e, iset, bin_size, std in zip(['sws', 'opto'], [sws2_ep, opto_ep], [0.02, 0.02], [2, 2]):
+                        #     for i in range(100):
+                        #         idx = np.unique(np.sort(np.random.randint(0, len(iset), int(0.75*len(iset)))))
+                        #         count = spikes.count(bin_size, iset[idx])
+                        #         rate = count/bin_size        
+                        #         rate = rate.smooth(std=bin_size*std, size_factor=21).as_dataframe()                            
+                        #         # rate = rate[rate.sum(1)>10]
+                        #         rate = rate.apply(zscore)                    
+                        #         tmp = np.corrcoef(rate.values.T)
+                        #         r_bs[e].append(tmp[np.triu_indices(tmp.shape[0], 1)])
+
+                        #     r_bs[e] = np.array(r_bs[e]).mean(0)
+
+                        # r['sws'] = r_bs['sws']
+                        # r['opto'] = r_bs['opto']
+
+
                         allr[st][gr][sd].append(r)
 
-                        #######################
-                        # Session correlation
-                        #######################
+                        # #######################
+                        # # Session correlation
+                        # #######################
+                        # tmp = pd.DataFrame(index=[basename])
+                        # tmp['sws'] = scipy.stats.pearsonr(r['wak'], r['sws'])[0]
+                        # tmp['opto'] = scipy.stats.pearsonr(r['wak'], r['opto'])[0]
+                        # tmp['n'] = len(spikes)
+                        # corr[st][gr][sd].append(tmp)
 
-                        tmp = pd.DataFrame(index=[basename])
-                        tmp['sws'] = scipy.stats.pearsonr(r['wak'], r['sws'])[0]
-                        tmp['opto'] = scipy.stats.pearsonr(r['wak'], r['opto'])[0]
-                        tmp['n'] = len(spikes)
-                        corr[st][gr][sd].append(tmp)
+                        #######################
+                        # Session correlation with bootstrap
+                        #######################
+                        rsess = pd.DataFrame(
+                            index=[basename+"-"+str(i) for i in spikes.keys()],
+                            columns = ['sws', 'opto', 'n']
+                            )
+                        rsess['n'] = len(spikes)-1
 
-                    
+                        keys = np.array(spikes.keys()).astype(str) 
+                        for i, n in enumerate(spikes.keys()):
+                            idx = np.arange(len(spikes)) != i
+
+                            pairs = [basename+"_"+i+"-"+j for i,j in list(combinations(keys[idx], 2))]
+                            r = pd.DataFrame(index = pairs, columns = rates.keys(), dtype = np.float32)                        
+
+                            for e in rates.keys():
+                                tmp = np.corrcoef(rates[e].values[:,idx].T)
+                                r[e] = tmp[np.triu_indices(tmp.shape[0], 1)]
+
+                            rsess.loc[basename+"-"+str(n),'sws'] = scipy.stats.pearsonr(
+                                np.arctanh(r['wak']), np.arctanh(r['sws'])
+                                )[0]
+                            rsess.loc[basename+"-"+str(n),'opto'] = scipy.stats.pearsonr(
+                                np.arctanh(r['wak']), np.arctanh(r['opto'])
+                                )[0]
+
+
+                        # def compute_pearsonr_loo(r, c):
+                        #     pr = np.zeros(len(r))
+                        #     for i in range(len(r)):
+                        #         idx = np.arange(len(r)) != i
+                        #         pr[i] = scipy.stats.pearsonr(r.iloc[idx]['wak'], r.iloc[idx][c])[0]
+
+                        #     return pr.mean()
+
+                        # tmp['sws'] = compute_pearsonr_loo(r, 'sws')
+                        # tmp['opto'] = compute_pearsonr_loo(r, 'opto')
+                        
+                        corr[st][gr][sd].append(rsess)
+
+
                     #######################
                     # SAVING
                     #######################
@@ -337,23 +401,31 @@ with PdfPages(pdf_filename) as pdf:
     for i, st in enumerate(['lmn', 'adn']):
 
         gs3 = GridSpecFromSubplotSpec(1, 2, gsbot[0,i])
-
+        
         # Pearson per sesion
         subplot(gs3[0,0])
+
+        corr3 = []
         for j, keys in enumerate(orders[st]):
             st, gr, sd, k = keys
 
             corr2 = corr[st][gr][sd]
-            corr2 = corr2[corr2['n']>3][k]
+            corr2 = corr2[corr2['n']>4][k]
+            corr2 = corr2.values.astype(float)
+            corr3.append(corr2)
         
-            plot(np.random.randn(len(corr2))*0.1+np.ones(len(corr2))*j, corr2, 'o', markersize=6)
+            plot(np.abs(np.random.randn(len(corr2)))*0.1+np.ones(len(corr2))*(j+1), corr2, 'o', markersize=2)
+
+        
+        violinplot(corr3, showmeans=True, side='low', showextrema=False)
+        boxplot(corr3, widths=0.1, vert=True, positions=np.arange(1, len(corr3) + 1), showfliers=False)
 
         ylim(-1, 1)
         # xticks(np.arange(len(orders[st])), ["\n".join(o) for o in orders[st]])
         if st == "adn":
-            xticks([0, 1, 2, 3, 4], ['chrimson\nipsilateral', 'chrimson\npre-opto', 'tdtomate\n(control)', 'chrimson\nbilateral', 'chrimson\ncontralateral'])
+            xticks([1, 2, 3, 4, 5], ['chrimson\nipsilateral', 'chrimson\npre-opto', 'tdtomate\n(control)', 'chrimson\nbilateral', 'chrimson\ncontralateral'])
         else:
-            xticks([0, 1, 2], ['chrimson\nipsilateral', 'chrimson\npre-opto', 'tdtomate\n(control)'])
+            xticks([1, 2, 3], ['chrimson\nipsilateral', 'chrimson\npre-opto', 'tdtomate\n(control)'])
 
         ylabel("Pearson r")
         title(st.upper())
@@ -386,17 +458,26 @@ with PdfPages(pdf_filename) as pdf:
 # ##################################################################
 # # FOR FIGURE 1
 # ##################################################################
-# datatosave = {
-#     "allfr":allfr,
-#     "allmeta":allmeta,
-#     "alltc":alltc
-# }
+datatosave = {
+    "allfr":allfr,
+    "change_fr":change_fr,
+    "allr":allr,
+    "corr":corr,
+}
 
 
-# dropbox_path = os.path.expanduser("~/Dropbox/LMNphysio/data")
-# file_name = "OPTO_PSB.pickle"
+dropbox_path = os.path.expanduser("~/Dropbox/LMNphysio/data")
+file_name = "OPTO_SLEEP.pickle"
 
-# import _pickle as cPickle
+import _pickle as cPickle
 
-# with open(os.path.join(dropbox_path, file_name), "wb") as f:
-#     cPickle.dump(datatosave, f)
+with open(os.path.join(dropbox_path, file_name), "wb") as f:
+    cPickle.dump(datatosave, f)
+
+
+
+
+
+
+
+    
