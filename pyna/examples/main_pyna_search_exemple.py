@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-08-10 17:16:25
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-11-06 18:15:38
+# @Last Modified time: 2025-04-07 14:09:23
 import scipy.io
 import sys, os
 import numpy as np
@@ -141,7 +141,7 @@ datatosave = { 'wak':angle_wak,
 
 import _pickle as cPickle
 # cPickle.dump(datatosave, open('../figures/figures_adrien_2022/fig_1_decoding.pickle', 'wb'))
-cPickle.dump(datatosave, open('/mnt/home/gviejo/Dropbox/CosyneData/DATA_FIG_2_LMN_PSB.pickle', 'wb'))
+# cPickle.dump(datatosave, open('/mnt/home/gviejo/Dropbox/CosyneData/DATA_FIG_2_LMN_PSB.pickle', 'wb'))
 
 
 sys.exit()

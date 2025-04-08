@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-08-10 17:16:25
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-04-02 17:53:29
+# @Last Modified time: 2025-04-07 15:07:58
 import scipy.io
 import sys, os
 import numpy as np
@@ -167,20 +167,26 @@ ax = subplot(211)
 title("sws")
 for i,n in enumerate(psb):
     plot(spikes[n].restrict(sws_ep).fillna(i), '|', 
-        markersize = 10, color='grey', alpha=0.5)
+        markersize = 10, color='grey', alpha=1)
 
-    if n == 39:
-        plot(spikes[n].restrict(sws_ep).fillna(i), '|', 
-            markersize = 10, color='red')
+    # if n == 39:
+    #     plot(spikes[n].restrict(sws_ep).fillna(i), '|', 
+    #         markersize = 10, color='red')
+    axvspan(5800.71, 5805.2, color='red', alpha=0.01)
+    axvspan(5808.5, 5812.7, color='red', alpha=0.01)
+
 
 subplot(212, sharex = ax)
 for i,n in enumerate(lmn):
     plot(spikes[n].restrict(sws_ep).fillna(i), '|', 
-        markersize = 15, color='grey', alpha=0.5)
+        markersize = 15, color='grey', alpha=1)
 
-    if n == 101:
-        plot(spikes[n].restrict(sws_ep).fillna(i), '|', 
-            markersize = 10, color='red')
+    # if n == 101:
+    #     plot(spikes[n].restrict(sws_ep).fillna(i), '|', 
+    #         markersize = 10, color='red')
+
+    axvspan(5800.71, 5805.2, color='red', alpha=0.01)
+    axvspan(5808.5, 5812.7, color='red', alpha=0.01)
 
 
 show()

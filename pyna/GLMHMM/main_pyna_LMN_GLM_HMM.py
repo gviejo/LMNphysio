@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-31 14:54:10
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-04-02 16:52:39
+# @Last Modified time: 2025-04-03 11:55:03
 # %%
 import numpy as np
 import pandas as pd
@@ -57,7 +57,7 @@ corr = {'adn':[], 'lmn':[]}
 for s in datasets:
 # for s in ['LMN-ADN/A5043/A5043-230228A']:
 # for s in ['LMN/A1411/A1411-200910A']:
-    print(s)
+    # print(s)
     ############################################################################################### 
     # LOADING DATA
     ###############################################################################################
@@ -172,7 +172,7 @@ for s in datasets:
 
                 # GLM
                 ############################################
-                print("fitting GLM")
+                # print("fitting GLM")
 
                 basis = nmo.basis.RaisedCosineLogConv(
                     n_basis_funcs=3, window_size=int(window_size/bin_size), conv_kwargs={'shift':False}
@@ -253,6 +253,7 @@ for s in datasets:
                 
                 
                 if all([len(ep)>1 for ep in hmm.eps.values()]):
+                    print(s)
                     ##############################################################g################################# 
                     # SAVING HMM EPOCHS
                     ###############################################################################################        

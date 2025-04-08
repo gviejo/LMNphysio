@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2023-05-19 13:29:18
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-04-01 20:07:40
+# @Last Modified time: 2025-04-03 11:58:29
 import numpy as np
 import os, sys
 from scipy.optimize import minimize
@@ -100,7 +100,7 @@ def optimize_transition(args):
 
         # for j, o in enumerate(np.unique(Y)):
         #     B[:,j] = G[Y == o].sum(0)/G.sum(0)
-        print(np.sum(np.log(scaling)))
+        # print(np.sum(np.log(scaling)))
         score.append(np.sum(np.log(scaling)))
 
         # if i > 2:

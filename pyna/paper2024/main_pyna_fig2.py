@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-04-01 11:25:44
+# @Last Modified time: 2025-04-07 12:58:22
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -13,7 +13,7 @@ from matplotlib import rcParams
 import matplotlib as mpl
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import matplotlib.gridspec as gridspec
-from mpl_toolkits.axes_grid1.inset_locator import inset_axes, InsetPosition, mark_inset
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes, mark_inset
 import matplotlib.font_manager as font_manager
 import matplotlib.patches as patches
 
@@ -33,7 +33,8 @@ from scipy.ndimage import gaussian_filter
 
 try:
     from functions import *
-except:
+except ModuleNotFoundError:
+    import sys
     sys.path.append("../")
     from functions import *
 
@@ -126,6 +127,20 @@ cmap = plt.get_cmap("Set2")
 # clrs = ['sandybrown', 'olive']
 # clrs = ['#CACC90', '#8BA6A9']
 
+mks = 1.8
+alp = 1
+medw = 0.9
+
+# epochs = ['Wake', 'REM sleep', 'nREM sleep']
+epochs = ['Wake', 'nREM sleep', 'nREM sleep']
+
+
+SI_thr = {
+    'adn':0.2, 
+    'lmn':0.1,
+    'psb':0.3
+    }    
+
 ###############################################################################################
 # LOADING DATA
 ###############################################################################################
@@ -169,11 +184,69 @@ xticks([])
 yticks([])
 
 #####################################
+# Examples LMN PSB
+#####################################
+gs_raster = gridspec.GridSpecFromSubplotSpec(2,2, 
+    subplot_spec = gs_top[0,1],  hspace = 0.3)
+
+
+
+s = 'LMN-PSB/A3019/A3019-220701A'
+path = os.path.join(data_directory, s)
+spikes, position, eps = load_data(path)
+wake_ep = eps['wake_ep']
+sws_ep = eps['sws_ep']
+
+exs = { 'wak':nap.IntervalSet(start = 9968.5, end = 9987, time_units='s'),
+        'sws':nap.IntervalSet(start = 5800.71, end = 5812.7, time_units = 's'),
+        'nrem2':nap.IntervalSet(start = 5800.71, end = 5805.2, time_units = 's'),
+        'nrem3':nap.IntervalSet(start = 5808.5, end = 5812.7, time_units = 's')        
+        }
+
+for i, e in enumerate(['wak', 'sws']):
+    for j, s in enumerate(['psb', 'lmn']):
+        subplot(gs_raster[j,i])
+        plot(spikes[spikes.location==s].to_tsd("peaks"), '|', color = colors[s], markersize = mks, markeredgewidth = medw, alpha = 0.5)
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#####################################
+# Histo
+#####################################
+gs_bottom = gridspec.GridSpecFromSubplotSpec(
+    1, 3, subplot_spec=outergs[1, 0], width_ratios=[0.3, 0.3, 0.2], wspace=0.5
+)
+
+gs_histo = gridspec.GridSpecFromSubplotSpec(
+    1, 1, subplot_spec=gs_bottom[0, 0]#, height_ratios=[0.5, 0.2, 0.2] 
+)
+
+
+subplot(gs_histo[0,0])
+noaxis(gca())
+img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/LMN-PSB-opto.png")
+imshow(img, aspect="equal")
+xticks([])
+yticks([])
+
+#####################################
 # Examples LMN IPSILATERAL
 #####################################
 st = 'lmn'
 
-gs2 = gridspec.GridSpecFromSubplotSpec(2, 1, gs_top[0,1])
+gs2 = gridspec.GridSpecFromSubplotSpec(2, 1, gs_bottom[0,1])
 
 s = "A8000/A8066/A8066-240216B"
 ex = nap.IntervalSet(4076.9, 4083.6)
@@ -216,7 +289,7 @@ yticks([])
 # Firing rate
 #####################################
 gs_fr = gridspec.GridSpecFromSubplotSpec(
-    2, 1, subplot_spec=gs_top[0, 2]#, height_ratios=[0.5, 0.2, 0.2] 
+    2, 1, subplot_spec=gs_bottom[0, 2]#, height_ratios=[0.5, 0.2, 0.2] 
 )
 
 subplot(gs_fr[0,0])
