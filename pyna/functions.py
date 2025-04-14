@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-02-28 16:16:36
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-04-07 12:50:12
+# @Last Modified time: 2025-04-10 17:16:26
 import numpy as np
 from numba import jit
 import pandas as pd
@@ -515,10 +515,10 @@ def downsample(tsd, up, down):
     return nap.Tsd(t=dt, d=dtsd, time_support = tsd.time_support)
 
 
-def load_data(path):
+def load_data(filepath):
 
-    basename = os.path.basename(path)
-    filepath = os.path.join(path, "kilosort4", basename + ".nwb")
+    # basename = os.path.basename(path)
+    # filepath = os.path.join(path, "kilosort4", basename + ".nwb")
     nwb = nap.load_file(filepath)
     spikes = nwb['units']
     spikes = spikes.getby_threshold("rate", 1)
@@ -625,4 +625,4 @@ def load_opto_data(path, st):
     order = np.argsort(peaks.reset_index(drop='True').sort_values().index)
     spikes.set_info(order=order, peaks=peaks)
 
-    return spikes, position, {'wake_ep':wake_ep, 'opto_ep':opto_ep, 'sws_ep':sws_ep}
+    return spikes, position, {'wake_ep':wake_ep, 'opto_ep':opto_ep, 'sws_ep':sws_ep}, tuning_curves

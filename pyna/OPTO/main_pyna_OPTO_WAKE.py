@@ -2,7 +2,7 @@
 # @Author: gviejo
 # @Date:   2023-08-29 13:46:37
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-03-17 18:23:27
+# @Last Modified time: 2025-04-09 16:38:47
 # %%
 import numpy as np
 import pandas as pd
@@ -37,6 +37,8 @@ elif os.path.exists('/mnt/ceph/users/gviejo'):
     data_directory = '/mnt/ceph/users/gviejo'
 elif os.path.exists('/media/guillaume/Raid2'):
     data_directory = '/media/guillaume/Raid2'
+elif os.path.exists('/Users/gviejo/Data'):
+    data_directory = '/Users/gviejo/Data'
 
 datasets = yaml.safe_load(
     open(os.path.join(
@@ -222,17 +224,45 @@ for st in ['adn', 'lmn']:
 
                         allr[st][gr][sd].append(r)
 
-                        #######################
-                        # Session correlation
-                        #######################
+                        # #######################
+                        # # Session correlation
+                        # #######################
 
-                        tmp = pd.DataFrame(index=[basename])
-                        tmp['pre'] = scipy.stats.pearsonr(r['wak'], r['pre'])[0]
-                        tmp['opto'] = scipy.stats.pearsonr(r['wak'], r['opto'])[0]
-                        tmp['n'] = len(spikes)
-                        corr[st][gr][sd].append(tmp)
+                        # tmp = pd.DataFrame(index=[basename])
+                        # tmp['pre'] = scipy.stats.pearsonr(r['wak'], r['pre'])[0]
+                        # tmp['opto'] = scipy.stats.pearsonr(r['wak'], r['opto'])[0]
+                        # tmp['n'] = len(spikes)
+                        # corr[st][gr][sd].append(tmp)
 
-                    
+                        #######################
+                        # Session correlation with bootstrap
+                        #######################
+                        rsess = pd.DataFrame(
+                            index=[basename+"-"+str(i) for i in spikes.keys()],
+                            columns = ['pre', 'opto', 'n']
+                            )
+                        rsess['n'] = len(spikes)-1
+
+                        keys = np.array(spikes.keys()).astype(str) 
+                        for i, n in enumerate(spikes.keys()):
+                            idx = np.arange(len(spikes)) != i
+
+                            pairs = [basename+"_"+i+"-"+j for i,j in list(combinations(keys[idx], 2))]
+                            r = pd.DataFrame(index = pairs, columns = rates.keys(), dtype = np.float32)                        
+
+                            for e in rates.keys():
+                                tmp = np.corrcoef(rates[e].values[:,idx].T)
+                                r[e] = tmp[np.triu_indices(tmp.shape[0], 1)]
+
+                            rsess.loc[basename+"-"+str(n),'pre'] = scipy.stats.pearsonr(
+                                np.arctanh(r['wak']), np.arctanh(r['pre'])
+                                )[0]
+                            rsess.loc[basename+"-"+str(n),'opto'] = scipy.stats.pearsonr(
+                                np.arctanh(r['wak']), np.arctanh(r['opto'])
+                                )[0]            
+
+                        corr[st][gr][sd].append(rsess)
+
                     #######################
                     # SAVING
                     #######################
@@ -512,18 +542,21 @@ with PdfPages(pdf_filename) as pdf:
 # ##################################################################
 # # FOR FIGURE 1
 # ##################################################################
-# datatosave = {
-#     "allfr":allfr,
-#     "allmeta":allmeta,
-#     "alltc":alltc
-# }
+datatosave = {
+    "allfr":allfr,
+    "change_fr":change_fr,
+    "allr":allr,
+    "corr":corr,
+}
 
 
-# dropbox_path = os.path.expanduser("~/Dropbox/LMNphysio/data")
-# file_name = "OPTO_PSB.pickle"
+dropbox_path = os.path.expanduser("~/Dropbox/LMNphysio/data")
+file_name = "OPTO_WAKE.pickle"
 
-# import _pickle as cPickle
+import _pickle as cPickle
 
-# with open(os.path.join(dropbox_path, file_name), "wb") as f:
-#     cPickle.dump(datatosave, f)
-# %%
+with open(os.path.join(dropbox_path, file_name), "wb") as f:
+    cPickle.dump(datatosave, f)
+
+
+

@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-04-07 12:58:22
+# @Last Modified time: 2025-04-09 19:40:33
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -164,7 +164,7 @@ names = {'adn':"ADN", 'lmn':"LMN"}
 epochs = {'wak':'Wake', 'sws':'Sleep'}
 
 gs_top = gridspec.GridSpecFromSubplotSpec(
-    1, 3, subplot_spec=outergs[0, 0], width_ratios=[0.3, 0.3, 0.2], wspace=0.5
+    1, 3, subplot_spec=outergs[0, 0], width_ratios=[0.1, 0.6, 0.1], wspace=0.5
 )
 
 
@@ -186,16 +186,23 @@ yticks([])
 #####################################
 # Examples LMN PSB
 #####################################
-gs_raster = gridspec.GridSpecFromSubplotSpec(2,2, 
-    subplot_spec = gs_top[0,1],  hspace = 0.3)
+gs_raster = gridspec.GridSpecFromSubplotSpec(2,1, 
+    subplot_spec = gs_top[0,1],  hspace = 0.1, 
+    height_ratios=[0.1, 0.2]
+    )
 
 
 
-s = 'LMN-PSB/A3019/A3019-220701A'
-path = os.path.join(data_directory, s)
+path = '/Users/gviejo/Dropbox/LMNphysio/A3019-220701A.nwb'
 spikes, position, eps = load_data(path)
+spikes = spikes.getby_threshold("SI", 0.1)
 wake_ep = eps['wake_ep']
 sws_ep = eps['sws_ep']
+
+
+
+names = ['PSB', 'LMN']
+
 
 exs = { 'wak':nap.IntervalSet(start = 9968.5, end = 9987, time_units='s'),
         'sws':nap.IntervalSet(start = 5800.71, end = 5812.7, time_units = 's'),
@@ -203,30 +210,58 @@ exs = { 'wak':nap.IntervalSet(start = 9968.5, end = 9987, time_units='s'),
         'nrem3':nap.IntervalSet(start = 5808.5, end = 5812.7, time_units = 's')        
         }
 
-for i, e in enumerate(['wak', 'sws']):
-    for j, s in enumerate(['psb', 'lmn']):
-        subplot(gs_raster[j,i])
-        plot(spikes[spikes.location==s].to_tsd("peaks"), '|', color = colors[s], markersize = mks, markeredgewidth = medw, alpha = 0.5)
+binsizes = {'wak':0.2, 'sws':0.02}
+
+
+
+subplot(gs_raster[0,0])
+e = 'sws'
+spk = spikes[spikes.location=="lmn"]
+tmp = spk.count(binsizes[e], ep=exs[e])
+tmp = tmp/tmp.max(0)
+tmp = tmp.as_dataframe()
+tmp.columns = np.arange(tmp.shape[1])
+tmp = tmp[np.argsort(spk.peaks.values)]
+pcolormesh(tmp.index.values, 
+        np.arange(0, tmp.shape[1]),
+        tmp.values.T, cmap='jet')
+
         
 
+gs_raster2 = gridspec.GridSpecFromSubplotSpec(
+    2,5, subplot_spec=gs_raster[1,0], #width_ratios=[0.01, 0.1, 0.01, 0.1, 0.01]
+    )
+
+for i, e in zip([1, 3], ['nrem2', 'nrem3']):
+    subplot(gs_raster2[1,i])
+    simpleaxis(gca())
+    plot(spk.restrict(exs[e]).to_tsd("order"), '|', color=colors['lmn'], markersize = 1, markeredgewidth=0.1)
+
+e = 'sws'
+spk = spikes[spikes.location=="psb"]
+
+for i, e in zip([1, 3], ['nrem2', 'nrem3']):
+    subplot(gs_raster2[0,i])
+    simpleaxis(gca())
+    plot(spk.restrict(exs[e]).to_tsd("order"), '|', color=colors['psb'], markersize=1, markeredgewidth=0.1)
 
 
 
 
 
 
-
-
-
-
-
+#####################################
+#####################################
+# OPTO
+#####################################
+#####################################
 
 
 #####################################
 # Histo
 #####################################
 gs_bottom = gridspec.GridSpecFromSubplotSpec(
-    1, 3, subplot_spec=outergs[1, 0], width_ratios=[0.3, 0.3, 0.2], wspace=0.5
+    1, 3, subplot_spec=outergs[1, 0], width_ratios=[0.1, 0.5, 0.2], wspace=0.5
 )
 
 gs_histo = gridspec.GridSpecFromSubplotSpec(
@@ -260,9 +295,22 @@ p = spikes.count(0.01, exex).smooth(0.04, size_factor=20)
 d=np.array([p.loc[i] for i in spikes.order.sort_values().index]).T
 p = nap.TsdFrame(t=p.t, d=d, time_support=p.time_support)
 p = np.sqrt(p / p.max(0))
-    
-    
-ax = subplot(gs2[0,0])
+
+
+# ax = subplot(gs2[0,0])
+# noaxis(gca())
+# tmp = p.restrict(ex)
+# d = gaussian_filter(tmp.values, 1)
+# tmp2 = nap.TsdFrame(t=tmp.index.values, d=d)
+
+# pcolormesh(tmp2.index.values, 
+#         np.arange(0, tmp2.shape[1]),
+#         tmp2.values.T, cmap='GnBu', antialiased=True)
+# yticks([])
+
+
+
+subplot(gs2[1,0])
 simpleaxis(gca())
 for n in spikes.keys():
     # cl = hsv_to_rgb([spikes.peaks[n]/(2*np.pi), 1, 1])
@@ -274,33 +322,15 @@ xticks([])
 yticks([])
 
 
-subplot(gs2[1,0])
-noaxis(gca())
-tmp = p.restrict(ex)
-d = gaussian_filter(tmp.values, 1)
-tmp2 = nap.TsdFrame(t=tmp.index.values, d=d)
-
-pcolormesh(tmp2.index.values, 
-        np.arange(0, tmp2.shape[1]),
-        tmp2.values.T, cmap='GnBu', antialiased=True)
-yticks([])
-
-#####################################
-# Firing rate
-#####################################
-gs_fr = gridspec.GridSpecFromSubplotSpec(
-    2, 1, subplot_spec=gs_bottom[0, 2]#, height_ratios=[0.5, 0.2, 0.2] 
-)
-
-subplot(gs_fr[0,0])
-
-
-subplot(gs_fr[1,0])
 
 
 ##########################################
-# LMN OPTO SLEEP
+# LMN OPTO
 ##########################################
+
+#####################################
+# CORRELATION
+#####################################
 data = cPickle.load(open(os.path.expanduser("~/Dropbox/LMNphysio/data/OPTO_SLEEP.pickle"), 'rb'))
 
 allr = data['allr']
@@ -308,7 +338,79 @@ corr = data['corr']
 change_fr = data['change_fr']
 
 
+gs_corr = gridspec.GridSpecFromSubplotSpec(
+    2, 1, subplot_spec=gs_bottom[0, 2], hspace=0.4#, height_ratios=[0.5, 0.2, 0.2] 
+)
 
+
+####################################
+# Pearson per sesion SLEEP
+####################################
+subplot(gs_corr[0,0])
+simpleaxis(gca())
+
+orders = [('lmn', 'opto', 'ipsi', 'opto'), 
+            # ('lmn', 'opto', 'ipsi', 'sws'), 
+            ('lmn', 'ctrl', 'ipsi', 'opto')]
+
+corr3 = []
+for j, keys in enumerate(orders):
+    st, gr, sd, k = keys
+
+    corr2 = corr[st][gr][sd]
+    corr2 = corr2[corr2['n']>4][k]
+    corr2 = corr2.values.astype(float)
+    corr3.append(corr2)
+
+    plot(corr2, np.abs(np.random.randn(len(corr2)))*0.1+np.ones(len(corr2))*(j+1+0.05), '.', markersize=1)
+
+
+violinplot(corr3, showmeans=True, side='low', showextrema=False, vert=False)
+# boxplot(corr3, widths=0.1, vert=True, positions=np.arange(1, len(corr3) + 1), showfliers=False)
+ylim(0.5, 2.5)
+xmin = corr3[0].min()
+xlim(xmin, 1)
+# xlabel("Pearson r")
+yticks([1, 2], ['Chrimson', 'Tdtomato\n(Ctrl)'])
+title("Sleep")
+xticks([])
+
+####################################
+# Pearson per sesion WAKE
+####################################
+data = cPickle.load(open(os.path.expanduser("~/Dropbox/LMNphysio/data/OPTO_WAKE.pickle"), 'rb'))
+
+allr = data['allr']
+corr = data['corr']
+change_fr = data['change_fr']
+
+subplot(gs_corr[1,0])
+simpleaxis(gca())
+
+orders = [('lmn', 'opto', 'ipsi', 'opto'), 
+            # ('lmn', 'opto', 'ipsi', 'sws'), 
+            ('lmn', 'ctrl', 'ipsi', 'opto')]
+
+corr3 = []
+for j, keys in enumerate(orders):
+    st, gr, sd, k = keys
+
+    corr2 = corr[st][gr][sd]
+    corr2 = corr2[corr2['n']>4][k]
+    corr2 = corr2.values.astype(float)
+    corr3.append(corr2)
+
+    plot(corr2, np.abs(np.random.randn(len(corr2)))*0.1+np.ones(len(corr2))*(j+1+0.05), '.', markersize=1)
+
+
+violinplot(corr3, showmeans=True, side='low', showextrema=False, vert=False)
+# boxplot(corr3, widths=0.1, vert=True, positions=np.arange(1, len(corr3) + 1), showfliers=False)
+ylim(0.5, 2.5)
+xlim(xmin, 1)
+xlabel("Pearson r")
+yticks([1, 2], ['Chrimson', 'Tdtomato\n(Ctrl)'])
+
+title("Wakefulness")
 
 
 
