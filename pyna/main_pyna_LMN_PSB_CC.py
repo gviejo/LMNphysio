@@ -2,7 +2,7 @@
 # @Author: gviejo
 # @Date:   2025-01-04 06:11:33
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-02-24 16:55:31
+# @Last Modified time: 2025-04-14 18:11:37
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -203,7 +203,7 @@ for i, e in enumerate(allcc.keys()):
     #plot(allcc[e], alpha = 0.7, color = 'grey')
     plot(allcc[e].mean(1), '.-')
     title(e)
-show()
+
 
 # figure()
 # for i,k in enumerate(['psb', 'lmn']):
@@ -239,7 +239,7 @@ figure()
 for i in range(ccg.shape[1]):
     subplot(3,3,i+1)
     plot(ccg[i].loc[-0.1:0.1])
-show()
+
 
 
 maxt = allcc['sws'].idxmax()

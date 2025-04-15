@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-04-09 19:40:33
+# @Last Modified time: 2025-04-14 18:51:09
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -188,12 +188,12 @@ yticks([])
 #####################################
 gs_raster = gridspec.GridSpecFromSubplotSpec(2,1, 
     subplot_spec = gs_top[0,1],  hspace = 0.1, 
-    height_ratios=[0.1, 0.2]
+    # height_ratios=[0.1, 0.2]
     )
 
 
 
-path = '/Users/gviejo/Dropbox/LMNphysio/A3019-220701A.nwb'
+path = os.path.expanduser('~/Dropbox/LMNphysio/A3019-220701A.nwb')
 spikes, position, eps = load_data(path)
 spikes = spikes.getby_threshold("SI", 0.1)
 wake_ep = eps['wake_ep']
@@ -214,36 +214,42 @@ binsizes = {'wak':0.2, 'sws':0.02}
 
 
 
-subplot(gs_raster[0,0])
-e = 'sws'
-spk = spikes[spikes.location=="lmn"]
-tmp = spk.count(binsizes[e], ep=exs[e])
-tmp = tmp/tmp.max(0)
-tmp = tmp.as_dataframe()
-tmp.columns = np.arange(tmp.shape[1])
-tmp = tmp[np.argsort(spk.peaks.values)]
-pcolormesh(tmp.index.values, 
-        np.arange(0, tmp.shape[1]),
-        tmp.values.T, cmap='jet')
+# subplot(gs_raster[0,0])
+# e = 'sws'
+# spk = spikes[spikes.location=="lmn"]
+# tmp = spk.count(binsizes[e], ep=exs[e])
+# tmp = tmp/tmp.max(0)
+# tmp = tmp.as_dataframe()
+# tmp.columns = np.arange(tmp.shape[1])
+# tmp = tmp[np.argsort(spk.peaks.values)]
+# pcolormesh(tmp.index.values, 
+#         np.arange(0, tmp.shape[1]),
+#         tmp.values.T, cmap='jet')
 
         
 
-gs_raster2 = gridspec.GridSpecFromSubplotSpec(
-    2,5, subplot_spec=gs_raster[1,0], #width_ratios=[0.01, 0.1, 0.01, 0.1, 0.01]
-    )
+# gs_raster2 = gridspec.GridSpecFromSubplotSpec(
+#     2,5, subplot_spec=gs_raster[1,0], #width_ratios=[0.01, 0.1, 0.01, 0.1, 0.01]
+#     )
 
-for i, e in zip([1, 3], ['nrem2', 'nrem3']):
-    subplot(gs_raster2[1,i])
+for i, s in enumerate(['psb', 'lmn']):
+    subplot(gs_raster[i,0])
     simpleaxis(gca())
-    plot(spk.restrict(exs[e]).to_tsd("order"), '|', color=colors['lmn'], markersize = 1, markeredgewidth=0.1)
+    plot(spikes[spikes.location==s].restrict(exs['nrem2']).to_tsd("order"), '|', color=colors[s], markersize=2.1, mew=0.5)
 
-e = 'sws'
-spk = spikes[spikes.location=="psb"]
 
-for i, e in zip([1, 3], ['nrem2', 'nrem3']):
-    subplot(gs_raster2[0,i])
-    simpleaxis(gca())
-    plot(spk.restrict(exs[e]).to_tsd("order"), '|', color=colors['psb'], markersize=1, markeredgewidth=0.1)
+# for i, e in zip([1, 3], ['nrem2', 'nrem3']):
+#     subplot(gs_raster2[1,i])
+#     simpleaxis(gca())
+#     plot(spk.restrict(exs[e]).to_tsd("order"), '|', color=colors['lmn'], markersize = 1, markeredgewidth=0.1)
+
+# e = 'sws'
+# spk = spikes[spikes.location=="psb"]
+
+# for i, e in zip([1, 3], ['nrem2', 'nrem3']):
+#     subplot(gs_raster2[0,i])
+#     simpleaxis(gca())
+#     plot(spk.restrict(exs[e]).to_tsd("order"), '|', color=colors['psb'], markersize=1, markeredgewidth=0.1)
 
 
 

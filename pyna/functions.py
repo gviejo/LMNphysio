@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-02-28 16:16:36
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-04-10 17:16:26
+# @Last Modified time: 2025-04-14 17:14:00
 import numpy as np
 from numba import jit
 import pandas as pd
@@ -625,4 +625,4 @@ def load_opto_data(path, st):
     order = np.argsort(peaks.reset_index(drop='True').sort_values().index)
     spikes.set_info(order=order, peaks=peaks)
 
-    return spikes, position, {'wake_ep':wake_ep, 'opto_ep':opto_ep, 'sws_ep':sws_ep}, tuning_curves
+    return spikes, position, {'wake_ep':wake_ep, 'opto_ep':opto_ep, 'sws_ep':sws_ep}

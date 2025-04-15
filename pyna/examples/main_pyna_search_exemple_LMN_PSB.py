@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-08-10 17:16:25
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-04-07 15:07:58
+# @Last Modified time: 2025-04-15 16:33:29
 import scipy.io
 import sys, os
 import numpy as np
@@ -11,7 +11,7 @@ import pynapple as nap
 try:
     from functions import *
 except:
-    sys.path.append("../")
+    sys.path.append(os.path.expanduser("~/LMNphysio/pyna"))
     from functions import *
 
 from itertools import combinations, product
@@ -36,8 +36,8 @@ path = os.path.join(data_directory, "LMN-PSB/A3019/A3019-220701A")
 
 # data = nap.load_session(path, 'neurosuite')
 basename = os.path.basename(path)
-# filepath = os.path.join(path, "pynapplenwb", basename + ".nwb")
-filepath = os.path.join(path, "kilosort4", basename + ".nwb")
+filepath = os.path.join(path, "pynapplenwb", basename + ".nwb")
+# filepath = os.path.join(path, "kilosort4", basename + ".nwb")
 
 nwb = nap.load_file(filepath)
 
@@ -96,6 +96,16 @@ colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'wheat', 'indianred', 'royalblue', 
 
 shank = spikes._metadata.group.values
 
+
+cc = nap.compute_crosscorrelogram((spikes[lmn], spikes[psb]), 0.001, 0.5, sws_ep, norm=True)
+
+
+ahv = np.gradient(np.unwrap(angle).bin_average(0.05))/np.mean(np.diff(angle.t))
+
+tcahv = nap.compute_1d_tuning_curves(spikes, ahv, 100, wake_ep, minmax=(-50, 50))
+
+
+
 figure()
 count = 1
 for l,j in enumerate(np.unique(shank)):
@@ -114,6 +124,35 @@ for l,j in enumerate(np.unique(shank)):
                 color = colors[l])
 
 
+
+
+
+cc2 = cc[cc.columns[cc.loc[-0.1:0.1].idxmax()<0]]
+
+figure()
+for i, p in enumerate(cc2.max().sort_values().index.values[-50:]):
+    subplot(5,10,i+1)
+    plot(cc2[p])
+    title(p)
+
+
+ps = [(89,39), (73, 39), (84,39), (78,39), (78, 28), (74,37), (69,37), (91, 28)]
+
+for p in ps:
+    figure()
+    # p = (78, 39)
+    subplot(131)
+    plot(cc[p])
+    subplot(132, projection='polar')
+    plot(tuning_curves[p[0]], label = 'lmn')
+    plot(tuning_curves[p[1]], label = 'psb')
+    legend()
+    subplot(133)
+    plot(tcahv[p[0]], label = 'lmn')
+    plot(tcahv[p[1]], label = 'psb')
+    legend()
+
+show()
 
 #############################
 # RASTER
