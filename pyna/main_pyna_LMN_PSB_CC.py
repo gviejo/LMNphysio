@@ -2,7 +2,7 @@
 # @Author: gviejo
 # @Date:   2025-01-04 06:11:33
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-04-17 14:54:15
+# @Last Modified time: 2025-04-24 15:11:23
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -13,7 +13,12 @@ from pycircstat.descriptive import mean as circmean
 import _pickle as cPickle
 from matplotlib.gridspec import GridSpec
 from scipy.stats import zscore
+from matplotlib.backends.backend_pdf import PdfPages
+import seaborn as sns
 
+# Apply the default theme
+sns.set_context("paper")
+sns.set(font_scale=0.1)
 
 ############################################################################################### 
 # GENERAL infos
@@ -32,7 +37,7 @@ elif os.path.exists('/Users/gviejo/Data'):
 datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN_PSB.list'), delimiter = '\n', dtype = str, comments = '#')
 
 
-allcc = {'wak':[], 'rem':[], 'sws':[]}
+allcc = {'wak':[], 'all':[], 'sws':[]}
 allccdown = {'psb':[], 'lmn':[]}
 
 angdiff = {}
@@ -40,6 +45,7 @@ angdiff = {}
 hd_info = {}
 
 alltcurves = []
+alltcahv = []
 
 for s in datasets:
 
@@ -48,8 +54,8 @@ for s in datasets:
     ###############################################################################################
     path = os.path.join(data_directory, s)
     basename = os.path.basename(path)
-    # filepath = os.path.join(path, "kilosort4", basename + ".nwb")
-    filepath = os.path.join(path, "pynapplenwb", basename + ".nwb")
+    filepath = os.path.join(path, "kilosort4", basename + ".nwb")
+    # filepath = os.path.join(path, "pynapplenwb", basename + ".nwb")
 
     if os.path.exists(filepath):
         
@@ -75,16 +81,6 @@ for s in datasets:
         sws_ep = nwb['sws']
         rem_ep = nwb['rem']    
 
-        # hmm_eps = []
-        # try:
-        #     filepath = os.path.join(data_directory, s, os.path.basename(s))
-        #     hmm_eps.append(nap.load_file(filepath+"_HMM_ep0.npz"))
-        #     hmm_eps.append(nap.load_file(filepath+"_HMM_ep1.npz"))
-        #     hmm_eps.append(nap.load_file(filepath+"_HMM_ep2.npz"))
-        # except:
-        #     pass
-        
-        psb_spikes = spikes[spikes.location=="psb"]
 
         spikes = spikes[(spikes.location=="psb")|(spikes.location=="lmn")]
         
@@ -94,11 +90,10 @@ for s in datasets:
         ###############################################################################################
         tuning_curves = nap.compute_1d_tuning_curves(spikes, position['ry'], 120, minmax=(0, 2*np.pi), ep = position.time_support.loc[[0]])
         tuning_curves = smoothAngularTuningCurves(tuning_curves, 20, 4)
-        
         SI = nap.compute_1d_mutual_info(tuning_curves, position['ry'], position.time_support.loc[[0]], minmax=(0,2*np.pi))
         spikes.set_info(SI)
 
-        spikes = spikes[spikes.SI>0.1]
+        # spikes = spikes[spikes.SI>0.1]
 
 
         # CHECKING HALF EPOCHS
@@ -121,16 +116,16 @@ for s in datasets:
         
         spikes = spikes[tokeep]
 
-
         psb = spikes.location[spikes.location=="psb"].index.values
         lmn = spikes.location[spikes.location=="lmn"].index.values
-
-    
-        print(s)
         
-        tcurves         = tuning_curves[tokeep]
+        tcurves = tuning_curves[tokeep]
         # tcurves = tuning_curves
-        
+
+
+
+        # Filtering by SI only for LMN
+        # lmn = np.intersect1d(lmn[spikes.SI[lmn]>0.1], tokeep)
 
 
         try:
@@ -146,16 +141,16 @@ for s in datasets:
         ###############################################################################################         
         
         
-        for e, ep, bin_size, window_size in zip(['wak', 'rem', 'sws'], 
-            [newwake_ep, rem_ep, sws_ep], 
-            [0.01, 0.01, 0.001], [1, 1, 1]):
+        for e, ep, bin_size, window_size in zip(['wak', 'sws', 'all'], 
+            [newwake_ep, sws_ep, spikes.time_support], 
+            [0.0005, 0.0005, 0.0005], [0.1, 0.1, 0.1]):
 
             tmp = nap.compute_crosscorrelogram(
                     # tuple(spikes.getby_category("location").values()),
-                    (spikes[lmn], spikes[psb]),
+                    (spikes[psb], spikes[lmn]),
                     bin_size, 
-                    window_size, 
-                    ep, norm=True)        
+                    window_size,
+                    ep, norm=True)
 
 
             pairs = [(basename + "_" + str(n), basename + "_" + str(m)) for n, m in tmp.columns]
@@ -163,6 +158,12 @@ for s in datasets:
             tmp.columns = pairs
             
             allcc[e].append(tmp)
+
+            # if e == 'sws':
+            #     sys.exit()
+            #     cc1 = nap.compute_crosscorrelogram(spikes[[1, lmn[0]]], 0.0001, 1, spikes.time_support, norm=True)
+            #     cc2 = nap.compute_crosscorrelogram(spikes[[1, lmn[0]]], 0.001, 1, spikes.time_support, norm=True)
+            #     cc3 = nap.compute_crosscorrelogram(spikes[[1, lmn[0]]], 0.01, 1, spikes.time_support, norm=True)
 
 
         #######################
@@ -180,6 +181,18 @@ for s in datasets:
         tcurves.columns = [basename + "_" + str(n) for n in tcurves.columns]
         alltcurves.append(tcurves)
 
+        ######################
+        # AHV
+        ######################
+        angle = position['ry']
+        ahv = np.gradient(np.unwrap(angle).bin_average(0.05))/np.mean(np.diff(angle.t))
+
+        tcahv = nap.compute_1d_tuning_curves(spikes, ahv, 100, wake_ep, minmax=(-50, 50))
+
+        tcahv.columns = [basename + "_" + str(n) for n in tcahv.columns]
+        alltcahv.append(tcahv)
+
+
         # sys.exit()
 
 
@@ -191,85 +204,148 @@ hd_info = pd.DataFrame(hd_info).T
 hd_info.columns = ['lmn', 'psb']
 
 alltcurves = pd.concat(alltcurves, axis=1)
-
-
-# datatosave = {'allcc':allcc, 'angdiff':angdiff}#, 'allcup': allccdown}
-# dropbox_path = os.path.expanduser("~/Dropbox/LMNphysio/data")
-# cPickle.dump(datatosave, open(os.path.join(dropbox_path, 'CC_LMN-PSB.pickle'), 'wb'))
-
-
-figure()
-for i, e in enumerate(allcc.keys()):
-    subplot(1,3,i+1)
-    #plot(allcc[e], alpha = 0.7, color = 'grey')
-    plot(allcc[e].mean(1), '.-')
-    title(e)
-
-
-# figure()
-# for i,k in enumerate(['psb', 'lmn']):
-#     subplot(2,1,i+1)
-#     plot(allccdown[k].mean(1))
-# show()
-
-
-angbins = np.linspace(0, np.pi, 4)
-idx = np.digitize(angdiff, angbins)-1
-
-ang0 = angdiff[idx==0].index
-
-cc = allcc['sws'][ang0]
-
-cc = cc[cc.idxmax().sort_values().index] 
-
-# imshow(cc.values.T, aspect='auto')
-
-# bins = np.linspace(hd_info['psb'].min(), hd_info['psb'].max(), 9)
-bins = np.geomspace(hd_info['psb'].min(), hd_info['psb'].max(), 9)
-
-idx = np.digitize(hd_info['psb'], bins)-1
-
-ccg = {}
-for i in np.unique(idx):
-    ccg[i] = allcc['sws'][hd_info.index[idx==i]].mean(1)
-ccg = pd.DataFrame(ccg)
+alltcahv = pd.concat(alltcahv, axis=1)
 
 
 
-figure()
-for i in range(ccg.shape[1]):
-    subplot(3,3,i+1)
-    plot(ccg[i].loc[-0.1:0.1])
+# Detecting synaptic connections
+
+
+df = allcc['sws'].apply(lambda col: gaussian_filter1d(col, sigma=20))
 
 
 
-maxt = allcc['sws'].idxmax()
-
-idx = maxt[(maxt>-0.02) & (maxt<0.0)].index.values
-
-new_idx = allcc['sws'][idx].max().sort_values().index.values[::-1]
 
 
-figure()
-for i in range(54):
-    ax = subplot(6,9,i+1)    
-    plot(allcc['sws'][new_idx[i]].loc[-0.1:0.1])
-    axvline(0)
-
-figure()
-for i in range(54):
-    ax = subplot(6,9,i+1, projection='polar')    
-    p = new_idx[i]
-    plot(alltcurves[p[0]])
-    plot(alltcurves[p[1]])
+datatosave = {'allcc':allcc, 'angdiff':angdiff, 'alltc':alltcurves}
+dropbox_path = os.path.expanduser("~/Dropbox/LMNphysio/data")
+cPickle.dump(datatosave, open(os.path.join(dropbox_path, 'CC_LMN-PSB.pickle'), 'wb'))
 
 
+pdf_filename = os.path.expanduser("~/Dropbox/LMNphysio/summary_cc/fig_CC_LMN_PSB.pdf")
 
-figure()
-subplot(121, projection='polar')
-plot(alltcurves[new_idx[0][0]], label='lmn')
-plot(alltcurves[new_idx[0][1]], label='psb')
-legend()
-subplot(122)
-plot(allcc['sws'][new_idx[0]])
-show()
+with PdfPages(pdf_filename) as pdf:
+    sns.set(font_scale=0.3)
+
+
+    fig = figure()
+    for i, e in enumerate(allcc.keys()):
+        subplot(1,3,i+1)
+        #plot(allcc[e], alpha = 0.7, color = 'grey')
+        plot(allcc[e].mean(1), '.-')
+        title(e)
+    
+    pdf.savefig(fig)
+    close(fig)
+
+
+
+    # figure()
+    # for i,k in enumerate(['psb', 'lmn']):
+    #     subplot(2,1,i+1)
+    #     plot(allccdown[k].mean(1))
+    # show()
+
+
+    angbins = np.linspace(0, np.pi, 4)
+    idx = np.digitize(angdiff, angbins)-1
+
+    ang0 = angdiff[idx==0].index
+
+    cc = allcc['sws']#[ang0]
+
+    cc = cc[cc.idxmax().sort_values().index] 
+
+    # imshow(cc.values.T, aspect='auto')
+
+    # bins = np.linspace(hd_info['psb'].min(), hd_info['psb'].max(), 9)
+    # bins = np.geomspace(hd_info['psb'].min(), hd_info['psb'].max(), 9)
+
+    # idx = np.digitize(hd_info['psb'], bins)-1
+
+    # ccg = {}
+    # for i in np.unique(idx):
+    #     ccg[i] = allcc['sws'][hd_info.index[idx==i]].mean(1)
+    # ccg = pd.DataFrame(ccg)
+
+
+
+    # figure()
+    # for i in range(ccg.shape[1]):
+    #     subplot(3,3,i+1)
+    #     plot(ccg[i].loc[-0.1:0.1])
+
+
+    cc = allcc['sws']
+    maxt = cc.idxmax()
+
+    idx = maxt[(maxt<0.015) & (maxt>0.0)].index.values
+
+    new_idx = cc[idx].max().sort_values().index.values[::-1]
+
+    # new_idx = allcc['all'][idx]maxt[maxt.sort_values()>0].sort_values().index.values
+
+
+    figure()
+    for i in range(80):
+        ax = subplot(8,10,i+1)    
+        p = new_idx[i]
+        plot((allcc['sws'][p]-df[p]).loc[-0.02:0.02], linewidth=0.4)
+        axvline(0, linewidth=0.2)
+        title(p[0].split("_")[0] + " " + str(i))
+        xticks([])
+        yticks([])
+    tight_layout()
+    pdf.savefig(gcf())
+    close(gcf())
+
+
+    figure()
+    for i in range(60):
+        ax = subplot(6,10,i+1, projection='polar')    
+        p = new_idx[i]
+        plot(alltcurves[p[0]])
+        plot(alltcurves[p[1]])
+        title(p[0].split("_")[0] + " " + str(i))        
+        xticks([])
+        yticks([])
+
+    tight_layout()
+    pdf.savefig(gcf())
+    close(gcf())
+
+    figure()
+    for i in range(54):
+        ax = subplot(6,9,i+1)
+        p = new_idx[i]
+        plot(alltcahv[p[0]].loc[-40:40], label='lmn')
+        plot(alltcahv[p[1]].loc[-40:40], label='psb')
+        title(i)
+        xticks([])
+        yticks([])
+
+    tight_layout()
+    pdf.savefig(gcf())
+    close(gcf())
+
+    # for p in [0, 2]:
+
+    #     figure(figsize=(18,10))
+    #     subplot(121, projection='polar')
+    #     plot(alltcurves[new_idx[p][0]], label='lmn')
+    #     plot(alltcurves[new_idx[p][1]], label='psb')
+    #     legend()
+    #     # subplot(132)
+    #     # plot(alltcahv[new_idx[p][0]].loc[-40:40], label='lmn')
+    #     # plot(alltcahv[new_idx[p][1]].loc[-40:40], label='psb')
+    #     # legend()        
+    #     subplot(122)
+    #     plot(allcc['sws'][new_idx[p]].loc[-0.02:0.02], linewidth=0.5)
+    #     plot(allcc['wak'][new_idx[p]].loc[-0.02:0.02], linewidth=0.5)
+    #     grid()
+
+    #     tight_layout()
+    #     pdf.savefig(gcf())
+    #     close(gcf())
+
+

@@ -2,16 +2,20 @@
 # @Author: gviejo
 # @Date:   2023-08-29 13:46:37
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-04-09 16:38:47
+# @Last Modified time: 2025-04-24 15:43:06
 # %%
 import numpy as np
 import pandas as pd
 import pynapple as nap
-import nwbmatic as ntm
+# import nwbmatic as ntm
 from pylab import *
 import sys, os
-sys.path.append("..")
-from functions import *
+try:
+    from functions import *
+except ModuleNotFoundError:
+    import sys
+    sys.path.append("../")
+    from functions import *
 from pycircstat.descriptive import mean as circmean
 import _pickle as cPickle
 from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
@@ -47,7 +51,7 @@ datasets = yaml.safe_load(
 
 
 SI_thr = {
-    'adn':0.2, 
+    'adn':0.2,
     'lmn':0.1,
     'psb':1.0
     }
@@ -207,7 +211,7 @@ for st in ['adn', 'lmn']:
                         pre_ep = pre_ep.drop_short_intervals(stim_duration-0.001)
 
                         rates = {}
-                        for e, iset, bin_size, std in zip(['wak', 'pre', 'opto'], [newwake_ep, pre_ep, opto_ep], [0.3, 0.3, 0.3], [2, 2, 2]):
+                        for e, iset, bin_size, std in zip(['wak', 'pre', 'opto'], [newwake_ep, pre_ep, opto_ep], [0.1, 0.1, 0.1], [3, 3, 3]):
                             count = spikes.count(bin_size, iset)
                             rate = count/bin_size
                             rate = rate.smooth(std=bin_size*std).as_dataframe()
@@ -228,40 +232,40 @@ for st in ['adn', 'lmn']:
                         # # Session correlation
                         # #######################
 
-                        # tmp = pd.DataFrame(index=[basename])
-                        # tmp['pre'] = scipy.stats.pearsonr(r['wak'], r['pre'])[0]
-                        # tmp['opto'] = scipy.stats.pearsonr(r['wak'], r['opto'])[0]
-                        # tmp['n'] = len(spikes)
-                        # corr[st][gr][sd].append(tmp)
+                        tmp = pd.DataFrame(index=[basename])
+                        tmp['pre'] = scipy.stats.pearsonr(r['wak'], r['pre'])[0]
+                        tmp['opto'] = scipy.stats.pearsonr(r['wak'], r['opto'])[0]
+                        tmp['n'] = len(spikes)
+                        corr[st][gr][sd].append(tmp)
 
                         #######################
                         # Session correlation with bootstrap
                         #######################
-                        rsess = pd.DataFrame(
-                            index=[basename+"-"+str(i) for i in spikes.keys()],
-                            columns = ['pre', 'opto', 'n']
-                            )
-                        rsess['n'] = len(spikes)-1
+                        # rsess = pd.DataFrame(
+                        #     index=[basename+"-"+str(i) for i in spikes.keys()],
+                        #     columns = ['pre', 'opto', 'n']
+                        #     )
+                        # rsess['n'] = len(spikes)-1
 
-                        keys = np.array(spikes.keys()).astype(str) 
-                        for i, n in enumerate(spikes.keys()):
-                            idx = np.arange(len(spikes)) != i
+                        # keys = np.array(spikes.keys()).astype(str) 
+                        # for i, n in enumerate(spikes.keys()):
+                        #     idx = np.arange(len(spikes)) != i
 
-                            pairs = [basename+"_"+i+"-"+j for i,j in list(combinations(keys[idx], 2))]
-                            r = pd.DataFrame(index = pairs, columns = rates.keys(), dtype = np.float32)                        
+                        #     pairs = [basename+"_"+i+"-"+j for i,j in list(combinations(keys[idx], 2))]
+                        #     r = pd.DataFrame(index = pairs, columns = rates.keys(), dtype = np.float32)                        
 
-                            for e in rates.keys():
-                                tmp = np.corrcoef(rates[e].values[:,idx].T)
-                                r[e] = tmp[np.triu_indices(tmp.shape[0], 1)]
+                        #     for e in rates.keys():
+                        #         tmp = np.corrcoef(rates[e].values[:,idx].T)
+                        #         r[e] = tmp[np.triu_indices(tmp.shape[0], 1)]
 
-                            rsess.loc[basename+"-"+str(n),'pre'] = scipy.stats.pearsonr(
-                                np.arctanh(r['wak']), np.arctanh(r['pre'])
-                                )[0]
-                            rsess.loc[basename+"-"+str(n),'opto'] = scipy.stats.pearsonr(
-                                np.arctanh(r['wak']), np.arctanh(r['opto'])
-                                )[0]            
+                        #     rsess.loc[basename+"-"+str(n),'pre'] = scipy.stats.pearsonr(
+                        #         np.arctanh(r['wak']), np.arctanh(r['pre'])
+                        #         )[0]
+                        #     rsess.loc[basename+"-"+str(n),'opto'] = scipy.stats.pearsonr(
+                        #         np.arctanh(r['wak']), np.arctanh(r['opto'])
+                        #         )[0]            
 
-                        corr[st][gr][sd].append(rsess)
+                        # corr[st][gr][sd].append(rsess)
 
                     #######################
                     # SAVING

@@ -2,11 +2,11 @@
 # @Author: gviejo
 # @Date:   2023-08-29 13:46:37
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-04-01 14:36:29
+# @Last Modified time: 2025-04-24 15:51:42
 import numpy as np
 import pandas as pd
 import pynapple as nap
-import nwbmatic as ntm
+# import nwbmatic as ntm
 from pylab import *
 import sys, os
 sys.path.append("..")
@@ -225,52 +225,41 @@ for st in ['adn', 'lmn']:
                         # #######################
                         # # Session correlation
                         # #######################
-                        # tmp = pd.DataFrame(index=[basename])
-                        # tmp['sws'] = scipy.stats.pearsonr(r['wak'], r['sws'])[0]
-                        # tmp['opto'] = scipy.stats.pearsonr(r['wak'], r['opto'])[0]
-                        # tmp['n'] = len(spikes)
-                        # corr[st][gr][sd].append(tmp)
+                        tmp = pd.DataFrame(index=[basename])
+                        tmp['sws'] = scipy.stats.pearsonr(r['wak'], r['sws'])[0]
+                        tmp['opto'] = scipy.stats.pearsonr(r['wak'], r['opto'])[0]
+                        tmp['n'] = len(spikes)
+                        corr[st][gr][sd].append(tmp)
 
                         #######################
                         # Session correlation with bootstrap
                         #######################
-                        rsess = pd.DataFrame(
-                            index=[basename+"-"+str(i) for i in spikes.keys()],
-                            columns = ['sws', 'opto', 'n']
-                            )
-                        rsess['n'] = len(spikes)-1
+                        # rsess = pd.DataFrame(
+                        #     index=[basename+"-"+str(i) for i in spikes.keys()],
+                        #     columns = ['sws', 'opto', 'n']
+                        #     )
+                        # rsess['n'] = len(spikes)-1
 
-                        keys = np.array(spikes.keys()).astype(str) 
-                        for i, n in enumerate(spikes.keys()):
-                            idx = np.arange(len(spikes)) != i
+                        # keys = np.array(spikes.keys()).astype(str) 
+                        # for i, n in enumerate(spikes.keys()):
+                        #     idx = np.arange(len(spikes)) != i
 
-                            pairs = [basename+"_"+i+"-"+j for i,j in list(combinations(keys[idx], 2))]
-                            r = pd.DataFrame(index = pairs, columns = rates.keys(), dtype = np.float32)                        
+                        #     pairs = [basename+"_"+i+"-"+j for i,j in list(combinations(keys[idx], 2))]
+                        #     r = pd.DataFrame(index = pairs, columns = rates.keys(), dtype = np.float32)                        
 
-                            for e in rates.keys():
-                                tmp = np.corrcoef(rates[e].values[:,idx].T)
-                                r[e] = tmp[np.triu_indices(tmp.shape[0], 1)]
+                        #     for e in rates.keys():
+                        #         tmp = np.corrcoef(rates[e].values[:,idx].T)
+                        #         r[e] = tmp[np.triu_indices(tmp.shape[0], 1)]
 
-                            rsess.loc[basename+"-"+str(n),'sws'] = scipy.stats.pearsonr(
-                                np.arctanh(r['wak']), np.arctanh(r['sws'])
-                                )[0]
-                            rsess.loc[basename+"-"+str(n),'opto'] = scipy.stats.pearsonr(
-                                np.arctanh(r['wak']), np.arctanh(r['opto'])
-                                )[0]
+                        #     rsess.loc[basename+"-"+str(n),'sws'] = scipy.stats.pearsonr(
+                        #         np.arctanh(r['wak']), np.arctanh(r['sws'])
+                        #         )[0]
+                        #     rsess.loc[basename+"-"+str(n),'opto'] = scipy.stats.pearsonr(
+                        #         np.arctanh(r['wak']), np.arctanh(r['opto'])
+                        #         )[0]
 
-
-                        # def compute_pearsonr_loo(r, c):
-                        #     pr = np.zeros(len(r))
-                        #     for i in range(len(r)):
-                        #         idx = np.arange(len(r)) != i
-                        #         pr[i] = scipy.stats.pearsonr(r.iloc[idx]['wak'], r.iloc[idx][c])[0]
-
-                        #     return pr.mean()
-
-                        # tmp['sws'] = compute_pearsonr_loo(r, 'sws')
-                        # tmp['opto'] = compute_pearsonr_loo(r, 'opto')
                         
-                        corr[st][gr][sd].append(rsess)
+                        # corr[st][gr][sd].append(rsess)
 
 
                     #######################

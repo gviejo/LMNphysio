@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-02-28 16:16:36
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-04-14 17:14:00
+# @Last Modified time: 2025-04-22 17:48:35
 import numpy as np
 from numba import jit
 import pandas as pd
@@ -567,62 +567,79 @@ def load_data(filepath):
     return spikes, position, {'wake_ep':wake_ep, 'sws_ep':sws_ep}
 
 def load_opto_data(path, st):
-    SI_thr = {
-        'adn':0.2, 
-        'lmn':0.1,
-        'psb':1.0
-        }    
-    basename = os.path.basename(path)
-    filepath = os.path.join(path, "kilosort4", basename + ".nwb")
-    nwb = nap.load_file(filepath)
-    spikes = nwb['units']
-    spikes = spikes.getby_threshold("rate", 1)
+    dropbox_path = os.path.join(os.path.expanduser("~"), "Dropbox/LMNphysio/data/" + os.path.basename(path) + ".pickle")
+    if os.path.exists(dropbox_path):
+        import _pickle as cPickle
+        data = cPickle.load(open(dropbox_path, 'rb'))
+        spikes = data['spikes']
+        position = data['position']
+        wake_ep = data['wake_ep']
+        opto_ep = data['opto_ep']
+        sws_ep = data['sws_ep']
 
-    position = []
-    columns = ['x', 'y', 'z', 'rx', 'ry', 'rz']
-    for k in columns:
-        if k == 'ry':
-            ry = nwb[k].values[:]
-            position.append((ry + np.pi)%(2*np.pi))
-        else:
-            position.append(nwb[k].values)
+    else:    
+        SI_thr = {
+            'adn':0.1, 
+            'lmn':0.1,
+            'psb':0.1
+            }    
+        basename = os.path.basename(path)
+        filepath = os.path.join(path, "kilosort4", basename + ".nwb")
+        nwb = nap.load_file(filepath)
+        spikes = nwb['units']
+        spikes = spikes.getby_threshold("rate", 8)
 
-    position = np.array(position)
-    position = np.transpose(position)
-    position = nap.TsdFrame(
-        t=nwb['x'].t,
-        d=position,
-        columns=columns,
-        time_support=nwb['position_time_support'])
+        position = []
+        columns = ['x', 'y', 'z', 'rx', 'ry', 'rz']
+        for k in columns:
+            if k == 'ry':
+                ry = nwb[k].values[:]
+                position.append((ry + np.pi)%(2*np.pi))
+            else:
+                position.append(nwb[k].values)
 
-    epochs = nwb['epochs']
-    wake_ep = epochs[epochs.tags == "wake"]
-    opto_ep = nwb["opto"]
-    sws_ep = nwb['sws']
-    nwb.close()
+        position = np.array(position)
+        position = np.transpose(position)
+        position = nap.TsdFrame(
+            t=nwb['x'].t,
+            d=position,
+            columns=columns,
+            time_support=nwb['position_time_support'])
 
-    spikes = spikes[spikes.location == st]
-    opto_ep = opto_ep.intersect(sws_ep)
-    stim_duration = 1.0
-    opto_ep = opto_ep[(opto_ep['end'] - opto_ep['start'])>=stim_duration-0.001]
+        epochs = nwb['epochs']
+        wake_ep = epochs[epochs.tags == "wake"]
+        opto_ep = nwb["opto"]
+        sws_ep = nwb['sws']
+        nwb.close()
 
-    tuning_curves = nap.compute_1d_tuning_curves(spikes, position['ry'], 120, minmax=(0, 2*np.pi), ep = position.time_support.loc[[0]])
-    tuning_curves = smoothAngularTuningCurves(tuning_curves)
-    tcurves = tuning_curves
-    SI = nap.compute_1d_mutual_info(tcurves, position['ry'], position.time_support.loc[[0]], (0, 2*np.pi))
-    spikes.set_info(SI)
-    spikes.set_info(max_fr = tcurves.max())
+        spikes = spikes[spikes.location == st]        
+        stim_duration = 1.0
+        opto_ep = opto_ep[(opto_ep['end'] - opto_ep['start'])>=stim_duration-0.001]
 
-    spikes = spikes.getby_threshold("SI", SI_thr[st])
-    spikes = spikes.getby_threshold("rate", 1.0)
-    spikes = spikes.getby_threshold("max_fr", 3.0)
+        tuning_curves = nap.compute_1d_tuning_curves(spikes, position['ry'], 120, minmax=(0, 2*np.pi), ep = position.time_support.loc[[0]])
+        tuning_curves = smoothAngularTuningCurves(tuning_curves)
+        tcurves = tuning_curves
+        SI = nap.compute_1d_mutual_info(tcurves, position['ry'], position.time_support.loc[[0]], (0, 2*np.pi))
+        spikes.set_info(SI)
+        spikes.set_info(max_fr = tcurves.max())
 
-    tokeep = spikes.index
-    tcurves = tcurves[tokeep]
+        spikes = spikes.getby_threshold("SI", SI_thr[st])
+        spikes = spikes.getby_threshold("rate", 1.0)
+        spikes = spikes.getby_threshold("max_fr", 3.0)
 
-    # peaks = pd.Series(index=tcurves.columns, data = np.array([circmean(tcurves.index.values, tcurves[i].values) for i in tcurves.columns]))
-    peaks = tcurves.idxmax()
-    order = np.argsort(peaks.reset_index(drop='True').sort_values().index)
-    spikes.set_info(order=order, peaks=peaks)
+        tokeep = spikes.index
+        tcurves = tcurves[tokeep]
 
-    return spikes, position, {'wake_ep':wake_ep, 'opto_ep':opto_ep, 'sws_ep':sws_ep}
+        # peaks = pd.Series(index=tcurves.columns, data = np.array([circmean(tcurves.index.values, tcurves[i].values) for i in tcurves.columns]))
+        peaks = tcurves.idxmax()
+        order = np.argsort(peaks.reset_index(drop='True').sort_values().index)
+        spikes.set_info(order=order, peaks=peaks)
+
+        # Adding to dropbox
+        datatosave = {"spikes":spikes, "position":position, 'wake_ep':wake_ep, 'opto_ep':opto_ep, 'sws_ep':sws_ep}
+        savepath = os.path.join(os.path.expanduser("~"), "Dropbox/LMNphysio/data/" + os.path.basename(path) + ".pickle")
+        import _pickle as cPickle
+        cPickle.dump(datatosave, open(savepath, 'wb'))
+
+
+    return spikes, position, wake_ep, opto_ep, sws_ep
