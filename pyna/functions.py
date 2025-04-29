@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-02-28 16:16:36
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-04-22 17:48:35
+# @Last Modified time: 2025-04-29 12:11:51
 import numpy as np
 from numba import jit
 import pandas as pd
@@ -576,6 +576,7 @@ def load_opto_data(path, st):
         wake_ep = data['wake_ep']
         opto_ep = data['opto_ep']
         sws_ep = data['sws_ep']
+        # tuning_curves = data['tuning_curves']
 
     else:    
         SI_thr = {
@@ -636,10 +637,13 @@ def load_opto_data(path, st):
         spikes.set_info(order=order, peaks=peaks)
 
         # Adding to dropbox
-        datatosave = {"spikes":spikes, "position":position, 'wake_ep':wake_ep, 'opto_ep':opto_ep, 'sws_ep':sws_ep}
+        datatosave = {"spikes":spikes, "position":position, 'wake_ep':wake_ep, 
+            'opto_ep':opto_ep, 'sws_ep':sws_ep,
+            'tuning_curves':tuning_curves
+            }
         savepath = os.path.join(os.path.expanduser("~"), "Dropbox/LMNphysio/data/" + os.path.basename(path) + ".pickle")
         import _pickle as cPickle
         cPickle.dump(datatosave, open(savepath, 'wb'))
 
 
-    return spikes, position, wake_ep, opto_ep, sws_ep
+    return spikes, position, wake_ep, opto_ep, sws_ep#, tuning_curves

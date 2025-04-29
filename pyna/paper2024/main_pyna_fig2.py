@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-04-24 16:36:26
+# @Last Modified time: 2025-04-29 15:59:50
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -97,6 +97,7 @@ def noaxis(ax):
 fontsize = 6
 
 COLOR = (0.25, 0.25, 0.25)
+cycle = rcParams['axes.prop_cycle'].by_key()['color']
 
 rcParams["font.family"] = 'DejaVu Sans Mono'
 rcParams["font.size"] = fontsize
@@ -119,7 +120,10 @@ rcParams["axes.edgecolor"] = COLOR
 rcParams["axes.axisbelow"] = True
 rcParams["xtick.color"] = COLOR
 rcParams["ytick.color"] = COLOR
-
+rcParams['xtick.major.pad'] = 0.5
+rcParams['ytick.major.pad'] = 0.5
+rcParams['xtick.minor.pad'] = 0.5
+rcParams['ytick.minor.pad'] = 0.5
 
 colors = {"adn": "#EA9E8D", "lmn": "#8BA6A9", "psb": "#CACC90"}
 
@@ -167,7 +171,7 @@ names = {'adn':"ADN", 'lmn':"LMN"}
 epochs = {'wak':'Wake', 'sws':'Sleep'}
 
 gs_top = gridspec.GridSpecFromSubplotSpec(
-    1, 3, subplot_spec=outergs[0, 0], width_ratios=[0.2, 0.4, 0.3], wspace=0.5
+    1, 3, subplot_spec=outergs[0, 0], width_ratios=[0.4, 0.3, 0.3], wspace=0.5
 )
 
 
@@ -175,7 +179,7 @@ gs_top = gridspec.GridSpecFromSubplotSpec(
 # Histo
 #####################################
 gs_histo = gridspec.GridSpecFromSubplotSpec(
-    1, 1, subplot_spec=gs_top[0, 0]#, height_ratios=[0.5, 0.2, 0.2] 
+    2, 1, subplot_spec=gs_top[0, 0]#, height_ratios=[0.5, 0.2, 0.2] 
 )
 
 
@@ -186,8 +190,17 @@ imshow(img, aspect="equal")
 xticks([])
 yticks([])
 
+#########################
+# Examples LMN PSB raster
+#########################
+subplot(gs_histo[1,0])
+simpleaxis(gca())
+
+
+
+
 #####################################
-# Examples LMN PSB
+# Examples LMN PSB Connections
 #####################################
 gs_tc = gridspec.GridSpecFromSubplotSpec(3,1, 
     subplot_spec = gs_top[0,1],  hspace = 0.5, wspace=0.2
@@ -215,7 +228,7 @@ exn = [ #('A3018-220615A_59', 'A3018-220615A_78'), # 12
 
 for i, p in enumerate(exn):
     gs_tc2 = gridspec.GridSpecFromSubplotSpec(1,5, gs_tc[i,0],
-        width_ratios=[0.1, 0.05, 0.1, 0.2, 0.1], wspace=0.1, hspace=0.05
+        width_ratios=[0.1, 0.05, 0.1, 0.2, 0.1], wspace=0.15, hspace=0.05
         )
 
     # TUNING CURVES
@@ -232,7 +245,7 @@ for i, p in enumerate(exn):
     noaxis(gca())
     annotate(
     '', xy=(1, 0.5), xytext=(0, 0.5),
-    arrowprops=dict(arrowstyle='->',lw=0.5, color=COLOR)#, headwidth=10, headlength=15)
+    arrowprops=dict(arrowstyle='->',lw=0.5, color=COLOR)#, headwidth=5, headlength=7.5)
     )
     xlim(0, 1)
     ylim(0, 1)
@@ -244,7 +257,7 @@ for i, p in enumerate(exn):
     x = tmp.index.values
     dt = np.mean(np.diff(x))
     x = np.hstack((x-dt/2, np.array([x[-1]+dt/2])))
-    axvspan(0.002, 0.005, alpha=0.2)    
+    axvspan(0.002, 0.008, alpha=0.2)    
     stairs(tmp.values, x, fill=True, color=COLOR)
     xlim(-0.01, 0.01)
     ylim(tmp.values.min()-0.5, tmp.values.max()+0.2)
@@ -256,6 +269,24 @@ for i, p in enumerate(exn):
         xticks([])
 
 
+####################################
+# Hist PSB connections
+###################################
+gs_top_right = gridspec.GridSpecFromSubplotSpec(2,1, 
+    subplot_spec = gs_top[0,2],  hspace = 0.5, wspace=0.2
+    # height_ratios=[0.1, 0.2]
+    )
+
+
+subplot(gs_top_right[0,0])
+simpleaxis(gca())
+
+hist, bin_edges = np.histogram(allcc['sws'].idxmax().values, bins = np.linspace(-0.02, 0.02, 50), range = (-0.01, 0.01))
+stairs(hist, bin_edges, fill=True, color=COLOR, alpha=0.5)
+xlabel("Lag (ms)")
+xticks([-0.02, -0.01, 0.0, 0.01, 0.02], [-20, -10, 0, 10, 20])
+ylabel("Density (%)")
+axvspan(0.002, 0.008, alpha=0.2)
 
 
 #####################################
@@ -269,7 +300,7 @@ for i, p in enumerate(exn):
 # Histo
 #####################################
 gs_bottom = gridspec.GridSpecFromSubplotSpec(
-    1, 3, subplot_spec=outergs[1, 0], width_ratios=[0.1, 0.3, 0.6], wspace=0.5
+    1, 2, subplot_spec=outergs[1, 0], width_ratios=[0.1, 0.9], wspace=0.5
 )
 
 gs_histo = gridspec.GridSpecFromSubplotSpec(
@@ -306,13 +337,14 @@ yticks([])
 #####################################
 st = 'lmn'
 
-gs2 = gridspec.GridSpecFromSubplotSpec(2, 1, gs_bottom[0,1], hspace=0.6)
+gs2 = gridspec.GridSpecFromSubplotSpec(2, 4, gs_bottom[0,1], hspace=0.5)
 
 
 exs = [
     ("A8000/A8066/A8066-240216A", nap.IntervalSet(6292.5, 6322.3679), "Wakefulness"),
     # ("A8000/A8066/A8066-240216B", nap.IntervalSet(4076.9, 4083.6), "non-REM Sleep")
-    ("A8000/A8066/A8066-240216B", nap.IntervalSet(4033.1, 4037.5), "non-REM sleep")
+    # ("A8000/A8066/A8066-240216B", nap.IntervalSet(4033.1, 4037.5), "non-REM sleep")
+    ("A8000/A8066/A8066-240216B", nap.IntervalSet(4033.375, 4037.225), "non-REM sleep")
 ]
 
 for i, (s, ex, name) in enumerate(exs):
@@ -320,19 +352,26 @@ for i, (s, ex, name) in enumerate(exs):
     path = os.path.join(data_directory, "OPTO", s)
 
     spikes, position, wake_ep, opto_ep, sws_ep = load_opto_data(path, st)
+
+    # Decoding 
+
     
-    gs2_ex = gridspec.GridSpecFromSubplotSpec(2, 1, gs2[i,0], hspace = 0.6)
+    gs2_ex = gridspec.GridSpecFromSubplotSpec(2, 1, gs2[i,0], hspace = 0.3)
     
     subplot(gs2_ex[0,0])
-    simpleaxis(gca())
-    plot(spikes.to_tsd("order").restrict(ex), '|', color=colors[st], markersize=0.7, mew=0.1)
+    simpleaxis(gca())    
+    gca().spines['bottom'].set_visible(False)
+    ms = [0.7, 0.9]
+    plot(spikes.to_tsd("order").restrict(ex), '|', color=colors[st], markersize=ms[i], mew=0.25)
 
-    [axvspan(s, e, alpha=0.2) for s, e in opto_ep.intersect(ex).values]
+    [axvspan(s, e, alpha=0.2, color="lightsalmon") for s, e in opto_ep.intersect(ex).values]
     # ylim(-2, len(spikes)+2)
     xlim(ex.start[0], ex.end[0])
     xticks([])
-    yticks([])
+    yticks([0, len(spikes)-1], [1, len(spikes)])
+    gca().spines['left'].set_bounds(0, len(spikes)-1)
     title(name)
+    ylabel("LMN")
     
 
     exex = nap.IntervalSet(ex.start[0] - 10, ex.end[0] + 10)
@@ -340,6 +379,7 @@ for i, (s, ex, name) in enumerate(exs):
     d=np.array([p.loc[i] for i in spikes.order.sort_values().index]).T
     p = nap.TsdFrame(t=p.t, d=d, time_support=p.time_support)
     p = np.sqrt(p / p.max(0))
+    # p = 100*(p / p.max(0))
 
 
     subplot(gs2_ex[1,0])
@@ -348,40 +388,53 @@ for i, (s, ex, name) in enumerate(exs):
     d = gaussian_filter(tmp.values, 2)
     tmp2 = nap.TsdFrame(t=tmp.index.values, d=d)
 
-    pcolormesh(tmp2.index.values, 
+    im = pcolormesh(tmp2.index.values, 
             np.linspace(0, 2*np.pi, tmp2.shape[1]),
             tmp2.values.T, cmap='GnBu', antialiased=True)
+
+    x = np.linspace(0, 2*np.pi, tmp2.shape[1])
+    yticks([0, 2*np.pi], [1, len(spikes)])
+    vls = opto_ep.intersect(ex).values[0] 
+    gca().spines['bottom'].set_bounds(vls[0], vls[1])        
+    xticks(vls, ['', ''])
+    if i == 0: xlabel("10 s", labelpad=-1)
+    if i == 1: xlabel("1 s", labelpad=-1)
 
     if name == "Wakefulness":
         tmp = position['ry'].restrict(ex)
         iset=np.abs(np.gradient(tmp)).threshold(1.0, method='below').time_support
         for s, e in iset.values:
             plot(tmp.get(s, e), linewidth=0.5, color=COLOR)
-        
-    yticks([])    
 
-
+    # Colorbar
+    axip = gca().inset_axes([1.01, 0.0, 0.015, 1])
+    noaxis(axip)
+    cbar = colorbar(im, cax=axip)
+    axip.set_title("r", y=-0.46)
 
 
 ##########################################
 # LMN OPTO
 ##########################################
 
-#####################################
-# CORRELATION
-#####################################
-gs_corr = gridspec.GridSpecFromSubplotSpec(
-    3, 2, subplot_spec=gs_bottom[0, 2], hspace=0.4#, height_ratios=[0.5, 0.2, 0.2] 
-)
+# gs_corr = gridspec.GridSpecFromSubplotSpec(
+#     2, 2, subplot_spec=gs_bottom[0, 2], hspace=1.0#, height_ratios=[0.5, 0.2, 0.2] 
+# )
 
 orders = [('lmn', 'opto', 'ipsi', 'opto'), 
             # ('lmn', 'opto', 'ipsi', 'sws'), 
             ('lmn', 'ctrl', 'ipsi', 'opto')]
 
+ranges = {
+    "OPTO_SLEEP":(-0.9,0,1,1.9),
+    "OPTO_WAKE":(-9,0,10,19)
+    }
 
-titles = ['non-REM sleep', 'Wakefulness']
 
-for i, f in enumerate(['OPTO_SLEEP', 'OPTO_WAKE']):
+
+titles = ['Wakefulness', 'non-REM sleep']
+
+for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
 
     data = cPickle.load(open(os.path.expanduser(f"~/Dropbox/LMNphysio/data/{f}.pickle"), 'rb'))
 
@@ -390,28 +443,41 @@ for i, f in enumerate(['OPTO_SLEEP', 'OPTO_WAKE']):
     change_fr = data['change_fr']
     allfr = data['allfr']
 
-    ################
+    ####################
     # FIRING rate change
-    ################
+    ####################
+    gs_corr2 = gridspec.GridSpecFromSubplotSpec(1,2, gs2[i,2], width_ratios=[0.2, 0.1])
+
+    subplot(gs_corr2[0,0])
+    simpleaxis(gca())
+
     keys = orders[0]
-    tmp = allfr[keys[0]][keys[1]][keys[2]].loc[-1:2]
-    tmp = tmp.apply(lambda x: gaussian_filter1d(x, sigma=1, mode='constant'))        
-    subplot(gs_corr[0,i])
-    plot(tmp, color = 'grey', alpha=0.2)
-    plot(tmp.mean(1), color = 'blue')
-    axvline(0)
-    axvline(1)
-    xlim(-1, 2)
-    ylim(0.0, 4.0)
-
-
+    tmp = allfr[keys[0]][keys[1]][keys[2]]
+    tmp = tmp.apply(lambda x: gaussian_filter1d(x, sigma=1.5, mode='constant'))
+    tmp = tmp.loc[ranges[f][0]:ranges[f][-1]]
+    m = tmp.mean(1)
+    s = tmp.std(1)
+    
+    # plot(tmp, color = 'grey', alpha=0.2)
+    plot(tmp.mean(1), color = COLOR)
+    fill_between(m.index.values, m.values-s.values, m.values+s.values, color=COLOR, alpha=0.2, ec=None)
+    axvspan(ranges[f][1], ranges[f][2], alpha=0.2, color='lightsalmon', edgecolor=None)    
+    if i == 1: xlabel("Stim. time (s)", labelpad=1)
+    xlim(ranges[f][0], ranges[f][-1])
+    # ylim(0.0, 4.0)
+    title(titles[i])
+    xticks([ranges[f][1], ranges[f][2]])
+    ylim(0, 2)
+    if i == 0:
+        ylabel("Rate\n(norm.)")
 
     ################
     # PEARSON Correlation
     ################
-    subplot(gs_corr[1,i])
+    gs_corr3 = gridspec.GridSpecFromSubplotSpec(2,1, gs2[i,3], hspace=0.9, wspace=0.2)
+    
+    subplot(gs_corr3[0,0])
     simpleaxis(gca())
-    if i == 1: gca().spines["left"].set_visible(False)
 
     corr3 = []
     for j, keys in enumerate(orders):
@@ -422,29 +488,51 @@ for i, f in enumerate(['OPTO_SLEEP', 'OPTO_WAKE']):
         corr2 = corr2.values.astype(float)
         corr3.append(corr2)
 
-        plot(np.abs(np.random.randn(len(corr2)))*0.1+np.ones(len(corr2))*(j+1+0.05), corr2, '.', markersize=1)
-
-
-    violinplot(corr3, showmeans=True, side='low', showextrema=False, vert=True)
-    # boxplot(corr3, widths=0.1, vert=True, positions=np.arange(1, len(corr3) + 1), showfliers=False)
+        plot(np.random.randn(len(corr2))*0.05+np.ones(len(corr2))*(j+1), corr2, '.', markersize=1)
+    
+    
     xlim(0.5, 2.5)
     gca().spines['bottom'].set_bounds(1, 2)
     ymin = corr3[0].min()
-    ylim(ymin, 1)
+    ylim(ymin-0.1, 1.1)
+    gca().spines['left'].set_bounds(ymin-0.1, 1.1)
 
-    if i == 0: ylabel("Pearson r")
-    xticks([1, 2], ['Chrimson', 'Tdtomato\n(Ctrl)'])
-    title(titles[i])
+    ylabel("Pearson r")
+    xticks([1, 2], ['Chrimson', 'Tdtomato'])
 
-    if i == 1: yticks([])
+    # if i == 1: 
+    #     yticks([])
+    #     gca().spines["left"].set_visible(False)
+
+    ############
+    subplot(gs_corr3[1,0])
+    simpleaxis(gca())
+    xlim(0.5, 2.5)
+    ylim(-0.5, 1)
+    gca().spines['bottom'].set_bounds(1, 2)
+    xlabel("minus baseline")
+    # if i == 1: gca().spines["left"].set_visible(False)
+    plot([1,2],[0,0], linestyle='--', color=COLOR, linewidth=0.1)
+    vp = violinplot(corr3, showmeans=False, 
+        showextrema=False, vert=True, side='high'
+        )
+    for k, p in enumerate(vp['bodies']): p.set_color(cycle[k])
+
+    m = [c.mean() for c in corr3]
+    plot([1, 2], m, 'o', markersize=0.5, color=COLOR)
+
+    xticks([1,2],['',''])
+    ylabel(r"Mean$\Delta$")
+    # if i == 1: 
+    #     yticks([])
+    #     gca().spines["left"].set_visible(False)
 
 
 
 
 
 
-
-outergs.update(top=0.95, bottom=0.09, right=0.98, left=0.1)
+outergs.update(top=0.95, bottom=0.05, right=0.98, left=0.1)
 
 
 savefig(
