@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-06-14 16:45:11
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-02-24 16:49:32
+# @Last Modified time: 2025-05-09 13:53:42
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -29,16 +29,15 @@ elif os.path.exists('/Users/gviejo/Data'):
 
 datasets = np.hstack([
     np.genfromtxt(os.path.join(data_directory,'datasets_LMN_PSB.list'), delimiter = '\n', dtype = str, comments = '#'),
-    np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#'),
-    np.genfromtxt(os.path.join(data_directory,'datasets_LMN_PSB.list'), delimiter = '\n', dtype = str, comments = '#'),
+    np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#'),    
     ])
 
 
 datasets = np.unique(datasets)
 
 
-for s in datasets:
-# for s in ['LMN-PSB/A3018/A3018-220613A']:
+# for s in datasets:
+for s in ['LMN-PSB/A3019/A3019-220701A']:
     print(s)
     ############################################################################################### 
     # LOADING DATA
@@ -53,7 +52,7 @@ for s in datasets:
         nwb = nap.load_file(filepath)
         
         spikes = nwb['units']
-        spikes = spikes.getby_threshold("rate", 1)
+        # spikes = spikes.getby_threshold("rate", 1)
 
         position = []
         columns = ['x', 'y', 'z', 'rx', 'ry', 'rz']
@@ -83,13 +82,13 @@ for s in datasets:
 
         #################################################################################################
         #DETECTION UP/DOWN States
-        #################################################################################################
+        #################################################################################################        
         total = spikes.count(0.01, sws_ep).sum(1)/0.01
-        total2 = total.smooth(2*0.01)
+        total2 = total.smooth(2*0.01, size_factor=20)
         
         down_ep = total2.threshold(np.percentile(total2, 20), method='below').time_support
-        down_ep = down_ep.merge_close_intervals(0.25)
-        down_ep = down_ep.drop_short_intervals(0.05)
+        down_ep = down_ep.merge_close_intervals(0.025)
+        down_ep = down_ep.drop_short_intervals(0.050)
         down_ep = down_ep.drop_long_intervals(2)
 
         up_ep = sws_ep.set_diff(down_ep)
@@ -105,9 +104,15 @@ figure()
 ax = subplot(211)
 for n in spikes.index:
     plot(spikes[n].restrict(sws_ep).fillna(n), '|')
+for s, e in down_ep.values:
+    axvspan(s, e, color='green', alpha=0.2)
+    
 subplot(212, sharex =ax)
 plot(total2.restrict(sws_ep))
 plot(total2.restrict(down_ep), '.', color = 'blue')
-plot(total2.restrict(top_ep), '.', color = 'red')
+# plot(total2.restrict(top_ep), '.', color = 'red')
+for s, e in down_ep.values:
+    axvspan(s, e, color='green', alpha=0.2)
+
 show()
 

@@ -2,7 +2,7 @@
 # @Author: gviejo
 # @Date:   2023-08-29 13:46:37
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-04-24 15:43:06
+# @Last Modified time: 2025-05-10 17:25:47
 # %%
 import numpy as np
 import pandas as pd
@@ -61,6 +61,7 @@ corr = {}
 allfr = {}
 alltc = {}
 allsi = {}
+baseline = {}
 
 # allfr = {"wake":[], "sleep":[]}
 # allmeta = {"wake":[], "sleep":[]}
@@ -74,6 +75,7 @@ for st in ['adn', 'lmn']:
     allfr[st] = {}
     alltc[st] = {}
     allsi[st] = {}
+    baseline[st] = {}
 
     for gr in ['opto', 'ctrl']:    
 
@@ -82,6 +84,7 @@ for st in ['adn', 'lmn']:
         allfr[st][gr] ={}
         alltc[st][gr] = {}
         allsi[st][gr] = {}
+        baseline[st][gr] = {}
 
         for sd in ['ipsi', 'bilateral']:
 
@@ -99,6 +102,7 @@ for st in ['adn', 'lmn']:
                 alltc[st][gr][sd] = []
                 alltc[st][gr][sd] = {'opto':[], 'pre':[]}
                 allsi[st][gr][sd] = [] 
+                baseline[st][gr][sd] = []
 
                 for s in dataset:
                     print(s)
@@ -267,6 +271,18 @@ for st in ['adn', 'lmn']:
 
                         # corr[st][gr][sd].append(rsess)
 
+
+                        #######################
+                        # SHUFFLING TO COMPUTE BASELINE
+                        #######################
+                        tmp = pd.DataFrame(index=[basename], columns=['pre', 'opto'], dtype="float")
+                        for c in ['pre', 'opto']:
+                            tmp.loc[basename,c] = np.mean([
+                                scipy.stats.pearsonr(r['wak'].values, r[c].sample(frac=1, random_state=42).values)[0]
+                                for i in range(1000)
+                                ])
+                        baseline[st][gr][sd].append(tmp)                        
+
                     #######################
                     # SAVING
                     #######################
@@ -286,6 +302,7 @@ for st in ['adn', 'lmn']:
                 corr[st][gr][sd] = pd.concat(corr[st][gr][sd], axis=0)
                 allfr[st][gr][sd] = pd.concat(allfr[st][gr][sd], axis=1)
                 allsi[st][gr][sd] = pd.concat(allsi[st][gr][sd], axis=0)
+                baseline[st][gr][sd] = pd.concat(baseline[st][gr][sd], axis=0)
 
                 alltc[st][gr][sd]['opto'] = pd.concat(alltc[st][gr][sd]['opto'], axis=1)
                 alltc[st][gr][sd]['pre'] = pd.concat(alltc[st][gr][sd]['pre'], axis=1)
@@ -551,6 +568,7 @@ datatosave = {
     "change_fr":change_fr,
     "allr":allr,
     "corr":corr,
+    "baseline":baseline
 }
 
 

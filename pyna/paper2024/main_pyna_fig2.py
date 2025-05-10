@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-04-29 15:59:50
+# @Last Modified time: 2025-05-10 16:51:05
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -99,7 +99,7 @@ fontsize = 6
 COLOR = (0.25, 0.25, 0.25)
 cycle = rcParams['axes.prop_cycle'].by_key()['color']
 
-rcParams["font.family"] = 'DejaVu Sans Mono'
+rcParams["font.family"] = 'Liberation Sans'
 rcParams["font.size"] = fontsize
 rcParams["text.color"] = COLOR
 rcParams["axes.labelcolor"] = COLOR
@@ -153,6 +153,21 @@ SI_thr = {
 ###############################################################################################
 dropbox_path = os.path.expanduser("~") + "/Dropbox/LMNphysio/data"
 
+filepath = os.path.join(dropbox_path, "DATA_FIG_LMN_PSB_A3019-220701A.pickle")
+data = cPickle.load(open(filepath, 'rb'))
+
+tcurves = data['tcurves']
+angle = data['angle']
+peaks = data['peaks']
+spikes = data['spikes']
+up_ep = data['up_ep']
+down_ep = data['down_ep']
+lmn = data['lmn']
+psb = data['psb']
+
+exs = {'wak':nap.IntervalSet(start = 9968.5, end = 9987, time_units='s'),
+    'sws':nap.IntervalSet(start = 5800.71, end = 5805.2, time_units = 's')
+    }
 
 
 
@@ -164,26 +179,26 @@ markers = ["d", "o", "v"]
 
 fig = figure(figsize=figsize(1))
 
-outergs = GridSpec(2, 1, hspace = 0.5, height_ratios=[0.1, 0.2])
+outergs = GridSpec(2, 1, hspace = 0.4, height_ratios=[0.1, 0.2])
 
 
 names = {'adn':"ADN", 'lmn':"LMN"}
 epochs = {'wak':'Wake', 'sws':'Sleep'}
 
 gs_top = gridspec.GridSpecFromSubplotSpec(
-    1, 3, subplot_spec=outergs[0, 0], width_ratios=[0.4, 0.3, 0.3], wspace=0.5
+    1, 3, subplot_spec=outergs[0, 0], width_ratios=[0.4, 0.4, 0.3], wspace=0.5
 )
 
 
 #####################################
 # Histo
 #####################################
-gs_histo = gridspec.GridSpecFromSubplotSpec(
+gs_top_left = gridspec.GridSpecFromSubplotSpec(
     2, 1, subplot_spec=gs_top[0, 0]#, height_ratios=[0.5, 0.2, 0.2] 
 )
 
 
-subplot(gs_histo[0,0])
+subplot(gs_top_left[0,0])
 noaxis(gca())
 img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/LMN-PSB-opto.png")
 imshow(img, aspect="equal")
@@ -193,100 +208,195 @@ yticks([])
 #########################
 # Examples LMN PSB raster
 #########################
-subplot(gs_histo[1,0])
-simpleaxis(gca())
+gs_raster_ex = gridspec.GridSpecFromSubplotSpec(
+    2, 2, subplot_spec=gs_top_left[1, 0]#, height_ratios=[0.5, 0.2, 0.2] 
+)
+
+ms = [0.7, 0.9]
+for i, (st, order) in enumerate(zip(['psb', 'lmn'], [psb, lmn])):
+    for j, e in enumerate(['wak', 'sws']):
+        subplot(gs_raster_ex[i,j])
+        simpleaxis(gca())
+        plot(spikes[order].to_tsd(np.argsort(order)).restrict(exs[e]), '|', color=colors[st], markersize=ms[i], mew=0.25)
 
 
 
 
 #####################################
-# Examples LMN PSB Connections
+# LMN PSB Connections
 #####################################
-gs_tc = gridspec.GridSpecFromSubplotSpec(3,1, 
-    subplot_spec = gs_top[0,1],  hspace = 0.5, wspace=0.2
-    # height_ratios=[0.1, 0.2]
+gs_con = gridspec.GridSpecFromSubplotSpec(2,1, 
+    subplot_spec = gs_top[0,1],  hspace = 0.7, wspace=0.2,
+    height_ratios=[0.1, 0.2]
     )
 
 data = cPickle.load(open(os.path.expanduser("~/Dropbox/LMNphysio/data/CC_LMN-PSB.pickle"), 'rb'))
 alltc = data['alltc']
 angdiff = data['angdiff']
 allcc = data['allcc']
+pospeak = data['pospeak']
+negpeak = data['negpeak']
+zcc = data['zcc']
+order = data['order']
 
-exn = [ #('A3018-220615A_59', 'A3018-220615A_78'), # 12
-        # ('A3019-220630A_56', 'A3019-220630A_91'),
-        #('A3019-220630A_56', 'A3019-220630A_89'), # 2        
-        #('A3019-220701A_28', 'A3019-220701A_91') # 36
+
+
+# Example
+exn = [ 
         ('A3019-220630A_14', 'A3019-220630A_85'),
-        ('A3018-220613A_70', 'A3018-220613A_73'),
-        # ('A3018-220614B_15', 'A3018-220614B_54')
-        # ('A3018-220615A_37', 'A3018-220615A_52')
-        # ('A3018-220614B_15', 'A3018-220614B_54')
-        ('A3018-220614B_44', 'A3018-220614B_49')
+        # ('A3018-220613A_70', 'A3018-220613A_73'),
+        # ('A3018-220614B_44', 'A3018-220614B_49')
     ]
 
-
-
-for i, p in enumerate(exn):
-    gs_tc2 = gridspec.GridSpecFromSubplotSpec(1,5, gs_tc[i,0],
-        width_ratios=[0.1, 0.05, 0.1, 0.2, 0.1], wspace=0.15, hspace=0.05
-        )
-
-    # TUNING CURVES
-    for j, name, n in zip([0, 2], ['psb', 'lmn'], np.array(exn[i])):        
-        subplot(gs_tc2[0, j], projection='polar')
-        fill_between(alltc.index.values, np.zeros(len(alltc)), alltc[n].values, color=colors[name])
-        if i == 0: title(name.upper())
-        xticks([0, np.pi/2, np.pi, 3*np.pi/2], ['', '', '', ''])
-
-        yticks([])
-
-    # Arrow
-    subplot(gs_tc2[0,1])
-    noaxis(gca())
-    annotate(
-    '', xy=(1, 0.5), xytext=(0, 0.5),
-    arrowprops=dict(arrowstyle='->',lw=0.5, color=COLOR)#, headwidth=5, headlength=7.5)
+p = exn[0]
+# for i, p in enumerate(exn):
+gs_tc2 = gridspec.GridSpecFromSubplotSpec(1,5, gs_con[0,0],
+    width_ratios=[0.1, 0.05, 0.1, 0.2, 0.1], wspace=0.1, hspace=0.05
     )
-    xlim(0, 1)
-    ylim(0, 1)
 
-    # CC
-    subplot(gs_tc2[0, 4])
-    simpleaxis(gca())
-    tmp = allcc['sws'][p].loc[-0.01:0.01]
-    x = tmp.index.values
-    dt = np.mean(np.diff(x))
-    x = np.hstack((x-dt/2, np.array([x[-1]+dt/2])))
-    axvspan(0.002, 0.008, alpha=0.2)    
-    stairs(tmp.values, x, fill=True, color=COLOR)
-    xlim(-0.01, 0.01)
-    ylim(tmp.values.min()-0.5, tmp.values.max()+0.2)
-    if i == 1: ylabel("Firing rate (norm.)", labelpad=14)
-    if i == 2:
-        xticks([-0.01, 0, 0.01], [-10, 0, 10])
-        xlabel("Lag (ms)")
-    else:
-        xticks([])
+# TUNING CURVES
+for j, name, n in zip([0, 2], ['psb', 'lmn'], np.array(exn[0])):
+    subplot(gs_tc2[0, j], projection='polar')
+    fill_between(alltc.index.values, np.zeros(len(alltc)), alltc[n].values, color=colors[name])
+    if i == 0: title(name.upper())
+    xticks([0, np.pi/2, np.pi, 3*np.pi/2], ['', '', '', ''])
+    yticks([])
+    title(name.upper(), pad=2)
+
+# Arrow
+subplot(gs_tc2[0,1])
+noaxis(gca())
+annotate(
+'', xy=(1, 0.5), xytext=(0, 0.5),
+arrowprops=dict(arrowstyle='->',lw=0.5, color=COLOR)#, headwidth=5, headlength=7.5)
+)
+xlim(0, 1)
+ylim(0, 1)
+
+# CC
+subplot(gs_tc2[0,4])
+simpleaxis(gca())
+tmp = allcc['sws'][p].loc[-0.02:0.02]
+x = tmp.index.values
+dt = np.mean(np.diff(x))
+x = np.hstack((x-dt/2, np.array([x[-1]+dt/2])))
+axvspan(0.002, 0.008, alpha=0.2)    
+stairs(tmp.values, x, fill=True, color=COLOR)
+xlim(-0.01, 0.01)
+# ylim(tmp.values.min()-0.5, tmp.values.max()+0.2)
+ylabel("Rate (Hz)", labelpad=4)    
+xticks([-0.01, 0, 0.01], [-10, 0, 10])
+xlabel("Lag (ms)")
+
 
 
 ####################################
 # Hist PSB connections
 ###################################
-gs_top_right = gridspec.GridSpecFromSubplotSpec(2,1, 
-    subplot_spec = gs_top[0,2],  hspace = 0.5, wspace=0.2
-    # height_ratios=[0.1, 0.2]
+gs_con2 = gridspec.GridSpecFromSubplotSpec(2,2, gs_con[1,0],
+    hspace=0.1, wspace=0.9
     )
 
-
-subplot(gs_top_right[0,0])
+subplot(gs_con2[0,0])
 simpleaxis(gca())
 
-hist, bin_edges = np.histogram(allcc['sws'].idxmax().values, bins = np.linspace(-0.02, 0.02, 50), range = (-0.01, 0.01))
-stairs(hist, bin_edges, fill=True, color=COLOR, alpha=0.5)
+for peak in [pospeak, negpeak]:
+    hist_, bin_edges = np.histogram(peak.values, bins = np.linspace(-0.01, 0.01, 50), range = (-0.01, 0.01))
+    stairs(hist_, bin_edges, fill=True, color=COLOR, alpha=1)
 xlabel("Lag (ms)")
-xticks([-0.02, -0.01, 0.0, 0.01, 0.02], [-20, -10, 0, 10, 20])
-ylabel("Density (%)")
+xticks([])
+ylabel("%")
 axvspan(0.002, 0.008, alpha=0.2)
+xlim(-0.02, 0.02)
+title("$Z_{PSB-LMN} > 3$", pad=4)
+
+subplot(gs_con2[1,0])
+simpleaxis(gca())
+zcc = zcc.apply(lambda x: gaussian_filter1d(x, sigma=1))
+a = zcc[order].loc[0.002:0.008].idxmax().sort_values().index
+Z = zcc[a].loc[-0.02:0.02]
+im=pcolormesh(Z.index.values, np.arange(Z.shape[1]), Z.values.T, cmap='turbo', vmax=3)
+xlim(-0.02, 0.02)
+xticks([-0.02, 0.0, 0.02], [-20, 0, 20])
+xlabel("Lag (ms)")
+ylabel("Lag > 0")
+
+
+# Colorbar
+axip = gca().inset_axes([1.05, 0.0, 0.08, 1])
+noaxis(axip)
+cbar = colorbar(im, cax=axip)
+axip.set_title("z", y=0.75)
+axip.set_yticks([0, 3])
+
+####################################
+# Angular differences
+###################################
+subplot(gs_con2[:,1])
+simpleaxis(gca())
+hist(angdiff[order], bins =np.linspace(0, np.pi, 20), color=COLOR)
+xlim(0, np.pi)
+xticks([0, np.pi], ["0", "180"])
+xlabel("Ang. offset")
+
+####################################
+# CORR LMN_PSB
+###################################
+data = cPickle.load(open(os.path.join(dropbox_path, 'CORR_LMN-PSB_UP_DOWN.pickle'), 'rb'))
+pearson = data['pearson']
+frates = data['frates']
+baseline = data['baseline']
+
+gs_corr_top = gridspec.GridSpecFromSubplotSpec(2,2, gs_top[0,2], hspace=0.9, wspace=0.2)
+
+subplot(gs_corr_top[0,0])
+simpleaxis(gca())
+
+for s in pearson.index:
+    plot([1, 2], pearson.loc[s,['decimated', 'down']], '-', color=COLOR, linewidth=0.1)
+plot(np.ones(len(pearson)), pearson['decimated'], 'o', color=cycle[0], markersize=1)
+plot(np.ones(len(pearson))*2, pearson['down'], 'o', color=cycle[1], markersize=1)
+
+xlim(0.5, 2.5)
+gca().spines['bottom'].set_bounds(1, 2)
+ymin = pearson[['decimated','down']].min().min()
+ylim(ymin-0.1, 1.1)
+gca().spines['left'].set_bounds(ymin-0.1, 1.1)
+
+ylabel("Pearson r")
+xticks([1, 2], ['Up\nstate', 'Down\nstate'])
+title("Sessions")
+
+
+############
+subplot(gs_corr_top[1,0])
+simpleaxis(gca())
+xlim(0.5, 2.5)
+ylim(-0.1, 1)
+gca().spines['bottom'].set_bounds(1, 2)
+xlabel("minus baseline")
+# if i == 1: gca().spines["left"].set_visible(False)
+plot([1,2],[0,0], linestyle='--', color=COLOR, linewidth=0.1)
+tmp = (pearson[['decimated', 'down']]-baseline[['decimated', 'down']]).values.astype("float")
+vp = violinplot(tmp, showmeans=False, 
+    showextrema=False, vert=True, side='high'
+    )
+for k, p in enumerate(vp['bodies']): p.set_color(cycle[k])
+
+m = [pearson[c].mean() for c in ['decimated', 'down']]
+plot([1, 2], m, 'o', markersize=0.5, color=COLOR)
+
+xticks([1,2],['',''])
+ylabel(r"Mean$\Delta$")
+# if i == 1: 
+#     yticks([])
+#     gca().spines["left"].set_visible(False)
+
+
+
+
+
+
 
 
 #####################################
@@ -376,7 +486,7 @@ for i, (s, ex, name) in enumerate(exs):
 
     exex = nap.IntervalSet(ex.start[0] - 10, ex.end[0] + 10)
     p = spikes.count(0.01, exex).smooth(0.04, size_factor=20)
-    d=np.array([p.loc[i] for i in spikes.order.sort_values().index]).T
+    d=np.array([p.loc[i] for i in spikes.index[np.argsort(spikes.order)]]).T
     p = nap.TsdFrame(t=p.t, d=d, time_support=p.time_support)
     p = np.sqrt(p / p.max(0))
     # p = 100*(p / p.max(0))

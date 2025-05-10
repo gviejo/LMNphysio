@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-01-31 17:30:00
+# @Last Modified time: 2025-05-10 15:22:46
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -13,7 +13,7 @@ from matplotlib import rcParams
 import matplotlib as mpl
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import matplotlib.gridspec as gridspec
-from mpl_toolkits.axes_grid1.inset_locator import inset_axes, InsetPosition, mark_inset
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes, mark_inset
 import matplotlib.font_manager as font_manager
 import matplotlib.patches as patches
 
@@ -60,6 +60,9 @@ def simpleaxis(ax):
     ax.spines["right"].set_visible(False)
     ax.get_xaxis().tick_bottom()
     ax.get_yaxis().tick_left()
+    gca().spines['left'].set_position(('outward', 3))
+    gca().spines['bottom'].set_position(('outward', 2))
+
     # ax.xaxis.set_tick_params(size=6)
     # ax.yaxis.set_tick_params(size=6)
 
@@ -77,15 +80,16 @@ def noaxis(ax):
     # ax.yaxis.set_tick_params(size=6)
 
 
+
 # font_dir = [os.path.expanduser("~")+'/Dropbox/CosyneData/figures_poster_2022']
 # for font in font_manager.findSystemFonts(font_dir):
 #     font_manager.fontManager.addfont(font)
 
-fontsize = 7
+fontsize = 6
 
 COLOR = (0.25, 0.25, 0.25)
 
-rcParams["font.family"] = 'DejaVu Sans Mono'
+rcParams["font.family"] = 'Liberation Sans'
 rcParams["font.size"] = fontsize
 rcParams["text.color"] = COLOR
 rcParams["axes.labelcolor"] = COLOR
@@ -106,6 +110,10 @@ rcParams["axes.edgecolor"] = COLOR
 rcParams["axes.axisbelow"] = True
 rcParams["xtick.color"] = COLOR
 rcParams["ytick.color"] = COLOR
+rcParams['xtick.major.pad'] = 0.5
+rcParams['ytick.major.pad'] = 0.5
+rcParams['xtick.minor.pad'] = 0.5
+rcParams['ytick.minor.pad'] = 0.5
 
 
 colors = {"adn": "#EA9E8D", "lmn": "#8BA6A9", "psb": "#CACC90"}

@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-06-14 16:45:11
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2023-09-11 19:11:21
+# @Last Modified time: 2025-05-07 18:09:42
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -22,7 +22,7 @@ from sklearn.metrics.pairwise import *
 def get_successive_bins(s):
     idx = np.zeros(len(s)-1)
     for i in range(len(s)-1):
-        if s[i] > 1 or s[i+1] > 1:
+        if s[i] > 2 or s[i+1] > 2:
             idx[i] = 1
     return idx
 
@@ -38,6 +38,8 @@ elif os.path.exists('/mnt/ceph/users/gviejo'):
     data_directory = '/mnt/ceph/users/gviejo'
 elif os.path.exists('/media/guillaume/Raid2'):
     data_directory = '/media/guillaume/Raid2'
+elif os.path.exists('/Users/gviejo/Data'):
+    data_directory = '/Users/gviejo/Data' 
 
 
 
@@ -50,93 +52,216 @@ SI_thr = {
     }
 
 
-allsim = {k:[] for k in ['wak', 'rem', 'sws']}
+speed_corr = {"log":{}, "lin":{}}
+rate_corr = {"log":{}, "lin":{}}
 
 for s in datasets:
-# for s in ['LMN-PSB/A3019/A3019-220701A']:
     print(s)
     ############################################################################################### 
     # LOADING DATA
     ###############################################################################################
     path = os.path.join(data_directory, s)
-    data = nap.load_session(path, 'neurosuite')
-    spikes = data.spikes.getby_threshold('rate', 0.4)
-    position = data.position
-    wake_ep = data.epochs['wake']
-    sws_ep = data.read_neuroscope_intervals('sws')
-    rem_ep = data.read_neuroscope_intervals('rem')
 
-    idx = spikes._metadata[spikes._metadata["location"].str.contains("lmn|psb")].index.values
-    spikes = spikes[idx]
+    basename = os.path.basename(path)
+    filepath = os.path.join(path, "kilosort4", basename + ".nwb")
 
-    angle = position['ry']
-    tuning_curves = nap.compute_1d_tuning_curves(spikes, angle, 120, minmax=(0, 2*np.pi), ep = angle.time_support.loc[[0]])
-    tuning_curves = smoothAngularTuningCurves(tuning_curves, window = 20, deviation = 3.0)
-    SI = nap.compute_1d_mutual_info(tuning_curves, angle, angle.time_support.loc[[0]], minmax=(0,2*np.pi))
-    spikes.set_info(SI)
-    r = correlate_TC_half_epochs(spikes, angle, 120, (0, 2*np.pi))
-    spikes.set_info(halfr = r, SI = SI)
+    if os.path.exists(filepath):
 
-    psb = spikes.getby_category("location")['psb'].getby_threshold('halfr', 0.5).index
-    lmn = spikes.getby_category("location")['lmn'].getby_threshold('halfr', 0.5).index
+        nwb = nap.load_file(filepath)
+        
+        spikes = nwb['units']
+        spikes = spikes.getby_threshold("rate", 1)
 
-    tokeep = np.hstack((psb, lmn))
+        position = []
+        columns = ['x', 'y', 'z', 'rx', 'ry', 'rz']
+        for k in columns:
+            position.append(nwb[k].values)
+        position = np.array(position)
+        position = np.transpose(position)
+        position = nap.TsdFrame(
+            t=nwb['x'].t,
+            d=position,
+            columns=columns,
+            time_support=nwb['position_time_support'])
 
-    # spikes = spikes.getby_category("location")['psb']
-    # spikes = spikes[psb]
+        epochs = nwb['epochs']
+        wake_ep = epochs[epochs.tags == "wake"]
+        
+        sws_ep = nwb['sws']
+        rem_ep = nwb['rem']
 
-    # figure()
-    # for i in range(len(psb)):
-    #     subplot(10, 4, i+1, projection='polar')
-    #     plot(tuning_curves[psb[i]])
-    # show()
-    # sys.exit()
+        nwb.close()
+        
+        spikes = spikes[(spikes.location=="psb")|(spikes.location=="lmn")]
 
-    if len(psb)>5:
-        ##################################################################################################
-        # COUNT
-        ##################################################################################################
-        rates = {}
-        counts = {}
-        for e, ep, bin_size, std in zip(
-                ['wak', 'rem', 'sws'], 
-                [wake_ep, rem_ep, sws_ep], 
-                [0.3, 0.3, 0.03],
-                [1, 1, 1]
+
+        ############################################################################################### 
+        # COMPUTING TUNING CURVES
+        ###############################################################################################
+        tuning_curves = nap.compute_1d_tuning_curves(spikes, position['ry'], 120, minmax=(0, 2*np.pi), ep = position.time_support.loc[[0]])
+        tuning_curves = smoothAngularTuningCurves(tuning_curves, 20, 4)
+        SI = nap.compute_1d_mutual_info(tuning_curves, position['ry'], position.time_support.loc[[0]], minmax=(0,2*np.pi))
+        spikes.set_info(SI)
+
+        # spikes = spikes[spikes.SI>0.1]
+
+
+        # CHECKING HALF EPOCHS
+        wake2_ep = splitWake(position.time_support.loc[[0]])    
+        tokeep2 = []
+        stats2 = []
+        tcurves2 = []   
+        for i in range(2):
+            tcurves_half = nap.compute_1d_tuning_curves(
+                spikes, position['ry'], 120, minmax=(0, 2*np.pi), 
+                ep = wake2_ep[i]
+                )
+            tcurves_half = smoothAngularTuningCurves(tcurves_half, 20, 4)
+
+            tokeep, stat = findHDCells(tcurves_half)
+            tokeep2.append(tokeep)
+            stats2.append(stat)
+            tcurves2.append(tcurves_half)       
+        tokeep = np.intersect1d(tokeep2[0], tokeep2[1])  
+        
+        spikes = spikes[tokeep]
+
+        psb = spikes.index[spikes.location=="psb"]
+        lmn = spikes.index[spikes.location=="lmn"]
+        
+        tcurves = tuning_curves[tokeep]
+        # tcurves = tuning_curves
+
+
+
+        # Filtering by SI only for LMN
+        lmn = np.intersect1d(lmn[spikes.SI[lmn]>0.1], tokeep)
+
+
+        try:
+            velocity = computeLinearVelocity(position[['x', 'z']], position.time_support.loc[[0]], 0.2)
+            newwake_ep = velocity.threshold(0.003).time_support.drop_short_intervals(1)
+        except:
+            velocity = computeAngularVelocity(position['ry'], position.time_support.loc[[0]], 0.2)
+            newwake_ep = velocity.threshold(0.07).time_support.drop_short_intervals(1)
+
+
+        if len(lmn) > 4:
+
+            ############################################################################################### 
+            # PEARSON CORRELATION
+            ###############################################################################################
+            rates = {}
+            counts = {}           
+            for e, ep, bin_size, std in zip(['wak', 'sws'], 
+                    [newwake_ep, sws_ep], [0.2, 0.02], [3, 3]):
+                ep = ep.drop_short_intervals(bin_size*22)
+                count = spikes.count(bin_size, ep)
+                rate = count/bin_size
+                # rate = rate.as_dataframe()
+                rate = rate.smooth(std=bin_size*std, windowsize=bin_size*20).as_dataframe()
+                rate = rate.apply(zscore)
+                rates[e] = nap.TsdFrame(rate, time_support = ep)
+                counts[e] = count
+
+            tmp = np.corrcoef(rates['wak'].loc[lmn].values.T)
+            r_wak = tmp[np.triu_indices(tmp.shape[0], 1)]
+
+
+            ##################################################################################################
+            # PEARSON CORRELATION AS A FUNCTION OF MUA 
+            ##################################################################################################
+
+            mua = spikes[psb].to_tsd().count(0.02, sws_ep)
+            mua = mua.smooth(std=0.04, size_factor=20, norm=True)
+            mua = mua/mua.max()
+            
+            for z, bins in zip(
+                ["lin", "log"], 
+                [np.linspace(0, 1, 11)[1:], np.geomspace(0.001, 1, 11)[1:]]
                 ):
-            count = spikes[psb].count(bin_size, ep)
-            rate = count/bin_size
-            rate = rate.as_dataframe()
-            # rate = rate.rolling(window=100,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=std)
+
+                R = []
+
+                for i, m in enumerate(bins):
+                    ep = mua.threshold(m, method='belowequal').time_support
+                    tmp = np.corrcoef(rates['sws'].loc[lmn].restrict(ep).values.T)
+                    r_sws = tmp[np.triu_indices(tmp.shape[0], 1)]
+
+                    s, p = scipy.stats.pearsonr(r_wak, r_sws)
+
+                    R.append(s)
+
+                R = pd.Series(index=bins, data=R)
+
+                rate_corr[z][s] = R
+
+            ##################################################################################################
+            # COSINE SIMILARITY
+            ##################################################################################################
+            bin_size = 0.02
+            ep = sws_ep.drop_short_intervals(bin_size*22)
+            psb_count = spikes[psb].count(0.02, ep)
+            rate = psb_count/bin_size
+            # rate = np.
+            # rate = rate.smooth(std=bin_size*3, windowsize=bin_size*20).as_dataframe()
+
             rate = rate.apply(zscore)
-            rates[e] = rate        
-            counts[e] = count
+            rate = nap.TsdFrame(rate, time_support = ep)
+            nrm = np.linalg.norm(rate, axis=1)
+            sim = nap.Tsd(
+                t = rate.t[0:-1],
+                d = np.sum(rate[0:-1].values*rate[1:].values, 1)/(nrm[0:-1].values*nrm[1:].values),
+                time_support = rate.time_support
+                )
+            sim = sim.smooth(std=0.04, windowsize=0.02*20)
+            sim = sim + 2
+            
+            for z, cos_bins in zip(
+                ["lin", "log"], 
+                [np.linspace(1, 3, 20)[1:], 4-np.geomspace(1, 3, 20)[::-1]]
+                ):
 
-        ##################################################################################################
-        # COSINE SIMILARITY
-        ##################################################################################################
-        sim = {}
-        for k in rates.keys():
-            r = rates[k].values
-            nrm = np.linalg.norm(r, axis=1)
-            sim[k] = np.sum(r[0:-1]*r[1:], 1)/(nrm[0:-1]*nrm[1:])
+                R = []
 
-        idxs = {}
-        for k in sim.keys():
-            # s = rates[k].mean(1).values
-            idxs[k] = get_successive_bins(counts[k].values.sum(1))#, thr=0)
-            allsim[k].append(sim[k][idxs[k] == 1])
+                for i, t in enumerate(cos_bins):
+                    ep = sim.threshold(t, method="below").time_support
 
-    
-for k in allsim.keys():
-    allsim[k] = np.hstack(allsim[k])
+                    tmp = np.corrcoef(rates['sws'].loc[lmn].restrict(ep).values.T)
+                    r_sws = tmp[np.triu_indices(tmp.shape[0], 1)]
+
+                    s, p = scipy.stats.pearsonr(r_wak, r_sws)
+
+                    R.append(s)
+
+                R = pd.Series(index=cos_bins-2, data=R)
+
+                speed_corr[z][s] = R
+
+for z in ['lin', 'log']:
+    speed_corr[z] = pd.DataFrame(speed_corr[z])
+    rate_corr[z] = pd.DataFrame(rate_corr[z])
+
+figure(figsize = (12, 12))
+gs = GridSpec(2,2)
+for i, (corr, func) in enumerate([('lin', plot), ('log', semilogx)]):
+    subplot(gs[i,0])
+    func(rate_corr[z], 'o-')
+    xlabel(r"% rate")
+    ylabel("Pearson r")
+    ylim(0.2, 1)
 
 
-figure()
+    subplot(gs[i,1])
+    func(speed_corr[z], 'o-')
+    xlabel("Cosine similarity")
+    ylabel("Pearson r")
+    ylim(0.2, 1)
 
-for i,k in enumerate(allsim.keys()):
-    subplot(1,3,i+1)
-    hist(allsim[k], 100)
-    xlim(-1, 1)
+
+savefig(
+    os.path.expanduser("~/Dropbox/LMNphysio/summary_psb/fig_correlation_rate_speed.pdf")
+    )
+
 
 show()

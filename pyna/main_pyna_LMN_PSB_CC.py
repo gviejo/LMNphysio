@@ -2,7 +2,7 @@
 # @Author: gviejo
 # @Date:   2025-01-04 06:11:33
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-04-24 15:11:23
+# @Last Modified time: 2025-05-06 11:22:59
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -17,8 +17,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 import seaborn as sns
 
 # Apply the default theme
-sns.set_context("paper")
-sns.set(font_scale=0.1)
+sns.set_context("notebook")
 
 ############################################################################################### 
 # GENERAL infos
@@ -81,6 +80,7 @@ for s in datasets:
         sws_ep = nwb['sws']
         rem_ep = nwb['rem']    
 
+        nwb.close()
 
         spikes = spikes[(spikes.location=="psb")|(spikes.location=="lmn")]
         
@@ -116,8 +116,8 @@ for s in datasets:
         
         spikes = spikes[tokeep]
 
-        psb = spikes.location[spikes.location=="psb"].index.values
-        lmn = spikes.location[spikes.location=="lmn"].index.values
+        psb = spikes.index[spikes.location=="psb"]
+        lmn = spikes.index[spikes.location=="lmn"]
         
         tcurves = tuning_curves[tokeep]
         # tcurves = tuning_curves
@@ -150,7 +150,7 @@ for s in datasets:
                     (spikes[psb], spikes[lmn]),
                     bin_size, 
                     window_size,
-                    ep, norm=True)
+                    ep, norm=False)
 
 
             pairs = [(basename + "_" + str(n), basename + "_" + str(m)) for n, m in tmp.columns]
@@ -209,18 +209,147 @@ alltcahv = pd.concat(alltcahv, axis=1)
 
 
 # Detecting synaptic connections
+def get_zscore(cc):
+    # Smoothing with big gaussian
+    sigma = int(0.01/np.median(np.diff(cc.index.values)))+1
+    df = cc.apply(lambda col: gaussian_filter1d(col, sigma=sigma))
+
+    # Zscoring
+    tmp = cc - df
+    zcc = tmp/tmp.std(0)
+    return zcc
 
 
-df = allcc['sws'].apply(lambda col: gaussian_filter1d(col, sigma=20))
+# Detecting
+thr = 3.0
+zcc = get_zscore(allcc['sws'])
+tmp2 = (zcc>=thr).loc[0.002:0.008]
+pc = tmp2.columns[np.any(tmp2 & tmp2.shift(1, fill_value=False), 0)]
+zorder = zcc[pc].loc[0.002:0.008].max().sort_values()
+order = zorder[::-1].index.values
+
+# Counter 
+tmp3 = (zcc>=thr).loc[-0.008:-0.002]
+pc = tmp3.columns[np.any(tmp3 & tmp3.shift(1, fill_value=False), 0)]
+zcounter = zcc[pc].loc[-0.008:-0.002].max().sort_values()
+counter = zcounter[::-1].index.values
+
+# cc = allcc['sws']
+# # Smoothing with big gaussian
+# sigma = int(0.01/np.median(np.diff(cc.index.values)))
+# df = cc.apply(lambda col: gaussian_filter1d(col, sigma=sigma))
+# # Getting upper bound from df
+# upper_bounds = pd.DataFrame(data=scipy.stats.poisson.ppf(0.95, df)-1,index=df.index,columns=df.columns)
+# upper_bounds[upper_bounds<0] = 0
+# tmp = (cc>upper_bounds).loc[0.002:0.008]
+# pc = tmp.columns[np.any(tmp & tmp.shift(1, fill_value=False), 0)]
 
 
 
+# figure()
+# for i, p in enumerate(pc):
+#     subplot(5,7,i+1)
+#     plot(cc[p].loc[-0.03:0.03])
+#     plot(df[p].loc[-0.03:0.03])
+#     plot(upper_bounds[p].loc[-0.03:0.03])
+
+# figure()
+# # p = ('A3018-220614B_44', 'A3018-220614B_49')
+# p = ('A3019-220630A_14', 'A3019-220630A_85')
+
+# plot(cc[p].loc[-0.06:0.06], '.-')
+# plot(df[p].loc[-0.06:0.06])
+# plot(upper_bounds[p].loc[-0.06:0.06])
+
+pdf_filename = os.path.expanduser("~/Dropbox/LMNphysio/summary_cc/fig_synaptic_detection.pdf")
+
+with PdfPages(pdf_filename) as pdf:
+
+    figure(figsize=(15,10))
+    for i, p in enumerate(order[0:35]):
+        subplot(5,7,i+1)
+        plot(zcc[p].loc[-0.03:0.03], color='blue')
+        axhline(thr)
+    tight_layout()
+    pdf.savefig(gcf())
+    close(gcf())
 
 
-datatosave = {'allcc':allcc, 'angdiff':angdiff, 'alltc':alltcurves}
+
+    figure(figsize=(15,10))
+    for i, p in enumerate(counter[0:35]):
+        subplot(5,7,i+1)
+        plot(zcc[p].loc[-0.03:0.03], color='green')
+        axhline(thr)
+    tight_layout()        
+    pdf.savefig(gcf())
+    close(gcf())
+
+
+    figure()
+    hist(zorder, bins = np.linspace(2.9, np.max(zorder), 20), label="+lag", color='blue')
+    hist(zcounter, bins = np.linspace(2.9, np.max(zorder), 20), label="-lag", color='green')
+    legend()
+    xlabel("zscore")
+    tight_layout()
+    pdf.savefig(gcf())
+    close(gcf())
+
+    figure()
+    subplot(121)
+    hist(zcc[order].loc[0.002:0.008].idxmax(), label="+lag", color='blue')
+    xlim(-0.01, 0.01)
+    xlabel("time lag")
+    ylim(0, 15)
+    legend()
+    subplot(122)
+    hist(zcc[counter].loc[-0.008:-0.002].idxmax(), label="-lag", color='green')
+    xlim(-0.01, 0.01)
+    ylim(0, 15)
+    legend()
+    xlabel("time lag")
+    tight_layout()
+    pdf.savefig(gcf())
+    close(gcf())
+
+
+    figure()    
+    maxs = zcc[order].loc[0.002:0.008].max()
+    maxw = get_zscore(allcc['wak'])[order].loc[0.002:0.008].max()
+    hist(maxs, label='sleep')
+    hist(maxw,  label='wake')
+    legend()
+    ylabel("zcore)")
+    tight_layout()
+    pdf.savefig(gcf())
+    close(gcf())
+
+    figure()
+    a = zcc[order].loc[0.002:0.008].idxmax().sort_values().index
+    imshow(zcc[a].loc[-0.05:0.05].values.T, vmax=3, cmap='jet')
+    tight_layout()
+    pdf.savefig(gcf())
+    close(gcf())
+
+
+# sys.exit()
+
+datatosave = {
+    'allcc':allcc, 
+    'angdiff':angdiff, 
+    'alltc':alltcurves, 
+    "pospeak": zcc[order].loc[0.002:0.008].idxmax(), 
+    "negpeak":zcc[counter].loc[-0.008:-0.002].idxmax(),
+    "order":order,
+    "counter":counter,
+    "zcc":zcc
+    }
+
 dropbox_path = os.path.expanduser("~/Dropbox/LMNphysio/data")
 cPickle.dump(datatosave, open(os.path.join(dropbox_path, 'CC_LMN-PSB.pickle'), 'wb'))
 
+
+sys.exit()
 
 pdf_filename = os.path.expanduser("~/Dropbox/LMNphysio/summary_cc/fig_CC_LMN_PSB.pdf")
 

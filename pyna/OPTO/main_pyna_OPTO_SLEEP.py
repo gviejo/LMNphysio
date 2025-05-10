@@ -2,7 +2,7 @@
 # @Author: gviejo
 # @Date:   2023-08-29 13:46:37
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-04-24 15:51:42
+# @Last Modified time: 2025-05-10 17:19:17
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -55,6 +55,7 @@ SI_thr = {
 allr = {}
 corr = {}
 allfr = {}
+baseline = {}
 
 # allfr = {"wake":[], "sleep":[]}
 # allmeta = {"wake":[], "sleep":[]}
@@ -65,12 +66,14 @@ for st in ['adn', 'lmn']:
     allr[st] = {}
     corr[st] = {}
     allfr[st] = {}
+    baseline[st] = {}
 
     for gr in ['opto', 'ctrl']:
 
         allr[st][gr] = {}
         corr[st][gr] = {}
         allfr[st][gr] = {}
+        baseline[st][gr] = {}
 
         for sd in ['ipsi', 'bilateral', 'contra']:
 
@@ -84,6 +87,7 @@ for st in ['adn', 'lmn']:
                 allr[st][gr][sd] = []
                 corr[st][gr][sd] = []
                 allfr[st][gr][sd] =[]
+                baseline[st][gr][sd] =[]
 
                 for s in dataset:
                     print(s)
@@ -118,7 +122,7 @@ for st in ['adn', 'lmn']:
                             time_support=nwb['position_time_support'])
 
                         epochs = nwb['epochs']
-                        wake_ep = epochs[epochs.tags == "wake"]
+                        # wake_ep = epochs[epochs.tags == "wake"]
                         opto_ep = nwb["opto"]
                         sws_ep = nwb['sws']
                         
@@ -261,6 +265,16 @@ for st in ['adn', 'lmn']:
                         
                         # corr[st][gr][sd].append(rsess)
 
+                        #######################
+                        # SHUFFLING TO COMPUTE BASELINE
+                        #######################
+                        tmp = pd.DataFrame(index=[basename], columns=['sws', 'opto'], dtype="float")
+                        for c in ['sws', 'opto']:
+                            tmp.loc[basename,c] = np.mean([
+                                scipy.stats.pearsonr(r['wak'].values, r[c].sample(frac=1, random_state=42).values)[0]
+                                for i in range(1000)
+                                ])
+                        baseline[st][gr][sd].append(tmp)
 
                     #######################
                     # SAVING
@@ -277,7 +291,7 @@ for st in ['adn', 'lmn']:
                 allr[st][gr][sd] = pd.concat(allr[st][gr][sd], axis=0)
                 corr[st][gr][sd] = pd.concat(corr[st][gr][sd], axis=0)
                 allfr[st][gr][sd] = pd.concat(allfr[st][gr][sd], axis=1)
-
+                baseline[st][gr][sd] = pd.concat(baseline[st][gr][sd], axis=0)
                 # allmeta[ep] = pd.concat(allmeta[ep], axis=0)
                 # alltc[ep] = pd.concat(alltc[ep], axis=1)
 
@@ -452,6 +466,7 @@ datatosave = {
     "change_fr":change_fr,
     "allr":allr,
     "corr":corr,
+    "baseline":baseline
 }
 
 
