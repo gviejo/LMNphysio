@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-05-10 16:51:05
+# @Last Modified by:   gviejo
+# @Last Modified time: 2025-05-11 20:58:30
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -49,7 +49,8 @@ elif os.path.exists('/media/guillaume/Raid2'):
     data_directory = '/media/guillaume/Raid2'
 elif os.path.exists('/Users/gviejo/Data'):
     data_directory = '/Users/gviejo/Data'
-
+else:
+    data_directory = "~"
 
 
 
@@ -194,7 +195,7 @@ gs_top = gridspec.GridSpecFromSubplotSpec(
 # Histo
 #####################################
 gs_top_left = gridspec.GridSpecFromSubplotSpec(
-    2, 1, subplot_spec=gs_top[0, 0]#, height_ratios=[0.5, 0.2, 0.2] 
+    2, 1, subplot_spec=gs_top[0, 0], hspace=0.5#, height_ratios=[0.5, 0.2, 0.2] 
 )
 
 
@@ -213,12 +214,24 @@ gs_raster_ex = gridspec.GridSpecFromSubplotSpec(
 )
 
 ms = [0.7, 0.9]
-for i, (st, order) in enumerate(zip(['psb', 'lmn'], [psb, lmn])):
+for i, (st, idx) in enumerate(zip(['psb', 'lmn'], [psb, lmn])):
     for j, e in enumerate(['wak', 'sws']):
         subplot(gs_raster_ex[i,j])
         simpleaxis(gca())
-        plot(spikes[order].to_tsd(np.argsort(order)).restrict(exs[e]), '|', color=colors[st], markersize=ms[i], mew=0.25)
+        gca().spines["left"].set_visible(False)
+        gca().spines["bottom"].set_visible(False)        
+        plot(spikes[idx].to_tsd(np.argsort(idx)).restrict(exs[e]), '|', color=colors[st], markersize=ms[i], mew=0.25)
 
+        if j == 0:
+            yticks([len(idx)-1], [len(idx)])
+            ylabel(st.upper(), rotation=0, y=0.2, labelpad=10)
+        else:
+            yticks([])
+        xticks([])
+
+
+        if i == 0:
+            title(epochs[e])
 
 
 
@@ -353,9 +366,9 @@ subplot(gs_corr_top[0,0])
 simpleaxis(gca())
 
 for s in pearson.index:
-    plot([1, 2], pearson.loc[s,['decimated', 'down']], '-', color=COLOR, linewidth=0.1)
-plot(np.ones(len(pearson)), pearson['decimated'], 'o', color=cycle[0], markersize=1)
-plot(np.ones(len(pearson))*2, pearson['down'], 'o', color=cycle[1], markersize=1)
+    plot([1, 2], pearson.loc[s,['down', 'decimated']], '-', color=COLOR, linewidth=0.1)
+plot(np.ones(len(pearson)), pearson['down'], 'o', color=cycle[0], markersize=1)
+plot(np.ones(len(pearson))*2, pearson['decimated'], 'o', color=cycle[1], markersize=1)
 
 xlim(0.5, 2.5)
 gca().spines['bottom'].set_bounds(1, 2)
@@ -364,7 +377,7 @@ ylim(ymin-0.1, 1.1)
 gca().spines['left'].set_bounds(ymin-0.1, 1.1)
 
 ylabel("Pearson r")
-xticks([1, 2], ['Up\nstate', 'Down\nstate'])
+xticks([1, 2], ['Down\nstate', 'Up\nstate'])
 title("Sessions")
 
 
@@ -410,7 +423,7 @@ ylabel(r"Mean$\Delta$")
 # Histo
 #####################################
 gs_bottom = gridspec.GridSpecFromSubplotSpec(
-    1, 2, subplot_spec=outergs[1, 0], width_ratios=[0.1, 0.9], wspace=0.5
+    1, 2, subplot_spec=outergs[1, 0], width_ratios=[0.05, 0.9], wspace=0.3
 )
 
 gs_histo = gridspec.GridSpecFromSubplotSpec(
@@ -447,7 +460,7 @@ yticks([])
 #####################################
 st = 'lmn'
 
-gs2 = gridspec.GridSpecFromSubplotSpec(2, 4, gs_bottom[0,1], hspace=0.5)
+gs2 = gridspec.GridSpecFromSubplotSpec(2, 4, gs_bottom[0,1], hspace=0.5, wspace=0.9)
 
 
 exs = [
@@ -517,10 +530,11 @@ for i, (s, ex, name) in enumerate(exs):
             plot(tmp.get(s, e), linewidth=0.5, color=COLOR)
 
     # Colorbar
-    axip = gca().inset_axes([1.01, 0.0, 0.015, 1])
+    axip = gca().inset_axes([1.05, 0.0, 0.05, 0.75])
     noaxis(axip)
     cbar = colorbar(im, cax=axip)
-    axip.set_title("r", y=-0.46)
+    axip.set_title("r", y=0.75)
+    axip.set_yticks([0.25, 0.75])
 
 
 ##########################################
@@ -552,11 +566,12 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
     corr = data['corr']
     change_fr = data['change_fr']
     allfr = data['allfr']
+    baseline = data['baseline']
 
     ####################
     # FIRING rate change
     ####################
-    gs_corr2 = gridspec.GridSpecFromSubplotSpec(1,2, gs2[i,2], width_ratios=[0.2, 0.1])
+    gs_corr2 = gridspec.GridSpecFromSubplotSpec(1,2, gs2[i,1], width_ratios=[0.2, 0.1])
 
     subplot(gs_corr2[0,0])
     simpleaxis(gca())
@@ -584,19 +599,22 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
     ################
     # PEARSON Correlation
     ################
-    gs_corr3 = gridspec.GridSpecFromSubplotSpec(2,1, gs2[i,3], hspace=0.9, wspace=0.2)
+    gs_corr3 = gridspec.GridSpecFromSubplotSpec(2,1, gs2[i,2], hspace=0.9, wspace=0.2)
     
     subplot(gs_corr3[0,0])
     simpleaxis(gca())
 
     corr3 = []
+    base3 = []    
     for j, keys in enumerate(orders):
         st, gr, sd, k = keys
 
         corr2 = corr[st][gr][sd]
         corr2 = corr2[corr2['n']>4][k]
+        idx = corr2.index.values
         corr2 = corr2.values.astype(float)
         corr3.append(corr2)
+        base3.append(baseline[st][gr][sd][k].loc[idx].values.astype(float))
 
         plot(np.random.randn(len(corr2))*0.05+np.ones(len(corr2))*(j+1), corr2, '.', markersize=1)
     
@@ -608,7 +626,7 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
     gca().spines['left'].set_bounds(ymin-0.1, 1.1)
 
     ylabel("Pearson r")
-    xticks([1, 2], ['Chrimson', 'Tdtomato'])
+    xticks([1, 2], ['Chrimson', 'Tdtomato'], fontsize=fontsize-1)
 
     # if i == 1: 
     #     yticks([])
@@ -623,9 +641,15 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
     xlabel("minus baseline")
     # if i == 1: gca().spines["left"].set_visible(False)
     plot([1,2],[0,0], linestyle='--', color=COLOR, linewidth=0.1)
-    vp = violinplot(corr3, showmeans=False, 
+    # tmp = (corr[['decimated', 'down']]-baseline[['decimated', 'down']]).values.astype("float")
+    tmp = [c-b for c, b in zip(corr3, base3)]
+    vp = violinplot(tmp, showmeans=False, 
         showextrema=False, vert=True, side='high'
-        )
+        )    
+    # sys.exit()
+    # vp = violinplot(corr3, showmeans=False,
+    #     showextrema=False, vert=True, side='high'
+    #     )
     for k, p in enumerate(vp['bodies']): p.set_color(cycle[k])
 
     m = [c.mean() for c in corr3]
