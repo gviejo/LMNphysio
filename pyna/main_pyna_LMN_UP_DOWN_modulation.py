@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-01 12:03:19
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-05-10 16:44:02
+# @Last Modified time: 2025-05-13 17:23:05
 
 # %%
 import numpy as np
@@ -241,8 +241,11 @@ for s in datasets:
                 # a = a[:len(a) - (len(a) % 2)]
                 # a = nap.IntervalSet(a).drop_short_intervals(bin_size*21).intersect(up_ep)
                 # a = a.merge_close_intervals(bin_size*22)
+                
+                new_up_ep = up_ep.split(np.mean(down_ep.end-down_ep.start))
+                new_up_ep = new_up_ep[np.random.choice(np.arange(0, len(new_up_ep)), len(down_ep), replace=False)]
 
-                new_up_ep = nap.IntervalSet(down_ep.start-(down_ep.end-down_ep.start), down_ep.start).intersect(up_ep)
+                # new_up_ep = nap.IntervalSet(down_ep.start-(down_ep.end-down_ep.start), down_ep.start).intersect(up_ep)
                 rate = rate.restrict(new_up_ep)                        
 
                 # Correlation                
