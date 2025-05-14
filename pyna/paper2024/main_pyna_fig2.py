@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   gviejo
-# @Last Modified time: 2025-05-11 20:58:30
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2025-05-14 16:14:10
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -135,9 +135,7 @@ cmap = plt.get_cmap("Set2")
 # clrs = ['sandybrown', 'olive']
 # clrs = ['#CACC90', '#8BA6A9']
 
-mks = 1.8
-alp = 1
-medw = 0.9
+
 
 # epochs = ['Wake', 'REM sleep', 'nREM sleep']
 epochs = ['Wake', 'nREM sleep', 'nREM sleep']
@@ -307,7 +305,7 @@ xlabel("Lag (ms)")
 # Hist PSB connections
 ###################################
 gs_con2 = gridspec.GridSpecFromSubplotSpec(2,2, gs_con[1,0],
-    hspace=0.1, wspace=0.9
+    hspace=0.5, wspace=0.95
     )
 
 subplot(gs_con2[0,0])
@@ -316,7 +314,7 @@ simpleaxis(gca())
 for peak in [pospeak, negpeak]:
     hist_, bin_edges = np.histogram(peak.values, bins = np.linspace(-0.01, 0.01, 50), range = (-0.01, 0.01))
     stairs(hist_, bin_edges, fill=True, color=COLOR, alpha=1)
-xlabel("Lag (ms)")
+
 xticks([])
 ylabel("%")
 axvspan(0.002, 0.008, alpha=0.2)
@@ -345,12 +343,24 @@ axip.set_yticks([0, 3])
 ####################################
 # Angular differences
 ###################################
-subplot(gs_con2[:,1])
+subplot(gs_con2[1,1])#, projection='polar')
+# gca().set_theta_zero_location('N')
 simpleaxis(gca())
-hist(angdiff[order], bins =np.linspace(0, np.pi, 20), color=COLOR)
-xlim(0, np.pi)
-xticks([0, np.pi], ["0", "180"])
+num_bins = 16
+bins = np.linspace(-np.pi, np.pi, num_bins + 1)
+counts, bin_edges = np.histogram(angdiff[order], bins=bins)
+counts = (counts/counts.sum())*100
+widths = np.diff(bin_edges)
+angles = bin_edges[:-1] + widths / 2  # bin centers
+bars = gca().bar(angles, counts, width=widths, bottom=0.0, align='center', linewidth=0, color=COLOR)
+
+# # simpleaxis(gca())
+# hist(angdiff[order], bins =np.linspace(0, np.pi, 20), color=COLOR)
+xlim(-np.pi, np.pi)
+xticks([-np.pi, 0, np.pi], ["-180", "0", "180"])
 xlabel("Ang. offset")
+ylabel("%")
+title("PSB -> LMN")
 
 ####################################
 # CORR LMN_PSB
@@ -360,7 +370,7 @@ pearson = data['pearson']
 frates = data['frates']
 baseline = data['baseline']
 
-gs_corr_top = gridspec.GridSpecFromSubplotSpec(2,2, gs_top[0,2], hspace=0.9, wspace=0.2)
+gs_corr_top = gridspec.GridSpecFromSubplotSpec(2,2, gs_top[0,2], hspace=0.7, wspace=0.2)
 
 subplot(gs_corr_top[0,0])
 simpleaxis(gca())
@@ -370,41 +380,59 @@ for s in pearson.index:
 plot(np.ones(len(pearson)), pearson['down'], 'o', color=cycle[0], markersize=1)
 plot(np.ones(len(pearson))*2, pearson['decimated'], 'o', color=cycle[1], markersize=1)
 
-xlim(0.5, 2.5)
+xlim(0.5, 3)
 gca().spines['bottom'].set_bounds(1, 2)
 ymin = pearson[['decimated','down']].min().min()
 ylim(ymin-0.1, 1.1)
 gca().spines['left'].set_bounds(ymin-0.1, 1.1)
 
 ylabel("Pearson r")
-xticks([1, 2], ['Down\nstate', 'Up\nstate'])
+xticks([1, 2], ['Down', 'Up'])
 title("Sessions")
 
 
 ############
 subplot(gs_corr_top[1,0])
 simpleaxis(gca())
-xlim(0.5, 2.5)
+xlim(0.5, 3)
 ylim(-0.1, 1)
 gca().spines['bottom'].set_bounds(1, 2)
-xlabel("minus baseline")
+xlabel("minus baseline", labelpad=1)
 # if i == 1: gca().spines["left"].set_visible(False)
-plot([1,2],[0,0], linestyle='--', color=COLOR, linewidth=0.1)
-tmp = (pearson[['decimated', 'down']]-baseline[['decimated', 'down']]).values.astype("float")
+plot([1,2.2],[0,0], linestyle='--', color=COLOR, linewidth=0.2)
+plot([2.2], [0], 'o', color=COLOR, markersize=0.5)
+tmp = (pearson[['down', 'decimated']]-baseline[['down', 'decimated']]).values.astype("float")
 vp = violinplot(tmp, showmeans=False, 
     showextrema=False, vert=True, side='high'
     )
 for k, p in enumerate(vp['bodies']): p.set_color(cycle[k])
 
-m = [pearson[c].mean() for c in ['decimated', 'down']]
+m = [pearson[c].mean() for c in ['down', 'decimated']]
 plot([1, 2], m, 'o', markersize=0.5, color=COLOR)
 
 xticks([1,2],['',''])
 ylabel(r"Mean$\Delta$")
-# if i == 1: 
-#     yticks([])
-#     gca().spines["left"].set_visible(False)
 
+# COmputing tests
+map_significance = {
+    1:"n.s.",
+    2:"*",
+    3:"**",
+    4:"***"
+}
+
+for i, k in enumerate(['down', 'decimated']):
+    zw, p = scipy.stats.wilcoxon(pearson[k].values.astype("float"), baseline[k].values.astype("float"), alternative='greater')
+    signi = np.digitize(p, [1, 0.05, 0.01, 0.001, 0.0])
+    text(i+0.9, m[i]-0.07, s=map_significance[signi], va="center", ha="right")
+
+xl, xr = 2.5, 2.6
+plot([xl, xr], [m[0], m[0]], linewidth=0.2, color=COLOR)
+plot([xr, xr], [m[0], m[1]], linewidth=0.2, color=COLOR)
+plot([xl, xr], [m[1], m[1]], linewidth=0.2, color=COLOR)
+zw, p = scipy.stats.wilcoxon(tmp[:,1], tmp[:,0], alternative='greater')
+signi = np.digitize(p, [1, 0.05, 0.01, 0.001, 0.0])
+text(xr+0.1, np.mean(m)-0.07, s=map_significance[signi], va="center", ha="left")
 
 
 
@@ -603,6 +631,7 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
     
     subplot(gs_corr3[0,0])
     simpleaxis(gca())
+    title("Sessions")
 
     corr3 = []
     base3 = []    
@@ -619,14 +648,14 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
         plot(np.random.randn(len(corr2))*0.05+np.ones(len(corr2))*(j+1), corr2, '.', markersize=1)
     
     
-    xlim(0.5, 2.5)
+    xlim(0.5, 3)
     gca().spines['bottom'].set_bounds(1, 2)
     ymin = corr3[0].min()
     ylim(ymin-0.1, 1.1)
     gca().spines['left'].set_bounds(ymin-0.1, 1.1)
 
     ylabel("Pearson r")
-    xticks([1, 2], ['Chrimson', 'Tdtomato'], fontsize=fontsize-1)
+    xticks([1, 2], ['Chrimson', 'Ctrl'], fontsize=fontsize-1)
 
     # if i == 1: 
     #     yticks([])
@@ -635,21 +664,18 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
     ############
     subplot(gs_corr3[1,0])
     simpleaxis(gca())
-    xlim(0.5, 2.5)
+    xlim(0.5, 3)
     ylim(-0.5, 1)
     gca().spines['bottom'].set_bounds(1, 2)
-    xlabel("minus baseline")
-    # if i == 1: gca().spines["left"].set_visible(False)
-    plot([1,2],[0,0], linestyle='--', color=COLOR, linewidth=0.1)
-    # tmp = (corr[['decimated', 'down']]-baseline[['decimated', 'down']]).values.astype("float")
+    xlabel("minus baseline", labelpad=1)
+    plot([1,2.2],[0,0], linestyle='--', color=COLOR, linewidth=0.2)
+    plot([2.2], [0], 'o', color=COLOR, markersize=0.5)
+
+
     tmp = [c-b for c, b in zip(corr3, base3)]
     vp = violinplot(tmp, showmeans=False, 
         showextrema=False, vert=True, side='high'
         )    
-    # sys.exit()
-    # vp = violinplot(corr3, showmeans=False,
-    #     showextrema=False, vert=True, side='high'
-    #     )
     for k, p in enumerate(vp['bodies']): p.set_color(cycle[k])
 
     m = [c.mean() for c in corr3]
@@ -661,6 +687,20 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
     #     yticks([])
     #     gca().spines["left"].set_visible(False)
 
+    # COmputing tests    
+    
+    for i in range(2):
+        zw, p = scipy.stats.mannwhitneyu(corr3[i], base3[i], alternative='greater')
+        signi = np.digitize(p, [1, 0.05, 0.01, 0.001, 0.0])
+        text(i+0.9, m[i]-0.07, s=map_significance[signi], va="center", ha="right")
+
+    xl, xr = 2.5, 2.6
+    plot([xl, xr], [m[0], m[0]], linewidth=0.2, color=COLOR)
+    plot([xr, xr], [m[0], m[1]], linewidth=0.2, color=COLOR)
+    plot([xl, xr], [m[1], m[1]], linewidth=0.2, color=COLOR)
+    zw, p = scipy.stats.mannwhitneyu(tmp[0], tmp[1])
+    signi = np.digitize(p, [1, 0.05, 0.01, 0.001, 0.0])
+    text(xr+0.1, np.mean(m)-0.07, s=map_significance[signi], va="center", ha="left")
 
 
 

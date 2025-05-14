@@ -2,7 +2,7 @@
 # @Author: gviejo
 # @Date:   2025-01-04 06:11:33
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-05-06 11:22:59
+# @Last Modified time: 2025-05-14 11:56:48
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -169,11 +169,14 @@ for s in datasets:
         #######################
         # Angular differences
         #######################
-        peaks = pd.Series(index=tcurves.columns,data = np.array([circmean(tcurves.index.values, tcurves[i].values) for i in tcurves.columns]))
+        # peaks = pd.Series(index=tcurves.columns,data = np.array([circmean(tcurves.index.values, tcurves[i].values) for i in tcurves.columns]))
+        # peaks = pd.Series(index=tcurves.columns,data = np.array([circmean(tcurves.index.values, tcurves[i].values) for i in tcurves.columns]))
+        peaks = tcurves.idxmax()
         for p in pairs:
             i = int(p[0].split("_")[1])
             j = int(p[1].split("_")[1])
-            angdiff[p] = min(np.abs(peaks[i] - peaks[j]), 2*np.pi-np.abs(peaks[i] - peaks[j]))
+            # angdiff[p] = min(np.abs(peaks[i] - peaks[j]), 2*np.pi-np.abs(peaks[i] - peaks[j]))
+            angdiff[p] = (peaks[i] - peaks[j] + np.pi)%(2*np.pi) - np.pi            
             
             hd_info[p] = SI.loc[[i,j]].values.flatten()
 
