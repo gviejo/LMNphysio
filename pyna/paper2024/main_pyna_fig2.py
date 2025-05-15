@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-05-14 16:14:10
+# @Last Modified time: 2025-05-15 15:33:56
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -23,6 +23,8 @@ from scipy.stats import zscore
 import matplotlib.image as mpimg
 
 from pycircstat.descriptive import mean as circmean
+import pycircstat.tests as ct
+
 import _pickle as cPickle
 # import hsluv
 
@@ -105,7 +107,7 @@ rcParams["font.size"] = fontsize
 rcParams["text.color"] = COLOR
 rcParams["axes.labelcolor"] = COLOR
 rcParams["axes.labelsize"] = fontsize
-rcParams["axes.labelpad"] = 3
+rcParams["axes.labelpad"] = 1
 # rcParams['axes.labelweight'] = 'bold'
 rcParams["axes.titlesize"] = fontsize
 rcParams["xtick.labelsize"] = fontsize
@@ -291,7 +293,7 @@ tmp = allcc['sws'][p].loc[-0.02:0.02]
 x = tmp.index.values
 dt = np.mean(np.diff(x))
 x = np.hstack((x-dt/2, np.array([x[-1]+dt/2])))
-axvspan(0.002, 0.008, alpha=0.2)    
+axvspan(0.002, 0.008, alpha=0.2, linewidth=0)
 stairs(tmp.values, x, fill=True, color=COLOR)
 xlim(-0.01, 0.01)
 # ylim(tmp.values.min()-0.5, tmp.values.max()+0.2)
@@ -317,7 +319,7 @@ for peak in [pospeak, negpeak]:
 
 xticks([])
 ylabel("%")
-axvspan(0.002, 0.008, alpha=0.2)
+axvspan(0.002, 0.008, alpha=0.2, linewidth=0)
 xlim(-0.02, 0.02)
 title("$Z_{PSB-LMN} > 3$", pad=4)
 
@@ -488,7 +490,7 @@ yticks([])
 #####################################
 st = 'lmn'
 
-gs2 = gridspec.GridSpecFromSubplotSpec(2, 4, gs_bottom[0,1], hspace=0.5, wspace=0.9)
+gs2 = gridspec.GridSpecFromSubplotSpec(2, 4, gs_bottom[0,1], hspace=0.6, wspace=0.8)
 
 
 exs = [
@@ -511,16 +513,18 @@ for i, (s, ex, name) in enumerate(exs):
     
     subplot(gs2_ex[0,0])
     simpleaxis(gca())    
-    gca().spines['bottom'].set_visible(False)
+    
     ms = [0.7, 0.9]
     plot(spikes.to_tsd("order").restrict(ex), '|', color=colors[st], markersize=ms[i], mew=0.25)
 
-    [axvspan(s, e, alpha=0.2, color="lightsalmon") for s, e in opto_ep.intersect(ex).values]
+    [axvspan(s, e, alpha=0.2, color="lightsalmon", linewidth=0) for s, e in opto_ep.intersect(ex).values]
     # ylim(-2, len(spikes)+2)
     xlim(ex.start[0], ex.end[0])
     xticks([])
     yticks([0, len(spikes)-1], [1, len(spikes)])
     gca().spines['left'].set_bounds(0, len(spikes)-1)
+    vls = opto_ep.intersect(ex).values[0]
+    gca().spines['bottom'].set_bounds(vls[0], vls[1])
     title(name)
     ylabel("LMN")
     
@@ -545,8 +549,8 @@ for i, (s, ex, name) in enumerate(exs):
 
     x = np.linspace(0, 2*np.pi, tmp2.shape[1])
     yticks([0, 2*np.pi], [1, len(spikes)])
-    vls = opto_ep.intersect(ex).values[0] 
-    gca().spines['bottom'].set_bounds(vls[0], vls[1])        
+    
+    gca().spines['bottom'].set_bounds(vls[0], vls[1])
     xticks(vls, ['', ''])
     if i == 0: xlabel("10 s", labelpad=-1)
     if i == 1: xlabel("1 s", labelpad=-1)
@@ -599,7 +603,7 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
     ####################
     # FIRING rate change
     ####################
-    gs_corr2 = gridspec.GridSpecFromSubplotSpec(1,2, gs2[i,1], width_ratios=[0.2, 0.1])
+    gs_corr2 = gridspec.GridSpecFromSubplotSpec(2,1, gs2[i,1], hspace=1)#, width_ratios=[0.2, 0.1])
 
     subplot(gs_corr2[0,0])
     simpleaxis(gca())
@@ -612,17 +616,33 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
     s = tmp.std(1)
     
     # plot(tmp, color = 'grey', alpha=0.2)
-    plot(tmp.mean(1), color = COLOR)
+    plot(tmp.mean(1), color = COLOR, linewidth=0.75)
     fill_between(m.index.values, m.values-s.values, m.values+s.values, color=COLOR, alpha=0.2, ec=None)
-    axvspan(ranges[f][1], ranges[f][2], alpha=0.2, color='lightsalmon', edgecolor=None)    
-    if i == 1: xlabel("Stim. time (s)", labelpad=1)
+    axvspan(ranges[f][1], ranges[f][2], alpha=0.2, color='lightsalmon', linewidth=0)
+    xlabel("Opto. time (s)", labelpad=1)
     xlim(ranges[f][0], ranges[f][-1])
     # ylim(0.0, 4.0)
     title(titles[i])
     xticks([ranges[f][1], ranges[f][2]])
-    ylim(0, 2)
-    if i == 0:
-        ylabel("Rate\n(norm.)")
+    ylim(0, 2)    
+    ylabel("Rate\n(norm.)")
+
+    subplot(gs_corr2[1,0])
+    simpleaxis(gca())
+
+    ch_fr = change_fr[keys[0]][keys[1]][keys[2]][keys[3]]
+
+    num_bins = 30
+    bins = np.linspace(-1, 1, num_bins + 1)
+    counts, bin_edges = np.histogram(ch_fr.values, bins=bins)
+    counts = (counts/counts.sum())*100
+    widths = np.diff(bin_edges)    
+    bars = bar(bin_edges[:-1] + widths / 2, counts, width=widths, bottom=0.0, align='center', linewidth=0, color=COLOR)
+
+    ylabel("%")
+    xlabel("% mod. rate", labelpad=1)
+
+
 
     ################
     # PEARSON Correlation
@@ -683,12 +703,8 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
 
     xticks([1,2],['',''])
     ylabel(r"Mean$\Delta$")
-    # if i == 1: 
-    #     yticks([])
-    #     gca().spines["left"].set_visible(False)
 
-    # COmputing tests    
-    
+    # COmputing tests
     for i in range(2):
         zw, p = scipy.stats.mannwhitneyu(corr3[i], base3[i], alternative='greater')
         signi = np.digitize(p, [1, 0.05, 0.01, 0.001, 0.0])
@@ -701,6 +717,101 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
     zw, p = scipy.stats.mannwhitneyu(tmp[0], tmp[1])
     signi = np.digitize(p, [1, 0.05, 0.01, 0.001, 0.0])
     text(xr+0.1, np.mean(m)-0.07, s=map_significance[signi], va="center", ha="left")
+
+    if f == 'OPTO_WAKE':
+        ########################
+        # TUNING CURVES WAKE OPTO
+        #######################
+        gs2_tc = gridspec.GridSpecFromSubplotSpec(2, 1, gs2[0,-1], hspace = 1.0, wspace=0.5)
+        
+        subplot(gs2_tc[0,0])
+        simpleaxis(gca())
+
+        lstyle = ['-', '--']
+
+        st, gr, sd, k = orders[0]
+
+        index = np.intersect1d(
+            data['allsi'][st][gr][sd]['pre'][data['allsi'][st][gr][sd]['pre']>0.2].index.values,
+            data['allsi'][st][gr][sd]['opto'][data['allsi'][st][gr][sd]['opto']>0.2].index.values
+            )
+
+        tcs = {}
+        peaks = {}
+
+        for j, k in enumerate(['opto', 'pre']):
+            alltc = data['alltc'][st][gr][sd][k] # OPTO            
+            peaks[k] = alltc.idxmax()
+            alltc = centerTuningCurves_with_peak(alltc[index])
+            tcs[k] = alltc
+
+        tcs2 = {}
+        tcs2['opto'] = tcs['opto']/tcs['pre'].max()
+        tcs2['pre'] = tcs['pre']/tcs['pre'].max()
+                
+        for j, k in enumerate(['opto', 'pre']):
+            plot(tcs2[k].mean(1), linewidth = 0.7, color = cycle[j], linestyle=lstyle[j])
+
+        xlabel("Centered HD (deg.)")
+        ylabel("Rate (norm.)")
+        title("LMN-HD")
+        xticks([-np.pi, 0, np.pi], [-180, 0, 180])
+        yticks([0, 1], [0, 1])
+
+        subplot(gs2_tc[1,0])
+        simpleaxis(gca())
+
+        plot([1,3.4],[0,0], linestyle='--', color=COLOR, linewidth=0.1, zorder=-100, alpha=0.2)
+        plot([3.4], [0], 'o', color=COLOR, markersize=0.5)        
+
+        # Width
+        widths = {}
+        for k in ['opto', 'pre']:
+            tmp = tcs[k]/tcs[k].loc[0]
+            tmp = tmp - 0.5
+            widths[k] = np.rad2deg(np.abs(np.abs(tmp.loc[:0]).idxmin()) + np.abs(np.abs(tmp.loc[0:]).idxmin()))
+        widths = pd.DataFrame(widths)
+        # Peak diff
+        maxpeaks = pd.DataFrame({"opto":tcs['opto'].max(), "pre":tcs['pre'].max()})
+        # Peaks
+        peaks = pd.DataFrame(peaks)        
+
+        tmp = [(df['opto']-df['pre'])/(df['opto']+df['pre']) for df in [widths, maxpeaks]]
+
+        d = peaks['opto'] - peaks['pre']
+        d[d>np.pi] = 2*np.pi - d[d>np.pi]
+        d[d<-np.pi] = d[d<-np.pi] + 2*np.pi
+        d = d/np.pi
+
+        tmp.append(d)
+
+
+        vp = violinplot(tmp, showmeans=False, 
+            showextrema=False, vert=True, side='high'
+            )
+        for k, p in enumerate(vp['bodies']): 
+            p.set_color(cycle[k+3])
+            p.set_zorder(100)
+
+
+        ylabel("Mean $\Delta$\nnorm.")
+        xticks([1, 2, 3], ["Width", "Peak", r"$\Delta$ ang."], rotation=45, ha='right')
+        gca().spines['bottom'].set_bounds(1, 3)
+        xlim(0.5, 3.5)
+
+        # COmputing tests        
+        for i, df in enumerate([widths, maxpeaks, peaks]):
+            # if i == 2:
+            #     p = ct.rayleigh(d*np.pi)
+            # else:
+            zw, p = scipy.stats.wilcoxon(df['pre'], df['opto'])
+            signi = np.digitize(p, [1, 0.05, 0.01, 0.001, 0.0])
+            m = tmp[i].mean()
+            text(i+0.9, m-0.07, s=map_significance[signi], 
+                va="center", ha="right", fontsize=fontsize-1,
+                bbox=dict(facecolor='white', edgecolor='none',boxstyle='round,pad=0.01')
+                )
+
 
 
 

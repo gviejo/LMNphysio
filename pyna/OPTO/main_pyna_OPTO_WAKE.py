@@ -2,7 +2,7 @@
 # @Author: gviejo
 # @Date:   2023-08-29 13:46:37
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-05-10 17:25:47
+# @Last Modified time: 2025-05-15 12:13:43
 # %%
 import numpy as np
 import pandas as pd
@@ -568,7 +568,9 @@ datatosave = {
     "change_fr":change_fr,
     "allr":allr,
     "corr":corr,
-    "baseline":baseline
+    "baseline":baseline,
+    "alltc":alltc, 
+    "allsi":allsi
 }
 
 
