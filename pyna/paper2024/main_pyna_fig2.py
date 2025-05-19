@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-05-15 15:33:56
+# @Last Modified by:   gviejo
+# @Last Modified time: 2025-05-16 12:50:27
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -63,7 +63,7 @@ def figsize(scale):
     golden_mean = (np.sqrt(5.0) - 1.0) / 2  # Aesthetic ratio (you could change this)
     # fig_width = fig_width_pt*inches_per_pt*scale    # width in inches
     fig_width = 6
-    fig_height = fig_width * golden_mean * 1.1  # height in inches
+    fig_height = fig_width * golden_mean * 1.2  # height in inches
     fig_size = [fig_width, fig_height]
     return fig_size
 
@@ -97,7 +97,7 @@ def noaxis(ax):
 # for font in font_manager.findSystemFonts(font_dir):
 #     font_manager.fontManager.addfont(font)
 
-fontsize = 6
+fontsize = 6.0
 
 COLOR = (0.25, 0.25, 0.25)
 cycle = rcParams['axes.prop_cycle'].by_key()['color']
@@ -187,7 +187,7 @@ names = {'adn':"ADN", 'lmn':"LMN"}
 epochs = {'wak':'Wake', 'sws':'Sleep'}
 
 gs_top = gridspec.GridSpecFromSubplotSpec(
-    1, 3, subplot_spec=outergs[0, 0], width_ratios=[0.4, 0.4, 0.3], wspace=0.5
+    1, 3, subplot_spec=outergs[0, 0], width_ratios=[0.5, 0.4, 0.2], wspace=0.5
 )
 
 
@@ -372,7 +372,7 @@ pearson = data['pearson']
 frates = data['frates']
 baseline = data['baseline']
 
-gs_corr_top = gridspec.GridSpecFromSubplotSpec(2,2, gs_top[0,2], hspace=0.7, wspace=0.2)
+gs_corr_top = gridspec.GridSpecFromSubplotSpec(2,1, gs_top[0,2], hspace=0.7, wspace=0.2)
 
 subplot(gs_corr_top[0,0])
 simpleaxis(gca())
@@ -494,7 +494,7 @@ gs2 = gridspec.GridSpecFromSubplotSpec(2, 4, gs_bottom[0,1], hspace=0.6, wspace=
 
 
 exs = [
-    ("A8000/A8066/A8066-240216A", nap.IntervalSet(6292.5, 6322.3679), "Wakefulness"),
+    ("A8000/A8066/A8066-240216A", nap.IntervalSet(6295.5, 6319.3679), "Wakefulness"),
     # ("A8000/A8066/A8066-240216B", nap.IntervalSet(4076.9, 4083.6), "non-REM Sleep")
     # ("A8000/A8066/A8066-240216B", nap.IntervalSet(4033.1, 4037.5), "non-REM sleep")
     ("A8000/A8066/A8066-240216B", nap.IntervalSet(4033.375, 4037.225), "non-REM sleep")
@@ -795,7 +795,7 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
 
 
         ylabel("Mean $\Delta$\nnorm.")
-        xticks([1, 2, 3], ["Width", "Peak", r"$\Delta$ ang."], rotation=45, ha='right')
+        xticks([1, 2, 3], ["Width", "Max FR", r"$\Delta$ ang."], rotation=45, ha='right')
         gca().spines['bottom'].set_bounds(1, 3)
         xlim(0.5, 3.5)
 
