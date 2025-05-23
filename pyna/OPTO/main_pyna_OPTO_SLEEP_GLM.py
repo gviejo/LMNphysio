@@ -2,7 +2,7 @@
 # @Author: gviejo
 # @Date:   2023-08-29 13:46:37
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-05-22 14:54:19
+# @Last Modified time: 2025-05-21 16:57:28
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -21,6 +21,8 @@ from scipy.ndimage import gaussian_filter1d
 import yaml
 import warnings
 warnings.simplefilter('ignore', category=UserWarning)
+from tqdm import tqdm
+import nemos as nmo
 
 
 
@@ -52,7 +54,7 @@ SI_thr = {
     'psb':1.0
     }
 
-allr = {}
+allbeta = {}
 corr = {}
 allfr = {}
 baseline = {}
@@ -63,14 +65,14 @@ baseline = {}
 
 for st in ['adn', 'lmn']:
 
-    allr[st] = {}
+    allbeta[st] = {}
     corr[st] = {}
     allfr[st] = {}
     baseline[st] = {}
 
     for gr in ['opto', 'ctrl']:
 
-        allr[st][gr] = {}
+        allbeta[st][gr] = {}
         corr[st][gr] = {}
         allfr[st][gr] = {}
         baseline[st][gr] = {}
@@ -84,7 +86,7 @@ for st in ['adn', 'lmn']:
 
             if len(dataset):
 
-                allr[st][gr][sd] = []
+                allbeta[st][gr][sd] = []
                 corr[st][gr][sd] = []
                 allfr[st][gr][sd] =[]
                 baseline[st][gr][sd] =[]
@@ -175,9 +177,6 @@ for st in ['adn', 'lmn']:
 
                     frates.columns = [basename+"_"+str(i) for i in frates.columns]
 
-                    ############################################################################################### 
-                    # PEARSON CORRELATION
-                    ###############################################################################################        
                     if len(tokeep) > 4:
                         
                         velocity = np.abs(computeAngularVelocity(position['ry'], position.time_support.loc[[0]], 0.2))
@@ -187,44 +186,48 @@ for st in ['adn', 'lmn']:
                         sws2_ep = sws2_ep.intersect(sws_ep)
                         sws2_ep = sws2_ep.drop_short_intervals(stim_duration-0.001)
 
-                        rates = {}
-                        for e, iset, bin_size, std in zip(['wak', 'sws', 'opto'], [newwake_ep, sws2_ep, opto_ep], [0.3, 0.02, 0.02], [2, 2, 2]):
-                            count = spikes.count(bin_size, iset)
-                            rate = count/bin_size                            
-                            rate = rate.smooth(std=bin_size*std, size_factor=21).as_dataframe()                            
-                            # rate = rate[rate.sum(1)>10]
-                            rate = rate.apply(zscore)                    
-                            rates[e] = rate
+                        ############################################################################################### 
+                        # GLM CROSS-CORRELOGRAMS
+                        ###############################################################################################
+                        name = basename    
+                        pairs = list(combinations([name+'_'+str(n) for n in spikes.keys()], 2)) 
+                        pairs = pd.MultiIndex.from_tuples(pairs)
+
+                        coeffs = {}
 
                         
-                        pairs = [basename+"_"+i+"-"+j for i,j in list(combinations(np.array(spikes.keys()).astype(str), 2))]
-                        r = pd.DataFrame(index = pairs, columns = rates.keys(), dtype = np.float32)                        
+                        for e, iset, bin_size, window_size in zip(['wak', 'sws', 'opto'], [newwake_ep, sws2_ep, opto_ep], [0.1, 0.01, 0.01], [1, 0.1, 0.1]):
 
-                        for e in rates.keys():
-                            tmp = np.corrcoef(rates[e].values.T)
-                            if len(tmp):
-                                r[e] = tmp[np.triu_indices(tmp.shape[0], 1)]
+                            coeffs[e] = {}
 
-                        # # Doing some bootstrap by sampling the opto and sws
-                        # r_bs = {'sws':[], 'opto':[]}
-                        # for e, iset, bin_size, std in zip(['sws', 'opto'], [sws2_ep, opto_ep], [0.02, 0.02], [2, 2]):
-                        #     for i in range(100):
-                        #         idx = np.unique(np.sort(np.random.randint(0, len(iset), int(0.75*len(iset)))))
-                        #         count = spikes.count(bin_size, iset[idx])
-                        #         rate = count/bin_size        
-                        #         rate = rate.smooth(std=bin_size*std, size_factor=21).as_dataframe()                            
-                        #         # rate = rate[rate.sum(1)>10]
-                        #         rate = rate.apply(zscore)                    
-                        #         tmp = np.corrcoef(rate.values.T)
-                        #         r_bs[e].append(tmp[np.triu_indices(tmp.shape[0], 1)])
-
-                        #     r_bs[e] = np.array(r_bs[e]).mean(0)
-
-                        # r['sws'] = r_bs['sws']
-                        # r['opto'] = r_bs['opto']
+                            count = spikes.count(bin_size, iset)                            
 
 
-                        allr[st][gr][sd].append(r)
+                            for p in tqdm(pairs):
+
+                                n_feature = int(p[0].split("_")[1])
+                                n_target = int(p[1].split("_")[1])
+
+                                feat = np.hstack((
+                                        count.loc[n_feature].convolve(np.eye(int(window_size/bin_size))).values,
+                                        count.loc[count.columns[count.columns!=n_feature]].sum(1).convolve(np.eye(int(window_size/bin_size))).values
+                                    ))
+
+                                target = count.loc[n_target]
+
+                                glm = nmo.glm.GLM(regularizer_strength=0.001, regularizer="Ridge", solver_name="LBFGS")
+
+                                glm.fit(feat, target)
+
+                                coeffs[e][p] = glm.coef_[0:len(glm.coef_)//2]
+
+                            coeffs[e] = pd.DataFrame(coeffs[e])
+                            coeffs[e].index = np.arange(-window_size/2, window_size/2, bin_size)
+
+                        
+                        allbeta[st][gr][sd] = coeffs
+
+                        r = pd.DataFrame({e:coeffs[e].mean(0) for e in coeffs})
 
                         # #######################
                         # # Session correlation
@@ -232,105 +235,35 @@ for st in ['adn', 'lmn']:
                         tmp = pd.DataFrame(index=[basename])
                         tmp['sws'] = scipy.stats.pearsonr(r['wak'], r['sws'])[0]
                         tmp['opto'] = scipy.stats.pearsonr(r['wak'], r['opto'])[0]
-                        tmp['n'] = len(spikes)                        
-
-                        #########################
-                        # FIRING RATE MODULATION DURING OPTO
-                        #########################
-                        delta = (spikes.restrict(opto_ep).rate - spikes.restrict(sws2_ep).rate)/spikes.restrict(sws2_ep).rate
-
-                        ##############################
-                        # SPIKES DECIMATION
-                        ##############################
-                        
-                        sws2_spikes = spikes.restrict(sws2_ep)
-                        percent = 1+delta
-                        percent[percent>1] = 1.0
-                        bin_size = 0.02
-
-                        allr_dec = []
-                        r_dec = []
-
-
-
-                        for i in range(100):
-
-                            # Matching spike counts
-                            decimated_spikes = nap.TsGroup(
-                                {n:nap.Ts(np.sort(np.random.choice(sws2_spikes[n].t, int(len(sws2_spikes[n])*percent[n]), replace=False))) for n in sws2_spikes
-                                }, time_support=sws2_ep)
-                                    
-                            count = decimated_spikes.count(bin_size, sws2_ep.drop_short_intervals(bin_size*21))
-                            rate = count/bin_size
-                            rate = rate.smooth(std=bin_size*2, windowsize=bin_size*20).as_dataframe()
-                            rate = rate.apply(zscore)
-                            rate = nap.TsdFrame(rate, time_support = sws2_ep)            
-
-                            
-                            # Correlation                
-                            tmp2 = np.corrcoef(rate.values.T)
-                            r_ = tmp2[np.triu_indices(tmp2.shape[0], 1)]
-
-                            rd, p = scipy.stats.pearsonr(r['wak'], r_)
-
-                            r_dec.append(r_)
-                            allr_dec.append(rd)
-
-
-                        r_dec = np.mean(r_dec, 0)
-
-                        tmp.loc[basename,'decimated'] = np.mean(allr_dec)
-
-                        r["decimated"] = r_dec
-
-
+                        tmp['n'] = len(spikes)
                         corr[st][gr][sd].append(tmp)
 
 
                         #######################
                         # SHUFFLING TO COMPUTE BASELINE
                         #######################
-                        tmp = pd.DataFrame(index=[basename], columns=['sws', 'opto', 'decimated'], dtype="float")
-                        for c in ['sws', 'opto', 'decimated']:
+                        tmp = pd.DataFrame(index=[basename], columns=['sws', 'opto'], dtype="float")
+                        for c in ['sws', 'opto']:
                             tmp.loc[basename,c] = np.mean([
                                 scipy.stats.pearsonr(r['wak'].values, r[c].sample(frac=1, random_state=42).values)[0]
                                 for i in range(1000)
                                 ])
                         baseline[st][gr][sd].append(tmp)
 
-                    #######################
-                    # SAVING
-                    #######################
-                    allfr[st][gr][sd].append(frates)
+
                     
-                    # metadata = spikes._metadata
-                    # metadata.index = frates.columns
-                    # allmeta[ep].append(metadata)
-                    # tuning_curves.columns = frates.columns
-                    # alltc[ep].append(tuning_curves)       
+   
 
                  
-                allr[st][gr][sd] = pd.concat(allr[st][gr][sd], axis=0)
+                allbeta[st][gr][sd] = pd.concat(allbeta[st][gr][sd], axis=0)
                 corr[st][gr][sd] = pd.concat(corr[st][gr][sd], axis=0)
-                allfr[st][gr][sd] = pd.concat(allfr[st][gr][sd], axis=1)
                 baseline[st][gr][sd] = pd.concat(baseline[st][gr][sd], axis=0)
                 # allmeta[ep] = pd.concat(allmeta[ep], axis=0)
                 # alltc[ep] = pd.concat(alltc[ep], axis=1)
 
 
 
-change_fr = {}
-for st in allfr.keys():
-    change_fr[st] = {}
-    for gr in allfr[st].keys():
-        change_fr[st][gr] = {}
-        for sd in allfr[st][gr]:
-            break
-            change_fr[st][gr][sd] = pd.concat([
-                allfr[st][gr][sd].loc[-0.8:0].mean(),
-                allfr[st][gr][sd].loc[0:1].mean()], axis=1)
-            change_fr[st][gr][sd].columns = ['pre', 'opto']
-        
+sys.exit()
 
 
 pdf_filename = os.path.expanduser("~/Dropbox/LMNphysio/summary_opto/fig_OPTO_SLEEP.pdf")
@@ -380,21 +313,21 @@ with PdfPages(pdf_filename) as pdf:
         e = 'opto'
         for j, gr in enumerate(['opto', 'ctrl']):
 
-            if sd not in allr[st][gr].keys():
+            if sd not in allbeta[st][gr].keys():
                 continue
 
-            r, p = scipy.stats.pearsonr(allr[st][gr][sd]['wak'], allr[st][gr][sd][e]) # Wak vs opto
+            r, p = scipy.stats.pearsonr(allbeta[st][gr][sd]['wak'], allbeta[st][gr][sd][e]) # Wak vs opto
 
-            plot(allr[st][gr][sd]['wak'], allr[st][gr][sd][e], 'o', color = cycle[j], alpha = 0.5, label = 'r = '+str(np.round(r, 3)) + f"; {gr}")
+            plot(allbeta[st][gr][sd]['wak'], allbeta[st][gr][sd][e], 'o', color = cycle[j], alpha = 0.5, label = 'r = '+str(np.round(r, 3)) + f"; {gr}")
 
-            m, b = np.polyfit(allr[st][gr][sd]['wak'].values, allr[st][gr][sd][e].values, 1)
-            x = np.linspace(allr[st][gr][sd]['wak'].min(), allr[st][gr][sd]['wak'].max(),5)
+            m, b = np.polyfit(allbeta[st][gr][sd]['wak'].values, allbeta[st][gr][sd][e].values, 1)
+            x = np.linspace(allbeta[st][gr][sd]['wak'].min(), allbeta[st][gr][sd]['wak'].max(),5)
             plot(x, x*m + b)
             xlabel('wak')
             ylabel(e)
-            xlim(allr[st][gr][sd]['wak'].min(), allr[st][gr][sd]['wak'].max())
-            # ylim(allr[st].iloc[:,1:].min().min(), allr[st].iloc[:,1:].max().max())
-            ylim(allr[st][gr][sd]['wak'].min(), allr[st][gr][sd]['wak'].max())
+            xlim(allbeta[st][gr][sd]['wak'].min(), allbeta[st][gr][sd]['wak'].max())
+            # ylim(allbeta[st].iloc[:,1:].min().min(), allbeta[st].iloc[:,1:].max().max())
+            ylim(allbeta[st][gr][sd]['wak'].min(), allbeta[st][gr][sd]['wak'].max())
             legend()
             title(f"{st.upper()} "+" chrimson vs tdtomato" + f"\n {sd}")
                 
@@ -404,18 +337,18 @@ with PdfPages(pdf_filename) as pdf:
         labels = ['light', 'nolight']
         for k, e in enumerate(['opto', 'sws']):
 
-            r, p = scipy.stats.pearsonr(allr[st][gr][sd]['wak'], allr[st][gr][sd][e])
+            r, p = scipy.stats.pearsonr(allbeta[st][gr][sd]['wak'], allbeta[st][gr][sd][e])
 
-            plot(allr[st][gr][sd]['wak'], allr[st][gr][sd][e], 'o', color = cycle[k], alpha = 0.5, label = 'r = '+str(np.round(r, 3)) + f"; {labels[k]}")
+            plot(allbeta[st][gr][sd]['wak'], allbeta[st][gr][sd][e], 'o', color = cycle[k], alpha = 0.5, label = 'r = '+str(np.round(r, 3)) + f"; {labels[k]}")
 
-            m, b = np.polyfit(allr[st][gr][sd]['wak'].values, allr[st][gr][sd][e].values, 1)
-            x = np.linspace(allr[st][gr][sd]['wak'].min(), allr[st][gr][sd]['wak'].max(),5)
+            m, b = np.polyfit(allbeta[st][gr][sd]['wak'].values, allbeta[st][gr][sd][e].values, 1)
+            x = np.linspace(allbeta[st][gr][sd]['wak'].min(), allbeta[st][gr][sd]['wak'].max(),5)
             plot(x, x*m + b)
             xlabel('wak')
             ylabel(e)
-            xlim(allr[st][gr][sd]['wak'].min(), allr[st][gr][sd]['wak'].max())
-            # ylim(allr[st].iloc[:,1:].min().min(), allr[st].iloc[:,1:].max().max())
-            ylim(allr[st][gr][sd]['wak'].min(), allr[st][gr][sd]['wak'].max())
+            xlim(allbeta[st][gr][sd]['wak'].min(), allbeta[st][gr][sd]['wak'].max())
+            # ylim(allbeta[st].iloc[:,1:].min().min(), allbeta[st].iloc[:,1:].max().max())
+            ylim(allbeta[st][gr][sd]['wak'].min(), allbeta[st][gr][sd]['wak'].max())
             legend()
             title(f"{st.upper()} "+" chrimson light vs no light")
 
@@ -487,7 +420,7 @@ with PdfPages(pdf_filename) as pdf:
 datatosave = {
     "allfr":allfr,
     "change_fr":change_fr,
-    "allr":allr,
+    "allbeta":allbeta,
     "corr":corr,
     "baseline":baseline
 }
