@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-05-10 15:22:46
+# @Last Modified by:   gviejo
+# @Last Modified time: 2025-05-24 11:39:20
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -406,7 +406,7 @@ for i, (s, idx) in enumerate(zip(['adn', 'lmn'], [adn_idx, lmn_idx])):
                 tmp.t[1] - tmp.t[0],
                 linewidth=0,
                 facecolor=colors[s],
-                alpha=0.3
+                alpha=1.0
                 )
             step(tmp.t, tmp.d, linewidth=0.2, color=colors[s], where='post')
             gca().set_yticks([])
@@ -481,24 +481,47 @@ gs_bottom = gridspec.GridSpecFromSubplotSpec(
     1, 3, subplot_spec=outergs[1, 0], wspace=0.3, width_ratios=[0.4, 0.3, 0.3]
 )
 
-gs_bottom1 = gridspec.GridSpecFromSubplotSpec(
-    2, 3, subplot_spec=gs_bottom[0,0], hspace=0.8, width_ratios=[0.2, 0.4, 0.2], height_ratios=[0.1, 0.4]
+
+
+gs_bottom_left = gridspec.GridSpecFromSubplotSpec(
+    2, 1, subplot_spec=gs_bottom[0,0], hspace=0.8, 
 )
-subplot(gs_bottom1[0,1])
+
+
+subplot(gs_bottom_left[0,0])
 simpleaxis(gca())
+
 for i,g in enumerate(['lmn', 'adn']):
+
     tmp = allr_sess[g]['sws']
-    plot(tmp.values, np.ones(len(tmp))*i + np.random.randn(len(tmp))*0.05, 'o', color = colors[g], markersize = 1)
-    plot([tmp.mean(), tmp.mean()], [i-0.2, i+0.2], linewidth=1, color = 'grey')
-ylim(-0.5, 1.5)
-xlim(0, 1)
-yticks([1, 0], [names['adn'], names['lmn']])
+    plot(np.ones(len(tmp))*(i+1) + np.random.randn(len(tmp))*0.05, tmp.values,  'o', color = colors[g], markersize = 1)
+    plot([i+1-0.2, i+1+0.2], [tmp.mean(), tmp.mean()], linewidth=1, color = 'grey')
+xlim(0.5, 3)
+gca().spines['bottom'].set_bounds(1, 2)
+
+xticks([1, 2], [names['adn'], names['lmn']])
 xlabel("Pearson r")
+ylim(0, 1.1)
+title("Sessions")
+
+
+subplot(gs_bottom_left[1,0])
+simpleaxis(gca())
+xlim(0.5, 3)
+ylim(-0.1, 1)
+gca().spines['bottom'].set_bounds(1, 2)
+xlabel("minus baseline", labelpad=1)
+# if i == 1: gca().spines["left"].set_visible(False)
+plot([1,2.2],[0,0], linestyle='--', color=COLOR, linewidth=0.2)
+plot([2.2], [0], 'o', color=COLOR, markersize=0.5)
 
 
 ##############################################
 # Hist of Fisher Z
 ##############################################
+gs_bottom1 = gridspec.GridSpecFromSubplotSpec(
+    2, 3, subplot_spec=gs_bottom[0,0], hspace=0.8, width_ratios=[0.2, 0.4, 0.2], height_ratios=[0.1, 0.4]
+)
 
 
 gs_fisher = gridspec.GridSpecFromSubplotSpec(
