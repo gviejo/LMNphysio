@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-05-26 17:10:29
+# @Last Modified by:   gviejo
+# @Last Modified time: 2025-05-26 22:27:05
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -234,14 +234,14 @@ markers = ["d", "o", "v"]
 
 fig = figure(figsize=figsize(1))
 
-outergs = GridSpec(2, 1, hspace = 0.3, height_ratios=[0.1, 0.1])
+outergs = GridSpec(3, 1, hspace = 0.3)#, height_ratios=[0.1, 0.1])
 
 
 names = {'adn':"ADN", 'lmn':"LMN"}
 epochs = {'wak':'Wake', 'sws':'Sleep'}
 
 gs_top = gridspec.GridSpecFromSubplotSpec(
-    1, 3, subplot_spec=outergs[0, 0], width_ratios=[0.3, 0.3, 0.2], wspace=0.1
+    1, 2, subplot_spec=outergs[0, 0], width_ratios=[0.3, 0.6], wspace=0.1
 )
 
 
@@ -283,7 +283,7 @@ yticks([])
 # Raster
 #####################################
 gs_raster = gridspec.GridSpecFromSubplotSpec(
-    3, 2, subplot_spec=gs_top_left[1, 0]#, height_ratios=[0.5, 0.2, 0.2] 
+    3, 2, subplot_spec=gs_top[0, 1]#, height_ratios=[0.5, 0.2, 0.2] 
 )
 
 
@@ -349,10 +349,13 @@ for i, e in enumerate(['wak', 'sws']):
 #####################################
 # Examples
 #####################################
-gs_top2 = gridspec.GridSpecFromSubplotSpec(
-    2, 3, subplot_spec=gs_top[0, 1], hspace=0.4, wspace=0.5
+gs_middle = gridspec.GridSpecFromSubplotSpec(
+    1, 3, subplot_spec=outergs[1, 0], hspace=0.4, wspace=0.5
 )
 
+gs_top2 = gridspec.GridSpecFromSubplotSpec(
+    2, 3, subplot_spec=gs_middle[0, 0], hspace=0.4, wspace=0.5
+)
 
 
 
@@ -431,7 +434,7 @@ for i, (s, idx) in enumerate(zip(['adn', 'lmn'], [adn_idx, lmn_idx])):
 # Pairwise correlation
 #####################################
 gs_corr1 = gridspec.GridSpecFromSubplotSpec(
-    2, 2, subplot_spec=gs_top[0, 2], hspace=0.5, width_ratios=[0.3, 0.5]
+    2, 2, subplot_spec=gs_middle[0, 1], hspace=0.5, width_ratios=[0.3, 0.5]
 )
 
 xlims = (min(np.nanmin(allr['adn']['wak']), np.nanmin(allr['lmn']['wak'])), max(np.nanmax(allr['adn']['wak']), np.nanmax(allr['lmn']['wak'])))
@@ -473,17 +476,14 @@ for i, (g, idx) in enumerate(zip(['adn', 'lmn'], [adn_idx, lmn_idx])):
 
     
 ###############################################################
-## BOTTOM
+## VIOLINPLOT
 ###############################################################
 
-gs_bottom = gridspec.GridSpecFromSubplotSpec(
-    1, 2, subplot_spec=outergs[1, 0], wspace=0.3, width_ratios=[0.1, 0.9]
-)
 
 
 
 gs_bottom_left = gridspec.GridSpecFromSubplotSpec(
-    2, 1, subplot_spec=gs_bottom[0,0], hspace=0.8, 
+    2, 1, subplot_spec=gs_middle[0,2], hspace=0.8, 
 )
 
 
@@ -557,14 +557,20 @@ text(xr+0.1, np.mean(m)-0.07, s=map_significance[signi], va="center", ha="left")
 # ##############################################
 # # Hist of Fisher Z
 # ##############################################
-gs_bottom_right = gridspec.GridSpecFromSubplotSpec(
-    2, 1, subplot_spec=gs_bottom[0,1], hspace=0.9, 
+
+gs_bottom = gridspec.GridSpecFromSubplotSpec(
+    2, 1, subplot_spec=outergs[2, 0], wspace=0.3,
 )
+
+
+# gs_bottom_right = gridspec.GridSpecFromSubplotSpec(
+#     2, 1, subplot_spec=gs_bottom[0,1], hspace=0.9, 
+# )
 
 
 
 gs_bottom1 = gridspec.GridSpecFromSubplotSpec(
-    2, 5, subplot_spec=gs_bottom_right[0,0], wspace=0.5, hspace = 0.5, width_ratios=[0.3, 0.01, 0.1, 0.5, 0.5]
+    2, 5, subplot_spec=gs_bottom[0,0], wspace=0.5, hspace = 0.5, width_ratios=[0.3, 0.01, 0.1, 0.5, 0.5]
 )
 
 
@@ -624,10 +630,6 @@ for i, b in enumerate([0, 2]):
 # # Cross-corrs
 # #####################################
 
-# gs_bottom2 = gridspec.GridSpecFromSubplotSpec(
-#     3, 1, subplot_spec=gs_bottom1[:, 2], hspace = 0.4, wspace = 1,
-#     height_ratios=[0.4, 0.3, 0.4]
-# )
 
 
 gs_cc = gridspec.GridSpecFromSubplotSpec(
@@ -748,12 +750,19 @@ axip.set_xlim(-0.5, 1.6)
 #####################################
 # CC LMN -> ADN
 #####################################
-gs_final = gridspec.GridSpecFromSubplotSpec(
-    1, 2, subplot_spec=gs_bottom_right[1, 0], wspace = 1, hspace = 1
+gs_bottom2 = gridspec.GridSpecFromSubplotSpec(
+    1, 3, subplot_spec=gs_bottom[1, 0], hspace = 0.4, wspace = 1,
+    # height_ratios=[0.4, 0.3, 0.4]
 )
 
+
+
+# gs_final = gridspec.GridSpecFromSubplotSpec(
+#     1, 2, subplot_spec=gs_bottom_right[1, 0], wspace = 1, hspace = 1
+# )
+
 gs_cc2 = gridspec.GridSpecFromSubplotSpec(
-    1, 2, subplot_spec=gs_final[0, 0], wspace = 0.6, hspace = 1
+    1, 2, subplot_spec=gs_bottom2[0, 0], wspace = 0.6, hspace = 1
 )
 
 
@@ -804,7 +813,7 @@ scores = data['scores']
 
 
 gs_scores = gridspec.GridSpecFromSubplotSpec(
-    1, 2, subplot_spec=gs_final[0, 1], width_ratios=[0.2, 0.9]
+    1, 2, subplot_spec=gs_bottom2[0, 1], width_ratios=[0.2, 0.9]
 )
 
 
