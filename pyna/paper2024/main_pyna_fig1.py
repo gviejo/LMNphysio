@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   gviejo
-# @Last Modified time: 2025-05-27 22:17:03
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2025-05-28 15:50:06
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -51,7 +51,7 @@ def figsize(scale):
     golden_mean = (np.sqrt(5.0) - 1.0) / 2  # Aesthetic ratio (you could change this)
     # fig_width = fig_width_pt*inches_per_pt*scale    # width in inches
     fig_width = 6
-    fig_height = fig_width * golden_mean * 1.2  # height in inches
+    fig_height = fig_width * golden_mean * 1.0  # height in inches
     fig_size = [fig_width, fig_height]
     return fig_size
 
@@ -234,7 +234,7 @@ markers = ["d", "o", "v"]
 
 fig = figure(figsize=figsize(1))
 
-outergs = GridSpec(3, 1, hspace = 0.5, height_ratios=[0.4, 0.5, 0.5])
+outergs = GridSpec(3, 1, hspace = 0.6, height_ratios=[0.5, 0.6, 0.3])
 
 
 names = {'adn':"ADN", 'lmn':"LMN"}
@@ -411,12 +411,17 @@ for i, (s, idx) in enumerate(zip(['adn', 'lmn'], [adn_idx, lmn_idx])):
             for u, n in enumerate(p):
                 tmp = spikes[n].count(bin_sizes[j]).smooth(bin_sizes[j]*2).restrict(exs[e])
                 # tmp = tmp.smooth(5/tmp.rate)
+                tmp = tmp/tmp.max()
                 rates.append(tmp)
-            maxr = np.max(rates[0])
-            rates = [a/maxr for a in rates]
-            for tmp in rates:
-                fill_between(tmp.t, 0, tmp.d, color=colors[s], alpha=0.25)
-                step(tmp.t, tmp.d, linewidth=0.1, color=colors[s], where='mid')
+            # maxr = np.max(rates[0])
+            # rates = [a/maxr for a in rates]
+            fill_between(rates[0].t, 0, rates[0].d, color=colors[s], alpha=0.25)
+            step(rates[0].t, rates[0].d, linewidth=0.1, color=colors[s], where='mid')
+
+            fill_between(rates[1].t, 0, -rates[1].d, color=colors[s], alpha=0.25)
+            step(rates[1].t, -rates[1].d, linewidth=0.1, color=colors[s], where='mid')
+
+
             xlim(exs[e].start[0], exs[e].end[0])
             # gca().set_yticks([])
             # gca().spines["left"].set_visible(False)
