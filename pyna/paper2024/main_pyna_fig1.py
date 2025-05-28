@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   gviejo
-# @Last Modified time: 2025-05-26 22:27:05
+# @Last Modified time: 2025-05-27 22:17:03
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -234,31 +234,31 @@ markers = ["d", "o", "v"]
 
 fig = figure(figsize=figsize(1))
 
-outergs = GridSpec(3, 1, hspace = 0.3)#, height_ratios=[0.1, 0.1])
+outergs = GridSpec(3, 1, hspace = 0.5, height_ratios=[0.4, 0.5, 0.5])
 
 
 names = {'adn':"ADN", 'lmn':"LMN"}
 epochs = {'wak':'Wake', 'sws':'Sleep'}
 
 gs_top = gridspec.GridSpecFromSubplotSpec(
-    1, 2, subplot_spec=outergs[0, 0], width_ratios=[0.3, 0.6], wspace=0.1
+    1, 2, subplot_spec=outergs[0, 0], width_ratios=[0.4, 0.6], hspace=0.9
 )
 
 
-gs_top_left = gridspec.GridSpecFromSubplotSpec(
-    2, 1, subplot_spec=gs_top[0, 0], hspace=0.5
-)
+# gs_top_left = gridspec.GridSpecFromSubplotSpec(
+#     2, 1, subplot_spec=gs_top[0, 0], hspace=0.5
+# )
 
 #####################################
 # Histo
 #####################################
 gs_histo = gridspec.GridSpecFromSubplotSpec(
-    2, 2, subplot_spec=gs_top_left[0, 0]#, height_ratios=[0.5, 0.2, 0.2] 
+    2, 2, subplot_spec=gs_top[0, 0]#, height_ratios=[0.5, 0.2, 0.2] 
 )
 
 subplot(gs_histo[:, 0])
-noaxis(gca())
-img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/tmp.png")
+# noaxis(gca())
+img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/papezhdcircuit.png")
 imshow(img, aspect="equal")
 xticks([])
 yticks([])
@@ -283,7 +283,7 @@ yticks([])
 # Raster
 #####################################
 gs_raster = gridspec.GridSpecFromSubplotSpec(
-    3, 2, subplot_spec=gs_top[0, 1]#, height_ratios=[0.5, 0.2, 0.2] 
+    3, 3, subplot_spec=gs_top[0, 1], width_ratios=[0.5, 0.5, 0.005], wspace=0.2
 )
 
 
@@ -291,15 +291,15 @@ gs_raster = gridspec.GridSpecFromSubplotSpec(
 for i, (g, idx) in enumerate(zip(['adn', 'lmn'], [adn, lmn])):
     for j, e in enumerate(['wak', 'sws']):
         subplot(gs_raster[i, j])
-        simpleaxis(gca())
-        gca().spines["left"].set_visible(False)
+        simpleaxis(gca())        
         gca().spines["bottom"].set_visible(False)
+        if j == 1: gca().spines["left"].set_visible(False)
         for k,n in enumerate(idx):
             plot(spikes[n].restrict(exs[e]).fillna(k), 
                 '|', 
                 markersize = 1, markeredgewidth=0.1,
                 color=colors[g])
-
+        xlim(exs[e].start[0], exs[e].end[0])
         if j == 0:
             yticks([len(idx)-1], [len(idx)])
             ylabel(names[g], rotation=0, y=0.2, labelpad=10)
@@ -315,18 +315,23 @@ for i, (g, idx) in enumerate(zip(['adn', 'lmn'], [adn, lmn])):
 for i, e in enumerate(['wak', 'sws']):
     subplot(gs_raster[2,i])
     simpleaxis(gca())
-    # gca().spines["bottom"].set_visible(False)
+    if i == 1: gca().spines["left"].set_visible(False)
     im = imshow(p_decoding[e].values.T, aspect='auto', origin='lower',
-        cmap='gist_yarg', extent=(exs[e].start[0], exs[e].end[0], 0, 2*np.pi))
+        cmap='binary', extent=(exs[e].start[0], exs[e].end[0], 0, 2*np.pi))
     if e == "wak":
-        plot(smoothAngle(angle, 5).restrict(exs['wak']), linewidth=0.2)
-    
+        plot(smoothAngle(angle, 5).restrict(exs['wak']), linewidth=0.75, label="True HD")
+        legend(
+                handlelength=1,
+                loc="center",
+                bbox_to_anchor=(0.1, -0.5, 0.5, 0.5),
+                framealpha=0,
+            )            
+
     if i == 0:
         yticks([0, 2*np.pi], [0, 360])
         ylabel("H.D.\n(deg)", rotation=0, y=0.0, labelpad=10)
     else:
         yticks([])
-    # xticks([])
 
     if i == 0:
         gca().spines["bottom"].set_bounds(exs['wak'].end[0] - 3, exs['wak'].end[0])
@@ -336,13 +341,13 @@ for i, e in enumerate(['wak', 'sws']):
         xticks([exs['sws'].end[0] - 0.25], ["0.5 s"])
 
     
-    axip = gca().inset_axes([0.15, -1.1, 0.05, 0.9])
-    cbar = colorbar(im, cax=axip)
-    axip.set_ylabel("P", rotation=0, labelpad=-25, y=0.75)
-    if i == 0:
-        axip.set_yticks([0, 0.4], [0, 0.4])
-    if i == 1:
-        axip.set_yticks([0, 0.1], [0, 0.1])
+        axip = gca().inset_axes([1.03, 0, 0.04, 0.6])
+        cbar = colorbar(im, cax=axip)
+        axip.set_title("P", fontsize=fontsize-1, y=0.8)
+        # if i == 0:
+        #     axip.set_yticks([0, 0.4], [0, 0.4])
+        if i == 1:
+            axip.set_yticks([0, 0.1], [0, 0.1])
 
 
 
@@ -350,11 +355,11 @@ for i, e in enumerate(['wak', 'sws']):
 # Examples
 #####################################
 gs_middle = gridspec.GridSpecFromSubplotSpec(
-    1, 3, subplot_spec=outergs[1, 0], hspace=0.4, wspace=0.5
+    1, 3, subplot_spec=outergs[1, 0], width_ratios = [0.9, 0.2, 0.15], wspace=0.3
 )
 
 gs_top2 = gridspec.GridSpecFromSubplotSpec(
-    2, 3, subplot_spec=gs_middle[0, 0], hspace=0.4, wspace=0.5
+    2, 3, subplot_spec=gs_middle[0, 0], hspace=0.4, wspace=0.3
 )
 
 
@@ -367,14 +372,14 @@ for i, (s, idx) in enumerate(zip(['adn', 'lmn'], [adn_idx, lmn_idx])):
     
     # Waveforms + tuning curves
     gs_neuron = gridspec.GridSpecFromSubplotSpec(
-        2, 2, subplot_spec=gs_top2[i, 0], wspace=0.2, hspace=0.2
+        2, 3, subplot_spec=gs_top2[i, 0], wspace=0.2, hspace=0.2, width_ratios=[1, 1, 0.2]
         )
     xx = [0, 1, 1]
     yy = [0, 0, 1]
     
     for j, n in enumerate(idx):
         gs_ex = gridspec.GridSpecFromSubplotSpec(
-            1, 2, subplot_spec=gs_neuron[yy[j], xx[j]], wspace=0.1, hspace=0.4
+            1, 2, subplot_spec=gs_neuron[yy[j], xx[j]], wspace=0.2, hspace=0.5
             )
                 
         subplot(gs_ex[0,0])
@@ -402,31 +407,36 @@ for i, (s, idx) in enumerate(zip(['adn', 'lmn'], [adn_idx, lmn_idx])):
         for k, p in enumerate([(idx[0], idx[1]), (idx[0], idx[2])]):
             subplot(gs_count[k,0])
             simpleaxis(gca())
+            rates = []
             for u, n in enumerate(p):
                 tmp = spikes[n].count(bin_sizes[j]).smooth(bin_sizes[j]*2).restrict(exs[e])
-                tmp = tmp.smooth(5/tmp.rate)
-                tmp = tmp/tmp.max()
+                # tmp = tmp.smooth(5/tmp.rate)
+                rates.append(tmp)
+            maxr = np.max(rates[0])
+            rates = [a/maxr for a in rates]
+            for tmp in rates:
                 fill_between(tmp.t, 0, tmp.d, color=colors[s], alpha=0.25)
                 step(tmp.t, tmp.d, linewidth=0.1, color=colors[s], where='mid')
-
-            gca().set_yticks([])
-            gca().spines["left"].set_visible(False)
+            xlim(exs[e].start[0], exs[e].end[0])
+            # gca().set_yticks([])
+            # gca().spines["left"].set_visible(False)
 
             if j == 0 and k == 1:
-                gca().spines["bottom"].set_bounds(exs['wak'].end[0] - 5, exs['wak'].end[0])
-                xticks([exs['wak'].end[0] - 2.5], ["5 s"])
+                gca().spines["bottom"].set_bounds(exs['wak'].end[0] - 2, exs['wak'].end[0])
+                xticks([exs['wak'].end[0] - 1], ["2 s"])
             elif j == 1 and k == 1:
-                gca().spines["bottom"].set_bounds(exs['sws'].end[0] - 1, exs['sws'].end[0])
-                xticks([exs['sws'].end[0] - 0.5], ["1 s"])
+                gca().spines["bottom"].set_bounds(exs['sws'].end[0] - 0.5, exs['sws'].end[0])
+                xticks([exs['sws'].end[0] - 0.25], ["0.5 s"])
             else:
                 gca().spines["bottom"].set_visible(False)
-                gca().set_xticks([])
-                gca().set_yticks([])
+                gca().set_xticks([])                
 
-            if k == 0 and j==0:
-                ylabel("Pair\n1", rotation=0, fontsize=5)
-            if k == 1 and j==0:
-                ylabel("Pair\n2", rotation=0, fontsize=5)
+            if j == 0 and k == 0:
+                ylabel("Norm. rate", y=0)
+            # if k == 0 and j==0:
+            #     ylabel("Pair\n1", rotation=0, fontsize=5)
+            # if k == 1 and j==0:
+            #     ylabel("Pair\n2", rotation=0, fontsize=5)
             if i == 0 and k == 0:
                 title(epochs[e])
 
@@ -434,7 +444,7 @@ for i, (s, idx) in enumerate(zip(['adn', 'lmn'], [adn_idx, lmn_idx])):
 # Pairwise correlation
 #####################################
 gs_corr1 = gridspec.GridSpecFromSubplotSpec(
-    2, 2, subplot_spec=gs_middle[0, 1], hspace=0.5, width_ratios=[0.3, 0.5]
+    2, 1, subplot_spec=gs_middle[0, 1], hspace=0.5
 )
 
 xlims = (min(np.nanmin(allr['adn']['wak']), np.nanmin(allr['lmn']['wak'])), max(np.nanmax(allr['adn']['wak']), np.nanmax(allr['lmn']['wak'])))
@@ -442,7 +452,7 @@ ylims = (min(np.nanmin(allr['adn']['sws']), np.nanmin(allr['lmn']['sws'])), max(
 minmax = (min(xlims[0],ylims[0]), max(xlims[1],ylims[1]))
 
 for i, (g, idx) in enumerate(zip(['adn', 'lmn'], [adn_idx, lmn_idx])):
-    subplot(gs_corr1[i,-1], aspect='equal')
+    subplot(gs_corr1[i,0], aspect='equal')
     simpleaxis(gca())
     tmp = allr[g].dropna()
 
@@ -450,25 +460,25 @@ for i, (g, idx) in enumerate(zip(['adn', 'lmn'], [adn_idx, lmn_idx])):
     m, b = np.polyfit(tmp['wak'].values, tmp['sws'].values, 1)
     x = np.linspace(tmp['wak'].min(), tmp['wak'].max(),5)
     plot(x, x*m + b, linewidth=0.1)    
-    ylabel(epochs['sws'])
-    if i == 1: xlabel(epochs['wak'])
+    ylabel(epochs['sws'] + " corr.")
+    if i == 1: xlabel(epochs['wak'] + " corr.")
     xlim(*minmax)
     ylim(*minmax)
-    title(names[g])
+    title(names[g], y=0.8)
 
     # # Annotation
     idx = [name+"_"+str(j) for j in idx]
+    if i == 0: gca().set_xticks([-0.5, 0., 0.5], ['', '', ''])
     
-    # sys.exit()
 
     p1 = tmp.loc[(idx[0],idx[1]),['wak','sws']].values
     p2 = tmp.loc[(idx[0],idx[2]),['wak','sws']].values
     
-    plot(p1[0], p1[1], 'o', mec=colors[g], mfc="white", alpha=1, markersize=2)
-    plot(p2[0], p2[1], 'o', mec=colors[g], mfc="white", alpha=1, markersize=2)
+    plot(p1[0], p1[1], 'o', mec=COLOR, mfc="white", alpha=1, markersize=2)
+    plot(p2[0], p2[1], 'o', mec=COLOR, mfc="white", alpha=1, markersize=2)
 
-    annotate("P1", xy=p1, xytext=p1+0.05, fontsize = 5)
-    annotate("P2", xy=p2, xytext=p2+0.05, fontsize = 5)
+    annotate("P1", xy=p1, xytext=p1+0.08, fontsize = 5)
+    annotate("P2", xy=p2, xytext=p2+0.08, fontsize = 5)
 
     # print(p1)
     # print(p2)
@@ -483,7 +493,7 @@ for i, (g, idx) in enumerate(zip(['adn', 'lmn'], [adn_idx, lmn_idx])):
 
 
 gs_bottom_left = gridspec.GridSpecFromSubplotSpec(
-    2, 1, subplot_spec=gs_middle[0,2], hspace=0.8, 
+    3, 1, subplot_spec=gs_middle[0,2], hspace=0.8, height_ratios=[0.4, 0.4, 0.005]
 )
 
 
@@ -527,7 +537,7 @@ for k, p in enumerate(vp['bodies']):
 m = [a.mean() for a in tmp]
 plot([1, 2], m, 'o', markersize=0.5, color=COLOR)
 
-xticks([1,2],['',''])
+xticks([1,2],['ADN','LMN'])
 ylabel(r"Mean$\Delta$")
 
 
@@ -555,11 +565,11 @@ text(xr+0.1, np.mean(m)-0.07, s=map_significance[signi], va="center", ha="left")
 
 
 # ##############################################
-# # Hist of Fisher Z
+# # CC
 # ##############################################
 
 gs_bottom = gridspec.GridSpecFromSubplotSpec(
-    2, 1, subplot_spec=outergs[2, 0], wspace=0.3,
+    1, 2, subplot_spec=outergs[2, 0], wspace=0.3,
 )
 
 
@@ -570,7 +580,7 @@ gs_bottom = gridspec.GridSpecFromSubplotSpec(
 
 
 gs_bottom1 = gridspec.GridSpecFromSubplotSpec(
-    2, 5, subplot_spec=gs_bottom[0,0], wspace=0.5, hspace = 0.5, width_ratios=[0.3, 0.01, 0.1, 0.5, 0.5]
+    1, 3, subplot_spec=gs_bottom[0,0], wspace=0.5, hspace = 0.5, width_ratios=[0.1, 0.5, 0.5]
 )
 
 
@@ -580,7 +590,7 @@ gs_bottom1 = gridspec.GridSpecFromSubplotSpec(
 # )
 
 
-subplot(gs_bottom1[:,2])
+subplot(gs_bottom1[0, 0])
 gca().invert_yaxis()
 simpleaxis(gca())
 
@@ -604,27 +614,27 @@ xticks(count-1, count, rotation=90)
 # )
 
 
-for i, b in enumerate([0, 2]):   
-    subplot(gs_bottom1[i,0])
-    simpleaxis(gca())
+# for i, b in enumerate([0, 2]):   
+#     subplot(gs_bottom1[i,0])
+#     simpleaxis(gca())
 
-    for j, g in enumerate(['adn', 'lmn']):    
-        step(zgroup.index.values, zgroup[g+"-"+str(b)]*100, np.mean(np.diff(zbins)), 
-            label=names[g], color=colors[g])
+#     for j, g in enumerate(['adn', 'lmn']):    
+#         step(zgroup.index.values, zgroup[g+"-"+str(b)]*100, np.mean(np.diff(zbins)), 
+#             label=names[g], color=colors[g])
 
-        ylabel("%")#, labelpad=-10)
-        # ylim(0, 25)
-        yticks([0, 25])
+#         ylabel("%")#, labelpad=-10)
+#         # ylim(0, 25)
+#         yticks([0, 25])
         
-    if i == 1:
-        xlabel("$|Z_{Wake} - Z_{Sleep}|$")
-    # if i == 0: 
-    #     legend(
-    #         handlelength=0.5,
-    #         loc="center",
-    #         bbox_to_anchor=(0.5, 0.8, 0.5, 0.5),
-    #         framealpha=0,
-    #     )        
+#     if i == 1:
+#         xlabel("$|Z_{Wake} - Z_{Sleep}|$")
+#     # if i == 0: 
+#     #     legend(
+#     #         handlelength=0.5,
+#     #         loc="center",
+#     #         bbox_to_anchor=(0.5, 0.8, 0.5, 0.5),
+#     #         framealpha=0,
+#     #     )        
 
 # #####################################
 # # Cross-corrs
@@ -633,7 +643,7 @@ for i, b in enumerate([0, 2]):
 
 
 gs_cc = gridspec.GridSpecFromSubplotSpec(
-    1, 3, subplot_spec=gs_bottom1[:, 3], wspace = 0.8, width_ratios=[0.5, 0.5, 0.1]
+    1, 3, subplot_spec=gs_bottom1[0, 1], wspace = 0.8, width_ratios=[0.5, 0.5, 0.1]
 )
 
 
@@ -683,7 +693,7 @@ angdiff = data['angdiff']
 
 
 gs_cc = gridspec.GridSpecFromSubplotSpec(
-    1, 3, subplot_spec=gs_bottom1[:, 4], wspace = 0.8, width_ratios=[0.5, 0.5, 0.1]
+    1, 3, subplot_spec=gs_bottom1[0, 2], wspace = 0.8, width_ratios=[0.5, 0.5, 0.1]
 )
 
 # for i, b in enumerate([0, 2]):
@@ -751,7 +761,7 @@ axip.set_xlim(-0.5, 1.6)
 # CC LMN -> ADN
 #####################################
 gs_bottom2 = gridspec.GridSpecFromSubplotSpec(
-    1, 3, subplot_spec=gs_bottom[1, 0], hspace = 0.4, wspace = 1,
+    1, 3, subplot_spec=gs_bottom[0, 1], hspace = 0.4, wspace = 1,
     # height_ratios=[0.4, 0.3, 0.4]
 )
 
@@ -845,7 +855,7 @@ ylim(-0.5, 2.5)
 
 
 
-outergs.update(top=0.96, bottom=0.09, right=0.98, left=0.1)
+outergs.update(top=0.96, bottom=0.09, right=0.98, left=0.05)
 
 
 savefig(
