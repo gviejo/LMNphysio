@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-05-22 17:14:45
+# @Last Modified by:   gviejo
+# @Last Modified time: 2025-05-28 23:08:54
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -617,6 +617,8 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
     change_fr = data['change_fr']
     allfr = data['allfr']
     baseline = data['baseline']
+
+    orders = allorders[f]
 
     ####################
     # FIRING rate change

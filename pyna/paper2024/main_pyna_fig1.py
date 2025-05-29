@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-05-28 15:50:06
+# @Last Modified by:   gviejo
+# @Last Modified time: 2025-05-28 23:15:24
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -95,7 +95,7 @@ rcParams["font.size"] = fontsize
 rcParams["text.color"] = COLOR
 rcParams["axes.labelcolor"] = COLOR
 rcParams["axes.labelsize"] = fontsize
-rcParams["axes.labelpad"] = 3
+rcParams["axes.labelpad"] = 1
 # rcParams['axes.labelweight'] = 'bold'
 rcParams["axes.titlesize"] = fontsize
 rcParams["xtick.labelsize"] = fontsize
@@ -234,14 +234,14 @@ markers = ["d", "o", "v"]
 
 fig = figure(figsize=figsize(1))
 
-outergs = GridSpec(3, 1, hspace = 0.6, height_ratios=[0.5, 0.6, 0.3])
+outergs = GridSpec(3, 1, hspace = 0.6, height_ratios=[0.4, 0.6, 0.25])
 
 
 names = {'adn':"ADN", 'lmn':"LMN"}
 epochs = {'wak':'Wake', 'sws':'Sleep'}
 
 gs_top = gridspec.GridSpecFromSubplotSpec(
-    1, 2, subplot_spec=outergs[0, 0], width_ratios=[0.4, 0.6], hspace=0.9
+    1, 2, subplot_spec=outergs[0, 0], width_ratios=[0.4, 0.6]
 )
 
 
@@ -570,11 +570,11 @@ text(xr+0.1, np.mean(m)-0.07, s=map_significance[signi], va="center", ha="left")
 
 
 # ##############################################
-# # CC
+# # BOTTOM 
 # ##############################################
 
 gs_bottom = gridspec.GridSpecFromSubplotSpec(
-    1, 2, subplot_spec=outergs[2, 0], wspace=0.3,
+    1, 3, subplot_spec=outergs[2, 0], wspace=0.2, width_ratios=[0.5, 0.25, 0.25]
 )
 
 
@@ -585,7 +585,7 @@ gs_bottom = gridspec.GridSpecFromSubplotSpec(
 
 
 gs_bottom1 = gridspec.GridSpecFromSubplotSpec(
-    1, 3, subplot_spec=gs_bottom[0,0], wspace=0.5, hspace = 0.5, width_ratios=[0.1, 0.5, 0.5]
+    1, 4, subplot_spec=gs_bottom[0,0], wspace=0.4, hspace = 0.5, width_ratios=[0.001, 0.1, 0.5, 0.5]
 )
 
 
@@ -595,7 +595,7 @@ gs_bottom1 = gridspec.GridSpecFromSubplotSpec(
 # )
 
 
-subplot(gs_bottom1[0, 0])
+subplot(gs_bottom1[0, 1])
 gca().invert_yaxis()
 simpleaxis(gca())
 
@@ -605,7 +605,7 @@ for i, g in enumerate(['adn', 'lmn']):
     tmp = allr[g].dropna()
     angdiff = tmp['ang'].sort_values().values    
     plot(np.arange(len(angdiff)), angdiff, '-', color = colors[g], linewidth=2)
-    title("HD neuron pair")
+    title("HD neuron\npair")
     ylabel("Ang.\ndiff.\n(deg.)", rotation=0, labelpad=0, y=0.2)
     yticks([0, np.pi], ["0", "180"])
     ylim(np.pi, 0)
@@ -648,7 +648,7 @@ xticks(count-1, count, rotation=90)
 
 
 gs_cc = gridspec.GridSpecFromSubplotSpec(
-    1, 3, subplot_spec=gs_bottom1[0, 1], wspace = 0.8, width_ratios=[0.5, 0.5, 0.1]
+    1, 3, subplot_spec=gs_bottom1[0, 2], wspace = 0.5, width_ratios=[0.5, 0.5, 0.1]
 )
 
 
@@ -665,18 +665,18 @@ for k, g in enumerate(['adn', 'lmn']):
         cmap='bwr'
         )
 
-    if k == 0:
-        ylabel("Z", rotation=0, labelpad=10)
+    if k == 0:        
+        text(1.0, 1.4, "Corr.", transform=gca().transAxes)
         xlabel("Time lag (s)", x = 1.5)
 
     xticks([0, len(Z)//2, len(Z)], [-1, 0, 1])
-    title(names[g])
+    title(names[g], y=0.85)
     yticks([])
 
 
 axip = gca().inset_axes([1.2, 0, 0.15, 0.8])
 colorbar(im, cax=axip)
-axip.set_title("Z")
+axip.set_title("Z", y=0.9)
 
 
 # #####################################
@@ -698,7 +698,7 @@ angdiff = data['angdiff']
 
 
 gs_cc = gridspec.GridSpecFromSubplotSpec(
-    1, 3, subplot_spec=gs_bottom1[0, 2], wspace = 0.8, width_ratios=[0.5, 0.5, 0.1]
+    1, 3, subplot_spec=gs_bottom1[0, 3], wspace = 0.5, width_ratios=[0.5, 0.5, 0.1]
 )
 
 # for i, b in enumerate([0, 2]):
@@ -723,20 +723,23 @@ for k, g in enumerate(['adn', 'lmn']):
     yticks([])
     xticks([0, len(tmp)//2, len(tmp)], [-0.5, 0, 0.5])    
     
+    title(names[g], y=0.85)
+
     if k == 0:
-        ylabel(r"$\beta_t$", rotation=0, labelpad=10)
+        # ylabel(r"$\beta_t$", rotation=0, labelpad=2)
         xlabel("Time lag (s)", x=1.5)
+
 
 axip = gca().inset_axes([1.2, 0, 0.15, 0.8])
 colorbar(im, cax=axip)
-axip.set_title(r"$\beta_t$")
+axip.set_title(r"$\beta_t$", y=0.9)
 
 
 
-axip = gca().inset_axes([-1.5, 1.1, 2, 1])
+axip = gca().inset_axes([-1.5, 1.15, 3, 1])
 noaxis(axip)
 axip.patch.set_alpha(0.0)
-axip.annotate('Pop.', xy=(0.7,0.2), xytext=(0.1, 0.3), color = COLOR,
+axip.annotate('Pop.', xy=(0.8,0.5), xytext=(0.0, 0.7), color = COLOR,
     arrowprops=dict(facecolor='green',
         headwidth=1.5,
         headlength=1,
@@ -745,7 +748,7 @@ axip.annotate('Pop.', xy=(0.7,0.2), xytext=(0.1, 0.3), color = COLOR,
         ),
     fontsize = 6
     )
-axip.annotate('', xy=(0.7,0.1), xytext=(0.4, 0.1), 
+axip.annotate('', xy=(0.8,0.3), xytext=(0.5, 0.3), 
     arrowprops=dict(facecolor=COLOR,
         headwidth=1.5,
         headlength=1,
@@ -753,11 +756,11 @@ axip.annotate('', xy=(0.7,0.1), xytext=(0.4, 0.1),
         ec='grey'                
         ),            
     )        
-axip.text(-0.05, 0.06, "Unit", fontsize = 6)
-axip.text(0.8, 0.06, "Unit", fontsize = 6)
-axip.text(0.5, 0, r"$\beta_t$", fontsize = 6)
-axip.set_xlim(-0.5, 1.6)
-# axip.set_ylim(0, 2)
+axip.text(-0.1, 0.2, "Unit", fontsize = 6)
+axip.text(1, 0.2, "Unit", fontsize = 6)
+# axip.text(0.5, -0.1, r"$\beta_t$", fontsize = 6)
+axip.set_xlim(-0.5, 2)
+axip.set_ylim(0, 2)
 # axip.text(0.6, 0.5, r"$\beta_t^{P}$", fontsize = 6)
 
 
@@ -765,10 +768,10 @@ axip.set_xlim(-0.5, 1.6)
 #####################################
 # CC LMN -> ADN
 #####################################
-gs_bottom2 = gridspec.GridSpecFromSubplotSpec(
-    1, 3, subplot_spec=gs_bottom[0, 1], hspace = 0.4, wspace = 1,
-    # height_ratios=[0.4, 0.3, 0.4]
-)
+# gs_bottom2 = gridspec.GridSpecFromSubplotSpec(
+#     1, 2, subplot_spec=gs_bottom[0, 1], hspace = 0.4, wspace = 1,
+#     # height_ratios=[0.4, 0.3, 0.4]
+# )
 
 
 
@@ -777,30 +780,38 @@ gs_bottom2 = gridspec.GridSpecFromSubplotSpec(
 # )
 
 gs_cc2 = gridspec.GridSpecFromSubplotSpec(
-    1, 2, subplot_spec=gs_bottom2[0, 0], wspace = 0.6, hspace = 1
+    1, 2, subplot_spec=gs_bottom[0, 1], wspace = 0.6, hspace = 1
 )
 
 
 data = cPickle.load(open(os.path.join(dropbox_path, 'CC_LMN-ADN.pickle'), 'rb'))
-allcc = data['allcc']
+# allcc = data['allcc']
 
-groups = data['angdiff'].groupby(np.digitize(data['angdiff'], angbins)).groups
-
+# groups = data['angdiff'].groupby(np.digitize(data['angdiff'], angbins)).groups
 
 
 k = 1
 subplot(gs_cc2[0,0])
 simpleaxis(gca())
-tmp = allcc[e][groups[k]]
-tmp = pd.DataFrame(index=tmp.index, data=tmp.values[::-1]).apply(zscore).loc[-0.01:0.01]
-plot(tmp.mean(1), '-', color=cmap(4))
-# plot(tmp.mean(1).loc[-0.01:0.01], '-', color=cmap(4))
-# imshow(tmp.values.T, aspect='auto', cmap='jet')
+
+tmp = data['allcc']['sws'][data['angdiff'].sort_values().index.values]
+# tmp = tmp.apply(zscore)
+zcc = tmp.apply(lambda x: gaussian_filter1d(x, sigma=1))
+# a = zcc[order].loc[0.002:0.008].idxmax().sort_values().index
+Z = zcc.loc[-0.02:0.02]
+im=pcolormesh(Z.index.values, np.arange(Z.shape[1]), Z.values.T, cmap='turbo')#, vmax=3)
+
+
+# tmp = pd.DataFrame(index=tmp.index, data=tmp.values[::-1]).apply(zscore).loc[-0.01:0.01]
+# plot(tmp.mean(1), '-', color=cmap(4))
+
+# imshow(tmp.values.T, aspect='auto', cmap='turbo')
 # m = tmp.mean(1).loc[-0.01:0.01]
 # s = tmp.std(1).loc[-0.01:0.01]
 # fill_between(m.index.values, m.values-s, m.values+s, color=cmap(4), alpha=0.1)
-axvline(0, color = 'grey', linewidth=0.5)
-title("CC LMN -> ADN (Sleep)", x=1.5)
+# axvline(0, color = 'grey', linewidth=0.5)
+
+title("Corr ADN/LMN (Sleep)", x=1.5)
 xlabel("Time lag (ms)")
 # ylabel("Norm.", rotation=0, y=0.8)
 xticks([-0.01, 0, 0.01], [-10, 0, 10])
@@ -811,12 +822,12 @@ xticks([-0.01, 0, 0.01], [-10, 0, 10])
 subplot(gs_cc2[0,1])
 simpleaxis(gca())
 
-tmp = allcc['sws'][groups[1]].loc[-0.01:0.01].idxmax()*-1.0
-h, b = np.histogram(tmp, np.linspace(-0.01, 0.01, 21))
+# tmp = allcc['sws'][groups[1]].loc[-0.01:0.01].idxmax()*-1.0
+# h, b = np.histogram(tmp, np.linspace(-0.01, 0.01, 21))
 
-bar(b[0:-1], h, np.diff(b).mean(), color=cmap(4))
-axvline(0, color = 'grey', linewidth=0.5)
-xticks([-0.01, 0, 0.01], [-10, 0, 10])
+# bar(b[0:-1], h, np.diff(b).mean(), color=cmap(4))
+# axvline(0, color = 'grey', linewidth=0.5)
+# xticks([-0.01, 0, 0.01], [-10, 0, 10])
 
 # #####################################
 # # GLM LMN -> ADN
@@ -828,39 +839,80 @@ scores = data['scores']
 
 
 gs_scores = gridspec.GridSpecFromSubplotSpec(
-    1, 2, subplot_spec=gs_bottom2[0, 1], width_ratios=[0.2, 0.9]
+    1, 2, subplot_spec=gs_bottom[0, -1] #, width_ratios=[0.2, 0.9]
 )
+
+
+subplot(gs_scores[0,0])
+noaxis(gca())
+
+n = 5
+for i in range(n):
+    alpha = 1 if i == 2 else 0.1
+    plot([0, 1], np.stack((np.arange(n), [i]*n)), '-', linewidth=0.5, color=COLOR, alpha=alpha)
+
+plot(np.ones(n-1), [0, 1, 3, 4], 'o', color=colors['adn'], markersize=2, alpha=0.5)
+plot([1], [2], 'o', color=colors['adn'], markersize=2)
+
+plot(np.zeros(n), np.arange(n), 'o', color=colors['lmn'], markersize=2)
+
+xlim(-0.1, 2.5)
+title("LMN -> ADN", loc='left')
+ylim(-0.5, n-0.5)
+# text(0, n, "LMN", horizontalalignment='center', verticalalignment='center')
+# text(1, n, "ADN", horizontalalignment='center', verticalalignment='center')
+
+
 
 
 subplot(gs_scores[0, 1])
 simpleaxis(gca())   
-x = 0
-for i, e in enumerate(['wak', 'sws']):
-    # for j, k in enumerate(['og', 'rnd']):
-    k = 'og'
-    tmp = scores[e][k]
-    # plot(np.ones(len(tmp))*x+np.random.randn(len(tmp))*0.1, scores[e][k].values, 'o', markersize=1)
-    # plot([x-0.15, x+0.15], [scores[e][k].values.mean()]*2, color = COLOR, linewidth=1)
-    plot(scores[e][k].values, np.ones(len(tmp))*x+np.random.randn(len(tmp))*0.1, 'o', markersize=1, color=cmap(i))
-    plot([scores[e][k].values.mean()]*2, [x-0.15, x+0.15], color = COLOR, linewidth=1)
-    x += 1
-    # x += 1
 
-axvline(0, linestyle='--', color='red', linewidth=1)
+plot([1,2],[0,0], linestyle='--', color='red', linewidth=0.75)
+xticks([1, 2], [epochs['wak'], epochs['sws']])
+yticks([0, 0.4], [0, 0.4])
+ylabel("pseudo-R2")
+title("GLM Scores")
+ylim(-0.1, 0.4)
+xlim(0.5, 3)
+gca().spines['bottom'].set_bounds(1, 2)
+text(0.7, 0.0, "Null\nmodel", 
+    color = 'red', fontsize = 5, 
+    transform=gca().transAxes)#, bbox=dict(facecolor="white", edgecolor="None"))
+
+tmp = [scores[e]['og'].values for e in ['wak', 'sws']]
+
+vp = violinplot(tmp, showmeans=False, 
+    showextrema=False, vert=True, side='high'
+    )
+for k, p in enumerate(vp['bodies']): 
+    p.set_color(cmap(k))
+    p.set_alpha(1)
+
+m = [a.mean() for a in tmp]
+plot([1, 2], m, 'o', markersize=0.5, color=COLOR)
 
 
-yticks([0, 1], [epochs['wak'], epochs['sws']])
-xlabel("pseudo-R2", rotation=0)
-title("GLM LMN -> ADN")
+# COmputing tests
 
-text(-0.02, 2.0, "Null model", color = 'red', fontsize = 5, bbox=dict(facecolor="white", edgecolor="None"))
+for i, g in enumerate(tmp):
+    zw, p = scipy.stats.wilcoxon(g)
+    signi = np.digitize(p, [1, 0.05, 0.01, 0.001, 0.0])
+    text(i+0.9, m[i]-0.02, s=map_significance[signi], va="center", ha="right")
 
-xlim(-0.05, 0.4)
-ylim(-0.5, 2.5)
+xl, xr = 2.5, 2.6
+plot([xl, xr], [m[0], m[0]], linewidth=0.2, color=COLOR)
+plot([xr, xr], [m[0], m[1]], linewidth=0.2, color=COLOR)
+plot([xl, xr], [m[1], m[1]], linewidth=0.2, color=COLOR)
+zw, p = mannwhitneyu(tmp[1], tmp[0])
+signi = np.digitize(p, [1, 0.05, 0.01, 0.001, 0.0])
+text(xr+0.1, np.mean(m)-0.02, s=map_significance[signi], va="center", ha="left")
 
 
 
-outergs.update(top=0.96, bottom=0.09, right=0.98, left=0.05)
+
+
+outergs.update(top=0.96, bottom=0.075, right=0.98, left=0.02)
 
 
 savefig(
