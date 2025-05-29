@@ -70,14 +70,7 @@ for s in datasets:
         sws_ep = nwb['sws']
         rem_ep = nwb['rem']    
 
-        # hmm_eps = []
-        # try:
-        #     filepath = os.path.join(data_directory, s, os.path.basename(s))
-        #     hmm_eps.append(nap.load_file(filepath+"_HMM_ep0.npz"))
-        #     hmm_eps.append(nap.load_file(filepath+"_HMM_ep1.npz"))
-        #     hmm_eps.append(nap.load_file(filepath+"_HMM_ep2.npz"))
-        # except:
-        #     pass
+        nwb.close()
         
         spikes = spikes[(spikes.location=="adn")|(spikes.location=="lmn")]
         
@@ -113,7 +106,6 @@ for s in datasets:
         
         spikes = spikes[tokeep]
 
-
         adn = spikes.location[spikes.location=="adn"].index.values
         lmn = spikes.location[spikes.location=="lmn"].index.values
 
@@ -137,7 +129,7 @@ for s in datasets:
         
         for e, ep, bin_size, window_size in zip(['wak', 'rem', 'sws'], 
             [newwake_ep, rem_ep, sws_ep], 
-            [0.01, 0.01, 0.001], [1, 1, 1]):
+            [0.0005, 0.0005, 0.0005], [0.1, 0.1, 0.1]):
 
             dict_spk = spikes.getby_category("location")
 
@@ -162,8 +154,9 @@ for s in datasets:
             for p in pairs:
                 i = int(p[0].split("_")[1])
                 j = int(p[1].split("_")[1])
-                angdiff[p] = min(np.abs(peaks[i] - peaks[j]), 2*np.pi-np.abs(peaks[i] - peaks[j]))
+                # angdiff[p] = min(np.abs(peaks[i] - peaks[j]), 2*np.pi-np.abs(peaks[i] - peaks[j]))
 
+                angdiff[p] = (peaks[i] - peaks[j] + np.pi)%(2*np.pi) - np.pi
 
 
 for e in allcc.keys():
@@ -171,10 +164,33 @@ for e in allcc.keys():
 
 angdiff = pd.Series(angdiff)
 
+# Detecting synaptic connections
+def get_zscore(cc, w=0.02):
+    # Smoothing with big gaussian
+    sigma = int(w/np.median(np.diff(cc.index.values)))+1
+    df = cc.apply(lambda col: gaussian_filter1d(col, sigma=sigma))
 
-# datatosave = {'allcc':allcc, 'angdiff':angdiff}#, 'allcup': allccdown}
-# dropbox_path = os.path.expanduser("~/Dropbox/LMNphysio/data")
-# cPickle.dump(datatosave, open(os.path.join(dropbox_path, 'CC_LMN-ADN.pickle'), 'wb'))
+    # Zscoring
+    tmp = cc - df
+    zcc = tmp/tmp.std(0)
+    return zcc
+
+# Detecting
+thr = 3.0
+zcc = get_zscore(allcc['sws'])
+tmp2 = (zcc>=thr).loc[0.001:0.008]
+pc = tmp2.columns[np.any(tmp2 & tmp2.shift(1, fill_value=False), 0)]
+zorder = zcc[pc].loc[0.001:0.008].max().sort_values()
+order = zorder[::-1].index.values
+
+# Counter 
+tmp3 = (zcc>=thr).loc[-0.008:-0.001]
+pc = tmp3.columns[np.any(tmp3 & tmp3.shift(1, fill_value=False), 0)]
+zcounter = zcc[pc].loc[-0.008:-0.001].max().sort_values()
+counter = zcounter[::-1].index.values
+
+
+
 
 
 figure()
@@ -182,10 +198,44 @@ for i, e in enumerate(allcc.keys()):
     subplot(1,3,i+1)
     #plot(allcc[e], alpha = 0.7, color = 'grey')
     plot(allcc[e].mean(1), '.-')
+
+
+
+figure()
+subplot(121)
+
+zcc_sws = get_zscore(allcc['sws'])
+zcc_wak = get_zscore(allcc['wak'])
+
+plot(zcc_sws[angdiff[zorder.index.values].sort_values().index].mean(1), label='sws')
+plot(zcc_wak[angdiff[zorder.index.values].sort_values().index].mean(1), label='wak')
+
+subplot(122)
+
+a = zcc_sws[angdiff[zorder.index.values].sort_values().index]
+imshow(a.values.T, cmap='turbo', vmax=3)
+
 show()
+
+
 
 # figure()
 # for i,k in enumerate(['adn', 'lmn']):
 #     subplot(2,1,i+1)
 #     plot(allccdown[k].mean(1))
 # show()
+
+
+datatosave = {
+    'allcc':allcc, 
+    'angdiff':angdiff,
+    'zcc':{"wak":get_zscore(allcc['wak']),"sws":get_zscore(allcc['sws'])},
+    'zorder':zorder,
+    'order':order
+    }#, 'allcup': allccdown}
+
+dropbox_path = os.path.expanduser("~/Dropbox/LMNphysio/data")
+cPickle.dump(datatosave, open(os.path.join(dropbox_path, 'CC_LMN-ADN.pickle'), 'wb'))
+
+
+

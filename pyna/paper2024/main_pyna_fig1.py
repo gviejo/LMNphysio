@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   gviejo
-# @Last Modified time: 2025-05-28 23:15:24
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2025-05-29 16:40:53
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -51,7 +51,7 @@ def figsize(scale):
     golden_mean = (np.sqrt(5.0) - 1.0) / 2  # Aesthetic ratio (you could change this)
     # fig_width = fig_width_pt*inches_per_pt*scale    # width in inches
     fig_width = 6
-    fig_height = fig_width * golden_mean * 1.0  # height in inches
+    fig_height = fig_width * golden_mean * 1.1  # height in inches
     fig_size = [fig_width, fig_height]
     return fig_size
 
@@ -454,7 +454,7 @@ gs_corr1 = gridspec.GridSpecFromSubplotSpec(
 
 xlims = (min(np.nanmin(allr['adn']['wak']), np.nanmin(allr['lmn']['wak'])), max(np.nanmax(allr['adn']['wak']), np.nanmax(allr['lmn']['wak'])))
 ylims = (min(np.nanmin(allr['adn']['sws']), np.nanmin(allr['lmn']['sws'])), max(np.nanmax(allr['adn']['sws']), np.nanmax(allr['lmn']['sws'])))
-minmax = (min(xlims[0],ylims[0]), max(xlims[1],ylims[1]))
+minmax = (min(xlims[0],ylims[0])-0.05, max(xlims[1],ylims[1])+0.05)
 
 for i, (g, idx) in enumerate(zip(['adn', 'lmn'], [adn_idx, lmn_idx])):
     subplot(gs_corr1[i,0], aspect='equal')
@@ -466,14 +466,24 @@ for i, (g, idx) in enumerate(zip(['adn', 'lmn'], [adn_idx, lmn_idx])):
     x = np.linspace(tmp['wak'].min(), tmp['wak'].max(),5)
     plot(x, x*m + b, linewidth=0.1)    
     ylabel(epochs['sws'] + " corr.")
-    if i == 1: xlabel(epochs['wak'] + " corr.")
+    if i == 1: 
+        xlabel(epochs['wak'] + " corr.")
+        gca().set_xticks([-0.5, 0., 0.5])
+        gca().set_yticks([-0.5, 0., 0.5])
+
+
     xlim(*minmax)
     ylim(*minmax)
     title(names[g], y=0.8)
 
+    if i == 0: 
+        gca().set_xticks([-0.5, 0., 0.5], ['', '', ''])
+        gca().set_yticks([-0.5, 0., 0.5])
+
+
     # # Annotation
     idx = [name+"_"+str(j) for j in idx]
-    if i == 0: gca().set_xticks([-0.5, 0., 0.5], ['', '', ''])
+    
     
 
     p1 = tmp.loc[(idx[0],idx[1]),['wak','sws']].values
@@ -674,7 +684,7 @@ for k, g in enumerate(['adn', 'lmn']):
     yticks([])
 
 
-axip = gca().inset_axes([1.2, 0, 0.15, 0.8])
+axip = gca().inset_axes([1.1, 0, 0.15, 0.8])
 colorbar(im, cax=axip)
 axip.set_title("Z", y=0.9)
 
@@ -730,7 +740,7 @@ for k, g in enumerate(['adn', 'lmn']):
         xlabel("Time lag (s)", x=1.5)
 
 
-axip = gca().inset_axes([1.2, 0, 0.15, 0.8])
+axip = gca().inset_axes([1.1, 0, 0.15, 0.8])
 colorbar(im, cax=axip)
 axip.set_title(r"$\beta_t$", y=0.9)
 
@@ -768,66 +778,66 @@ axip.set_ylim(0, 2)
 #####################################
 # CC LMN -> ADN
 #####################################
-# gs_bottom2 = gridspec.GridSpecFromSubplotSpec(
-#     1, 2, subplot_spec=gs_bottom[0, 1], hspace = 0.4, wspace = 1,
-#     # height_ratios=[0.4, 0.3, 0.4]
-# )
-
-
-
-# gs_final = gridspec.GridSpecFromSubplotSpec(
-#     1, 2, subplot_spec=gs_bottom_right[1, 0], wspace = 1, hspace = 1
-# )
 
 gs_cc2 = gridspec.GridSpecFromSubplotSpec(
-    1, 2, subplot_spec=gs_bottom[0, 1], wspace = 0.6, hspace = 1
+    2, 2, subplot_spec=gs_bottom[0, 1], wspace = 0.8, hspace = 0.1
 )
 
 
 data = cPickle.load(open(os.path.join(dropbox_path, 'CC_LMN-ADN.pickle'), 'rb'))
-# allcc = data['allcc']
 
-# groups = data['angdiff'].groupby(np.digitize(data['angdiff'], angbins)).groups
+index = data['zorder'].index.values
+zcc = data['zcc']
 
 
 k = 1
 subplot(gs_cc2[0,0])
 simpleaxis(gca())
 
-tmp = data['allcc']['sws'][data['angdiff'].sort_values().index.values]
-# tmp = tmp.apply(zscore)
-zcc = tmp.apply(lambda x: gaussian_filter1d(x, sigma=1))
-# a = zcc[order].loc[0.002:0.008].idxmax().sort_values().index
-Z = zcc.loc[-0.02:0.02]
-im=pcolormesh(Z.index.values, np.arange(Z.shape[1]), Z.values.T, cmap='turbo')#, vmax=3)
+
+for i, k in enumerate(['wak', 'sws']):
+    subplot(gs_cc2[i,0])
+    simpleaxis(gca())
+
+    m = zcc[k][index].mean(1).loc[-0.02:0.02]
+    s = zcc[k][index].std(1).loc[-0.02:0.02]
+
+    plot(m, color=cmap(i), linewidth=1)
+    fill_between(m.index.values, m.values - s.values, m.values + s.values, 
+        alpha=0.2, color=cmap(i), linewidth=0)
+    axvline(0, linewidth=0.4, color=COLOR)
+
+    text(0.7, 0.7, epochs[k], transform=gca().transAxes)
+    ylabel("Z", rotation=0, labelpad=2)
+
+    if i == 0: 
+        title("Corr.\nLMN/ADN")
+        gca().spines['bottom'].set_visible(False)
+        xticks([])
+        yticks([0, 3])
+    if i == 1: 
+        xlabel("Time lag (ms)")
+        xticks([-0.02, 0, 0.02], [-20, 0, 20])
 
 
-# tmp = pd.DataFrame(index=tmp.index, data=tmp.values[::-1]).apply(zscore).loc[-0.01:0.01]
-# plot(tmp.mean(1), '-', color=cmap(4))
 
-# imshow(tmp.values.T, aspect='auto', cmap='turbo')
-# m = tmp.mean(1).loc[-0.01:0.01]
-# s = tmp.std(1).loc[-0.01:0.01]
-# fill_between(m.index.values, m.values-s, m.values+s, color=cmap(4), alpha=0.1)
-# axvline(0, color = 'grey', linewidth=0.5)
-
-title("Corr ADN/LMN (Sleep)", x=1.5)
-xlabel("Time lag (ms)")
-# ylabel("Norm.", rotation=0, y=0.8)
-xticks([-0.01, 0, 0.01], [-10, 0, 10])
-# # gca().add_patch(Rectangle((-0.01, 2), 0.02, 1.4, facecolor="blue"))
-# sys.exit()
-
-
-subplot(gs_cc2[0,1])
+subplot(gs_cc2[:,1])
 simpleaxis(gca())
 
-# tmp = allcc['sws'][groups[1]].loc[-0.01:0.01].idxmax()*-1.0
-# h, b = np.histogram(tmp, np.linspace(-0.01, 0.01, 21))
+tmp = data['angdiff'][index]
+h, b = np.histogram(tmp, np.linspace(-np.pi, np.pi, 22), range = (-np.pi, np.pi))
+h = h/h.sum()*100
 
-# bar(b[0:-1], h, np.diff(b).mean(), color=cmap(4))
-# axvline(0, color = 'grey', linewidth=0.5)
-# xticks([-0.01, 0, 0.01], [-10, 0, 10])
+# stairs(h, b, fill=True, color=cmap(8), alpha=1, edgecolor=COLOR)
+
+bar(b[0:-1]+np.diff(b)/2, h, np.diff(b).mean(), color=cmap(8))
+
+
+xlim(-np.pi, np.pi)
+xticks([-np.pi, 0, np.pi], [-180, 0, 180])
+xlabel("Ang. diff. (deg)")
+ylabel("%")
+title("$Z_{LMN/ADN} > 3$", pad=4)
 
 # #####################################
 # # GLM LMN -> ADN

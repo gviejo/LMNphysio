@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   gviejo
-# @Last Modified time: 2025-05-28 23:08:54
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2025-05-29 16:11:16
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -324,7 +324,7 @@ xticks([])
 ylabel("%")
 axvspan(0.002, 0.008, alpha=0.2, linewidth=0)
 xlim(-0.02, 0.02)
-title("$Z_{PSB-LMN} > 3$", pad=4)
+title("$Z_{PSB/LMN} > 3$", pad=4)
 
 subplot(gs_con2[1,0])
 simpleaxis(gca())
