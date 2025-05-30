@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-05-29 16:40:53
+# @Last Modified by:   gviejo
+# @Last Modified time: 2025-05-29 21:41:09
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -234,7 +234,7 @@ markers = ["d", "o", "v"]
 
 fig = figure(figsize=figsize(1))
 
-outergs = GridSpec(3, 1, hspace = 0.6, height_ratios=[0.4, 0.6, 0.25])
+outergs = GridSpec(4, 1, hspace = 0.45, height_ratios=[0.4, 0.6, 0.001, 0.25])
 
 
 names = {'adn':"ADN", 'lmn':"LMN"}
@@ -449,7 +449,7 @@ for i, (s, idx) in enumerate(zip(['adn', 'lmn'], [adn_idx, lmn_idx])):
 # Pairwise correlation
 #####################################
 gs_corr1 = gridspec.GridSpecFromSubplotSpec(
-    2, 1, subplot_spec=gs_middle[0, 1], hspace=0.5
+    2, 1, subplot_spec=gs_middle[0, 1], hspace=0.2
 )
 
 xlims = (min(np.nanmin(allr['adn']['wak']), np.nanmin(allr['lmn']['wak'])), max(np.nanmax(allr['adn']['wak']), np.nanmax(allr['lmn']['wak'])))
@@ -508,11 +508,11 @@ for i, (g, idx) in enumerate(zip(['adn', 'lmn'], [adn_idx, lmn_idx])):
 
 
 gs_bottom_left = gridspec.GridSpecFromSubplotSpec(
-    3, 1, subplot_spec=gs_middle[0,2], hspace=0.8, height_ratios=[0.4, 0.4, 0.005]
+    4, 1, subplot_spec=gs_middle[0,2], hspace=0.8, height_ratios=[0.003, 0.4, 0.4, 0.003]
 )
 
 
-subplot(gs_bottom_left[0,0])
+subplot(gs_bottom_left[1,0])
 simpleaxis(gca())
 
 for i,g in enumerate(['adn', 'lmn']):
@@ -531,7 +531,7 @@ xticks([1, 2], [names['adn'], names['lmn']])
 title("Sessions")
 
 
-subplot(gs_bottom_left[1,0])
+subplot(gs_bottom_left[2,0])
 simpleaxis(gca())
 xlim(0.5, 3)
 ylim(-0.1, 1)
@@ -584,7 +584,7 @@ text(xr+0.1, np.mean(m)-0.07, s=map_significance[signi], va="center", ha="left")
 # ##############################################
 
 gs_bottom = gridspec.GridSpecFromSubplotSpec(
-    1, 3, subplot_spec=outergs[2, 0], wspace=0.2, width_ratios=[0.5, 0.25, 0.25]
+    1, 3, subplot_spec=outergs[3, 0], wspace=0.2, width_ratios=[0.5, 0.25, 0.25]
 )
 
 

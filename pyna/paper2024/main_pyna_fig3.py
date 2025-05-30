@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   gviejo
-# @Last Modified time: 2025-05-28 23:23:53
+# @Last Modified time: 2025-05-29 21:22:21
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -466,8 +466,8 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
         ###############################
         # CHRIMSON CHRIMSON COMPARAISON
         ###############################
-        orders2 =   [('lmn', 'opto', 'ipsi', 'opto'),
-                    ('lmn', 'opto', 'ipsi', 'decimated')]
+        orders2 =   [('adn', 'opto', 'bilateral', 'opto'),
+                    ('adn', 'opto', 'bilateral', 'decimated')]
 
         #
         ax1 = subplot(gs_corr3[0,1])
@@ -545,7 +545,7 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
         plot([xl, xr], [m[0], m[0]], linewidth=0.2, color=COLOR)
         plot([xr, xr], [m[0], m[1]], linewidth=0.2, color=COLOR)
         plot([xl, xr], [m[1], m[1]], linewidth=0.2, color=COLOR)
-        zw, p = scipy.stats.mannwhitneyu(tmp['opto'], tmp['decimated'])
+        zw, p = scipy.stats.mannwhitneyu(tmp['opto'].dropna(), tmp['decimated'].dropna())
         signi = np.digitize(p, [1, 0.05, 0.01, 0.001, 0.0])
         text(xr+0.1, np.mean(m)-0.07, s=map_significance[signi], va="center", ha="left")
 
