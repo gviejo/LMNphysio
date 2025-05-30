@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   gviejo
-# @Last Modified time: 2025-05-29 21:41:09
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2025-05-30 17:04:07
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -16,6 +16,8 @@ import matplotlib.gridspec as gridspec
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes, mark_inset
 import matplotlib.font_manager as font_manager
 import matplotlib.patches as patches
+from matplotlib.patches import FancyArrow, FancyArrowPatch
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 
 from scipy.stats import zscore
 from scipy.stats import mannwhitneyu
@@ -241,7 +243,7 @@ names = {'adn':"ADN", 'lmn':"LMN"}
 epochs = {'wak':'Wake', 'sws':'Sleep'}
 
 gs_top = gridspec.GridSpecFromSubplotSpec(
-    1, 2, subplot_spec=outergs[0, 0], width_ratios=[0.4, 0.6]
+    1, 2, subplot_spec=outergs[0, 0], width_ratios=[0.5, 0.5], wspace=0.3
 )
 
 
@@ -253,21 +255,84 @@ gs_top = gridspec.GridSpecFromSubplotSpec(
 # Histo
 #####################################
 gs_histo = gridspec.GridSpecFromSubplotSpec(
-    2, 2, subplot_spec=gs_top[0, 0]#, height_ratios=[0.5, 0.2, 0.2] 
+    2, 2, subplot_spec=gs_top[0, 0], width_ratios=[0.8, 0.2], wspace=0.1
 )
 
 subplot(gs_histo[:, 0])
 # noaxis(gca())
-img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/papezhdcircuit.png")
-imshow(img, aspect="equal")
-xticks([])
-yticks([])
+# img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/papezhdcircuit.png")
+# imshow(img, aspect="equal")
+
+box_width, box_height = 2.0, 0.5
+y_positions = [1, 2, 3]
+x_position = 0
+
+box_colors = [colors[st] for st in ['lmn', 'adn', 'psb']]
+ax = gca()
+ax.set_xlim(-2, 6)
+ax.set_ylim(y_positions[0]-box_height/2-0.1, y_positions[-1]+box_height/2+0.1)
+# ax.set_aspect('equal')
+ax.axis('off')
+
+# Draw boxes
+for i, y in enumerate(y_positions):
+    rect = patches.FancyBboxPatch((x_position - box_width/2, y - box_height/2),
+                                   box_width, box_height,
+                                   boxstyle="round,pad=0.1",
+                                   edgecolor=None,
+                                   facecolor=box_colors[i], linewidth=0)
+    ax.add_patch(rect)
+    ax.text(x_position, y, 
+        ['LMN', 'ADN', 'PSB'][i], ha='center', va='center')
+
+# Draw reversed vertical arrows using FancyArrow (Box 3 → 2 → 1)
+for i in range(2):
+    start_y = y_positions[i]
+    arrow = FancyArrow(x_position, start_y + 3*box_height/4,
+                       0, 0.3,
+                       width=0.1,
+                       head_length=0.1,
+                       length_includes_head=True,
+                       color="gray")
+    ax.add_patch(arrow)
+
+# Right-angle arrow from Box 1 → Box 3 using FancyArrowPatch
+x = x_position + box_width/2 - 0.1
+arrow = FancyArrowPatch(
+    posA=(x, y_positions[-1]),     # Right of top box
+    posB=(x, y_positions[0]),     # Right of bottom box
+    connectionstyle="bar,fraction=-0.2",       # Top down with bend
+    arrowstyle="->,head_length=1,head_width=1",
+    color="gray",
+    linewidth=2,
+)
+ax.add_patch(arrow)
+
+
+# axip = ax.inset_axes([3, 0.5, 2, 1], transform=ax.transData)
+img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/LMN_probes.png")
+imagebox = OffsetImage(img, zoom=0.04)
+ab = AnnotationBbox(imagebox, (4, 1.25), frameon=False)
+ab.patch.set_linewidth(0.05)      # Line width in points
+ab.patch.set_edgecolor(COLOR) 
+ax.add_artist(ab)
+
+
+
+img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/adn_probes.png")
+imagebox = OffsetImage(img, zoom=0.04)
+ab = AnnotationBbox(imagebox, (4, 2.75), frameon=False)
+ab.patch.set_linewidth(0.05)      # Line width in points
+ab.patch.set_edgecolor(COLOR) 
+ax.add_artist(ab)
+
+
 
 subplot(gs_histo[0, 1])
 noaxis(gca())
 img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/CosyneData/histo_adn.png")
 imshow(img[:, :, 0], aspect="equal", cmap="viridis")
-title("ADN")
+ylabel("ADN", rotation=0, labelpad=10)
 xticks([])
 yticks([])
 
@@ -275,7 +340,7 @@ subplot(gs_histo[1, 1])
 noaxis(gca())
 img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/CosyneData/histo_lmn.png")
 imshow(img[:, :, 0], aspect="equal", cmap="viridis")
-title("LMN")
+ylabel("LMN", rotation=0, labelpad=10)
 xticks([])
 yticks([])
 
