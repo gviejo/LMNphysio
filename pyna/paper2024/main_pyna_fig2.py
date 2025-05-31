@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-05-29 16:11:16
+# @Last Modified by:   gviejo
+# @Last Modified time: 2025-05-30 23:33:49
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -17,6 +17,8 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes, mark_inset
 import matplotlib.font_manager as font_manager
 import matplotlib.patches as patches
 from matplotlib.colors import to_rgba
+from matplotlib.patches import FancyArrow, FancyArrowPatch
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 
 from scipy.stats import zscore
 
@@ -462,36 +464,89 @@ text(xr+0.1, np.mean(m)-0.07, s=map_significance[signi], va="center", ha="left")
 # Histo
 #####################################
 gs_bottom = gridspec.GridSpecFromSubplotSpec(
-    1, 2, subplot_spec=outergs[1, 0], width_ratios=[0.05, 0.9], wspace=0.3
+    1, 2, subplot_spec=outergs[1, 0], width_ratios=[0.2, 0.9], wspace=0.1
 )
 
-gs_histo = gridspec.GridSpecFromSubplotSpec(
-    3, 1, subplot_spec=gs_bottom[0, 0], hspace=0.0
+subplot(gs_bottom[0,0])
+
+# noaxis(gca())
+# img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/papezhdcircuit.png")
+# imshow(img, aspect="equal")
+
+box_width, box_height = 0.75, 0.4
+y_positions = [1, 2, 3]
+x_position = 0
+
+box_colors = [colors[st] for st in ['lmn', 'adn', 'psb']]
+ax = gca()
+ax.set_xlim(-box_width-0.5, box_width+0.5)
+ax.set_ylim(-4.5, y_positions[-1]+box_height/2+0.1)
+# ax.set_aspect('equal')
+ax.axis('off')
+
+# Draw boxes
+for i, y in enumerate(y_positions):
+    rect = patches.FancyBboxPatch((x_position - box_width/2, y - box_height/2),
+                                   box_width, box_height,
+                                   boxstyle="round,pad=0.1",
+                                   edgecolor=None,
+                                   facecolor=box_colors[i], linewidth=0)
+    ax.add_patch(rect)
+    ax.text(x_position, y, 
+        ['LMN', 'ADN', 'PSB'][i], ha='center', va='center')
+
+# Draw reversed vertical arrows using FancyArrow (Box 3 → 2 → 1)
+for i in range(2):
+    start_y = y_positions[i]
+    arrow = FancyArrow(x_position, start_y + 3*box_height/4,
+                       0, 0.45,
+                       width=0.06,
+                       head_length=0.1,
+                       head_width=0.15,
+                       length_includes_head=True,
+                       color="gray")
+    ax.add_patch(arrow)
+
+# Right-angle arrow from Box 1 → Box 3 using FancyArrowPatch
+x = x_position + box_width/2 - 0.1
+arrow = FancyArrowPatch(
+    posA=(x+0.1, y_positions[-1]),     # Right of top box
+    posB=(x+0.1, y_positions[0]),     # Right of bottom box
+    connectionstyle="bar,fraction=-0.2",       # Top down with bend
+    arrowstyle="->,head_length=1,head_width=1",
+    color="gray",
+    linewidth=2,
 )
+ax.add_patch(arrow)
 
 
-subplot(gs_histo[0,0])
-noaxis(gca())
-img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/LMN-PSB-opto.png")
-imshow(img, aspect="equal")
-xticks([])
-yticks([])
+# gs_histo = gridspec.GridSpecFromSubplotSpec(
+#     3, 1, subplot_spec=gs_bottom[0, 0], hspace=0.0
+# )
 
 
-subplot(gs_histo[1,0])
-noaxis(gca())
-img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/A8066_S7_3_2xMerged.png")
-imshow(img, aspect="equal")
-xticks([])
-yticks([])
+# subplot(gs_histo[0,0])
+# noaxis(gca())
+# img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/LMN-PSB-opto.png")
+# imshow(img, aspect="equal")
+# xticks([])
+# yticks([])
 
 
-subplot(gs_histo[2,0])
-noaxis(gca())
-img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/A8066_S7_3_4xMerged.png")
-imshow(img, aspect="equal")
-xticks([])
-yticks([])
+# subplot(gs_histo[1,0])
+# noaxis(gca())
+# img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/A8066_S7_3_2xMerged.png")
+# imshow(img, aspect="equal")
+# xticks([])
+# yticks([])
+
+
+# subplot(gs_histo[2,0])
+# noaxis(gca())
+# img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/A8066_S7_3_4xMerged.png")
+# imshow(img, aspect="equal")
+# xticks([])
+# yticks([])
 
 
 #####################################
@@ -499,7 +554,10 @@ yticks([])
 #####################################
 st = 'lmn'
 
-gs2 = gridspec.GridSpecFromSubplotSpec(2, 4, gs_bottom[0,1], hspace=0.6, wspace=0.8)
+gs2 = gridspec.GridSpecFromSubplotSpec(2, 4, gs_bottom[0,1], 
+    hspace=0.6, wspace=0.8,
+    width_ratios=[0.5, 0.4, 0.5, 0.4]
+    )
 
 
 exs = [
@@ -617,8 +675,6 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
     change_fr = data['change_fr']
     allfr = data['allfr']
     baseline = data['baseline']
-
-    orders = allorders[f]
 
     ####################
     # FIRING rate change
@@ -877,7 +933,7 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
         gca().spines['left'].set_bounds(ymin-0.1, 1.1)
 
         ylabel("Pearson r")
-        xticks([1, 2], ['Chrimson', 'TdTomato'], fontsize=fontsize-2)
+        xticks([1, 2], ['Chrimson', 'TdTomato'], fontsize=fontsize-1)
 
         # if i == 1: 
         #     yticks([])
@@ -1022,7 +1078,7 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
 
 
 
-outergs.update(top=0.95, bottom=0.05, right=0.98, left=0.1)
+outergs.update(top=0.95, bottom=0.05, right=0.98, left=0.01)
 
 
 savefig(
