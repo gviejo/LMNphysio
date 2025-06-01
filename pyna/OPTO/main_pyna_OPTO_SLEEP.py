@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: gviejo
 # @Date:   2023-08-29 13:46:37
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-05-22 14:54:19
+# @Last Modified by:   gviejo
+# @Last Modified time: 2025-06-01 10:34:56
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -253,7 +253,7 @@ for st in ['adn', 'lmn']:
 
 
 
-                        for i in range(100):
+                        for i in range(1000):
 
                             # Matching spike counts
                             decimated_spikes = nap.TsGroup(
@@ -324,8 +324,7 @@ for st in allfr.keys():
     change_fr[st] = {}
     for gr in allfr[st].keys():
         change_fr[st][gr] = {}
-        for sd in allfr[st][gr]:
-            break
+        for sd in allfr[st][gr]:            
             change_fr[st][gr][sd] = pd.concat([
                 allfr[st][gr][sd].loc[-0.8:0].mean(),
                 allfr[st][gr][sd].loc[0:1].mean()], axis=1)
