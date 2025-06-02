@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2025-03-17 14:23:16
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-03-31 15:09:58
+# @Last Modified time: 2025-06-02 10:41:21
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -80,7 +80,7 @@ sessions_exs = {
         "B2800/B2809/B2809-240904B" : [
             nap.IntervalSet(3882.6, 3890.42),
             nap.IntervalSet(3897.29, 3905.7),
-            nap.IntervalSet(4108.0, 4114.7),
+            nap.IntervalSet(4105.0, 4108.7),
         ]
     }   
 }

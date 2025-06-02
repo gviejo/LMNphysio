@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   gviejo
-# @Last Modified time: 2025-06-01 22:14:05
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2025-06-02 12:38:53
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -190,7 +190,7 @@ ax = gca()
 ax.set_xlim(-2, 2)
 ax.set_ylim(0.5, 3.5)
 # ax.set_aspect('equal')
-# ax.axis('off')
+ax.axis('off')
 
 # Draw boxes
 for i, x in enumerate(x_positions):
@@ -245,124 +245,35 @@ for i, x_position in enumerate(x_positions):
     )
     ax.add_patch(arrow)
 
+#################
+
+gs_histo = gridspec.GridSpecFromSubplotSpec(
+    3, 1, subplot_spec=gs_top[1, 0]
+)
 
 
-# subplot(gs_histo[0,0])
-# noaxis(gca())
-# img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/LMN-PSB-opto.png")
-# imshow(img, aspect="equal")
-# xticks([])
-# yticks([])
+subplot(gs_histo[0,0])
+noaxis(gca())
+img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/LMN-PSB-opto.png")
+imshow(img, aspect="equal")
+xticks([])
+yticks([])
 
 
-# subplot(gs_histo[1,0])
-# noaxis(gca())
-# img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/A8066_S7_3_2xMerged.png")
-# imshow(img, aspect="equal")
-# xticks([])
-# yticks([])
+subplot(gs_histo[1,0])
+noaxis(gca())
+img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/A8066_S7_3_2xMerged.png")
+imshow(img, aspect="equal")
+xticks([])
+yticks([])
 
 
-# subplot(gs_histo[2,0])
-# noaxis(gca())
-# img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/A8066_S7_3_4xMerged.png")
-# imshow(img, aspect="equal")
-# xticks([])
-# yticks([])
-
-#####################################
-# Examples ADN OPTO
-#####################################
-# st = 'adn'
-
-# gs_raster_ex = gridspec.GridSpecFromSubplotSpec(1, 2, gs_top[0,1], hspace=0.5, wspace=0.3)
-
-
-# exs = {
-#     'wak': {
-#         'ipsi': ("B3700/B3704/B3704-240609A", nap.IntervalSet(5130, 5232)),
-#         "bilateral": ("B2800/B2810/B2810-240925B", nap.IntervalSet(8269, 8379))
-#         },
-#     'sws': {
-#         "ipsi": ("B3700/B3704/B3704-240608A", nap.IntervalSet(4110.6, 4117.5)),
-#         "bilateral": ("B2800/B2809/B2809-240904B", nap.IntervalSet(3897.29, 3905.7))
-#         }
-#     }
-
-
-# for i, epoch in enumerate(['wak']):
-
-#     gs_ex = gridspec.GridSpecFromSubplotSpec(2, 2, gs_raster_ex[0,i], hspace=0.5, wspace=0.9, height_ratios=[1, 0.8])
-
-#     for j, k in enumerate(['ipsi', 'bilateral']):
-
-#         s, ex = exs[epoch][k]
-
-#         path = os.path.join(data_directory, "OPTO", s)
-
-#         spikes, position, wake_ep, opto_ep, sws_ep = load_opto_data(path, st)
-
-                
-#         subplot(gs_ex[0,j])
-#         simpleaxis(gca())    
-                
-#         plot(spikes.to_tsd("order").restrict(ex), '|', color=colors[st], markersize=0.7, mew=0.25)
-
-
-#         s, e = opto_ep.intersect(ex).values[0]
-#         rect = patches.Rectangle((s, len(spikes)+1), width=e-s, height=1,
-#             linewidth=0, facecolor=opto_color)
-#         gca().add_patch(rect)
-#         [axvline(t, color=COLOR, linewidth=0.1, alpha=0.5) for t in [s,e]]
-
-#         ylim(0, len(spikes)+2)
-#         xlim(ex.start[0], ex.end[0])
-#         xticks([])
-#         yticks([0, len(spikes)-1], [1, len(spikes)])
-#         gca().spines['left'].set_bounds(0, len(spikes)-1)
-#         gca().spines['bottom'].set_bounds(s, e)
-#         title(epochs[epoch])
-#         ylabel(names[st])
-    
-
-#         #
-#         exex = nap.IntervalSet(ex.start[0] - 10, ex.end[0] + 10)
-#         p = spikes.count(0.01, exex).smooth(0.04, size_factor=20)
-#         d=np.array([p.loc[i] for i in spikes.index[np.argsort(spikes.order)]]).T
-#         p = nap.TsdFrame(t=p.t, d=d, time_support=p.time_support)
-#         p = np.sqrt(p / p.max(0))
-#         # p = 100*(p / p.max(0))
-
-#         subplot(gs_ex[1,j])
-#         simpleaxis(gca())
-#         tmp = p.restrict(ex)
-#         d = gaussian_filter(tmp.values, 2)
-#         tmp2 = nap.TsdFrame(t=tmp.index.values, d=d)
-
-#         im = pcolormesh(tmp2.index.values, 
-#                 np.linspace(0, 2*np.pi, tmp2.shape[1]),
-#                 tmp2.values.T, cmap='GnBu', antialiased=True)
-
-#         x = np.linspace(0, 2*np.pi, tmp2.shape[1])
-#         yticks([0, 2*np.pi], [1, len(spikes)])
-        
-#         gca().spines['bottom'].set_bounds(s, e)
-#         xticks([s, e], ['', ''])
-#         if i == 0: xlabel("10 s", labelpad=-1)
-#         if i == 1: xlabel("1 s", labelpad=-1)
-
-#         if epoch == "wake":
-#             tmp = position['ry'].restrict(ex)
-#             iset=np.abs(np.gradient(tmp)).threshold(1.0, method='below').time_support
-#             for s, e in iset.values:
-#                 plot(tmp.get(s, e), linewidth=0.5, color=COLOR)
-
-#         # Colorbar
-#         axip = gca().inset_axes([1.05, 0.0, 0.05, 0.75])
-#         noaxis(axip)
-#         cbar = colorbar(im, cax=axip)
-#         axip.set_title("r", y=0.75)
-#         axip.set_yticks([0.25, 0.75])
+subplot(gs_histo[2,0])
+noaxis(gca())
+img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/A8066_S7_3_4xMerged.png")
+imshow(img, aspect="equal")
+xticks([])
+yticks([])
 
 
 
@@ -396,7 +307,7 @@ exs = {
         },
     'sws': {
         "ipsi": ("B3700/B3704/B3704-240608A", nap.IntervalSet(4112.6, 4115.5)),
-        "bilateral": ("B2800/B2809/B2809-240904B", nap.IntervalSet(3900.29, 3902.7))
+        "bilateral": ("B2800/B2809/B2809-240904B", nap.IntervalSet(4104.95, 4108.0))
         }
     }
 
@@ -417,7 +328,7 @@ for i, f in enumerate(['ipsi', 'bilateral']):
 
     path = os.path.join(data_directory, "OPTO", s)
 
-    spikes, position, wake_ep, opto_ep, sws_ep = load_opto_data(path, "adn")
+    spikes, position, wake_ep, opto_ep, sws_ep, tuning_curves = load_opto_data(path, "adn")
     
 
     gs_ex = gridspec.GridSpecFromSubplotSpec(2,1, gs_corr[0,0], hspace=0.2, height_ratios=[0.6, 0.4])
@@ -433,8 +344,9 @@ for i, f in enumerate(['ipsi', 'bilateral']):
 
 
     s, e = opto_ep.intersect(ex).values[0]
+    print(s, e)
     if i == 0:
-        height=1
+        height=0.8
     else:
         height=0.8
     rect = patches.Rectangle((s, len(spikes)+1+(1-height)*i), width=e-s, height=height,
@@ -448,41 +360,66 @@ for i, f in enumerate(['ipsi', 'bilateral']):
     yticks([0, len(spikes)-1], [1, len(spikes)])
     gca().spines['left'].set_bounds(0, len(spikes)-1)
     gca().spines['bottom'].set_bounds(s, e)    
-    ylabel(names[st], y=0)
+    ylabel(names[st], labelpad=5)
 
 
     #
     exex = nap.IntervalSet(ex.start[0] - 10, ex.end[0] + 10)
-    p = spikes.count(0.01, exex).smooth(0.04, size_factor=20)
-    d=np.array([p.loc[i] for i in spikes.index[np.argsort(spikes.order)]]).T
-    p = nap.TsdFrame(t=p.t, d=d, time_support=p.time_support)
-    p = np.sqrt(p / p.max(0))
-    # p = 100*(p / p.max(0))
+        
+
+    # tuning_curves = tuning_curves[spikes.keys()]
+    # tuning_curves = tuning_curves/tuning_curves.max()
+
+    tuning_curves = nap.compute_1d_tuning_curves(spikes, position['ry'], 24, minmax=(0, 2*np.pi), ep = position.time_support.loc[[0]])
+    tuning_curves = smoothAngularTuningCurves(tuning_curves)    
+
+    da, P = nap.decode_1d(tuning_curves, spikes.count(0.01, exex).smooth(0.02, size_factor=10), exex, 0.01)
+
+
+    # p = spikes.count(0.01, exex).smooth(0.04, size_factor=20)
+    # d=np.array([p.loc[i] for i in spikes.index[np.argsort(spikes.order)]]).T
+    # p = nap.TsdFrame(t=p.t, d=d, time_support=p.time_support)
+    # p = np.sqrt(p / p.max(0))
+    # # p = 100*(p / p.max(0))
 
     subplot(gs_ex[1,0])
     simpleaxis(gca())
-    tmp = p.restrict(ex)
-    d = gaussian_filter(tmp.values, 2)
+    tmp = P.restrict(ex)
+    d = gaussian_filter(tmp.values, 1)
     tmp2 = nap.TsdFrame(t=tmp.index.values, d=d)
 
-    im = pcolormesh(tmp2.index.values, 
-            np.linspace(0, 2*np.pi, tmp2.shape[1]),
-            tmp2.values.T, cmap='GnBu', antialiased=True)
+    # im = pcolormesh(tmp2.index.values, 
+    #         np.linspace(0, 2*np.pi, tmp2.shape[1]),
+    #         tmp2.values.T, cmap='turbo', antialiased=True)
 
-    x = np.linspace(0, 2*np.pi, tmp2.shape[1])
-    yticks([0, 2*np.pi], [1, len(spikes)])
+    im = imshow(tmp2.values.T, 
+        extent = (ex.start[0], ex.end[0], 0, 2*np.pi), 
+        aspect='auto', origin='lower', cmap='coolwarm')
     
+    yticks([0, 2*np.pi], [0, 360])    
+
+    H = np.sum(P*np.log(P.values), 1)
+    H = H-H.min()
+    H = H/H.max()
+    a_ex = H.threshold(0.1).time_support.intersect(ex)
+
+    for s, e in a_ex.values:
+        plot(da.get(s, e), 'o', markersize= 0.5, markerfacecolor=COLOR, markeredgecolor=None, markeredgewidth=0)
+
+    s, e = opto_ep.intersect(ex).values[0]
     gca().spines['bottom'].set_bounds(s, e)
     xticks([s, e], ['', ''])
     
     xlabel("1 s", labelpad=-1)
+    ylabel("Decoded\nangle (deg.)", labelpad=4)
 
     # Colorbar
-    axip = gca().inset_axes([1.05, 0.0, 0.05, 0.75])
+    axip = gca().inset_axes([1.03, 0.0, 0.05, 0.75])
     noaxis(axip)
     cbar = colorbar(im, cax=axip)
-    axip.set_title("r", y=0.75)
-    axip.set_yticks([0.25, 0.75])
+    axip.set_title("P", y=0.8)
+    
+    axip.set_yticks([0.0, 0.1], [0, 0.1])
     
 
     ####################
@@ -513,7 +450,7 @@ for i, f in enumerate(['ipsi', 'bilateral']):
     xlabel("Opto. time (s)", labelpad=1)
     xlim(ranges[0], ranges[-1])
     # ylim(0.0, 4.0)
-    title(titles[i])
+    title(titles[i], fontweight='bold')
     xticks([ranges[1], ranges[2]])
     ylim(0, 2)    
     ylabel("Rate\n(norm.)")
@@ -529,7 +466,7 @@ for i, f in enumerate(['ipsi', 'bilateral']):
     num_bins = 30
     bins = np.linspace(-1, 1, num_bins + 1)
     
-    hist(delta.values, bins=bins, histtype="stepfilled", facecolor="#404040", edgecolor="#404040")
+    hist(delta.values, bins=bins, histtype="stepfilled", facecolor="lightgrey", edgecolor="grey")
     axvline(0, color=COLOR, linestyle='--', linewidth=0.5)
 
     ylabel("%", labelpad=1)
@@ -548,15 +485,15 @@ for i, f in enumerate(['ipsi', 'bilateral']):
     # CHRIMSON CHRIMSON COMPARAISON
     ###############################
 
-    gs_opto = gridspec.GridSpecFromSubplotSpec(2,1, gs_corr[0,2], hspace=0.3)
+    gs_opto = gridspec.GridSpecFromSubplotSpec(2,1, gs_corr[0,2], hspace=0.4)
 
     orders2 =   [('adn', 'opto', f, 'opto'),
                 ('adn', 'opto', f, 'decimated')]
 
-    #
+    ###########################
     ax1 = subplot(gs_opto[0,0])
     simpleaxis(gca())
-    title("Matching FR")
+    title("Matching FR", y=0.8)
     gca().spines['bottom'].set_bounds(1, 2)
     # gca().spines['left'].set_visible(False)
     # yticks([])
@@ -574,18 +511,20 @@ for i, f in enumerate(['ipsi', 'bilateral']):
     for s in corr3.index:
         plot([1, 2], corr3.loc[s,['opto', 'decimated']], '-', color=COLOR, linewidth=0.1)
     plot(np.ones(len(corr3)),   corr3['opto'], 'o', color=opto_color, markersize=1)
-    plot(np.ones(len(corr3))*2, corr3['decimated'], 'o', color=COLOR, markersize=1)
+    plot(np.ones(len(corr3))*2, corr3['decimated'], 'o', color="grey", markersize=1)
 
     
-    ymin = corr3['opto'].min()
-    ylim(ymin-0.1, 1.1)
+    # ymin = corr3['opto'].min()
+    ymin = -0.12
+    ylim(ymin, 1.1)
     xlim(0.5, 3)
-    # gca().spines['left'].set_bounds(ymin-0.1, 1.1)
+    gca().spines['left'].set_bounds(ymin, 1.0)
+    ylabel("Pop. coherence (r)", y=0, labelpad=3)
 
     # ylabel("Pearson r")
-    xticks([1, 2], ['Chrimson', 'Control'], fontsize=fontsize-1)
+    xticks([1, 2], ['Chrimson', 'Control'], fontsize=fontsize)
 
-    #
+    ##########################
     ax2 = subplot(gs_opto[1,0])
     simpleaxis(gca())
     # gca().spines['left'].set_visible(False)
@@ -604,7 +543,7 @@ for i, f in enumerate(['ipsi', 'bilateral']):
     vp = violinplot(tmp, showmeans=False, 
         showextrema=False, vert=True, side='high'
         )
-    colors4 = [opto_color, COLOR]
+    colors4 = [opto_color, "grey"]
     for k, p in enumerate(vp['bodies']):
         p.set_color(colors4[k])
         p.set_alpha(1)
@@ -635,7 +574,7 @@ for i, f in enumerate(['ipsi', 'bilateral']):
 
 
 
-outergs.update(top=0.92, bottom=0.09, right=0.98, left=0.05)
+outergs.update(top=0.92, bottom=0.09, right=0.99, left=0.05)
 
 
 savefig(

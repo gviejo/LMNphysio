@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   gviejo
-# @Last Modified time: 2025-05-30 23:33:49
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2025-06-02 12:49:05
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -571,7 +571,7 @@ for i, (s, ex, name) in enumerate(exs):
 
     path = os.path.join(data_directory, "OPTO", s)
 
-    spikes, position, wake_ep, opto_ep, sws_ep = load_opto_data(path, st)
+    spikes, position, wake_ep, opto_ep, sws_ep, tuning_curves = load_opto_data(path, st)
 
     # Decoding 
 
@@ -769,7 +769,7 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
         ylim(ymin-0.1, 1.1)
         gca().spines['left'].set_bounds(ymin-0.1, 1.1)
 
-        ylabel("Pearson r")
+        ylabel("Pop. coherence (r)", y=0)
         xticks([1, 2], ['Chrimson', 'TdTomato'], fontsize=fontsize-1)
 
         #
@@ -795,7 +795,7 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
         plot([1, 2], m, 'o', markersize=0.5, color=COLOR)
 
         xticks([1,2],['',''])
-        ylabel(r"Mean$\Delta$")
+        # ylabel(r"Mean$\Delta$")
 
         # COmputing tests
         for i in range(2):

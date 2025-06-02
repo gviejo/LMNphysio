@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-02-28 16:16:36
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-04-29 12:11:51
+# @Last Modified time: 2025-06-02 11:02:50
 import numpy as np
 from numba import jit
 import pandas as pd
@@ -576,7 +576,7 @@ def load_opto_data(path, st):
         wake_ep = data['wake_ep']
         opto_ep = data['opto_ep']
         sws_ep = data['sws_ep']
-        # tuning_curves = data['tuning_curves']
+        tuning_curves = data['tuning_curves']
 
     else:    
         SI_thr = {
@@ -588,7 +588,7 @@ def load_opto_data(path, st):
         filepath = os.path.join(path, "kilosort4", basename + ".nwb")
         nwb = nap.load_file(filepath)
         spikes = nwb['units']
-        spikes = spikes.getby_threshold("rate", 8)
+        spikes = spikes.getby_threshold("rate", 1)
 
         position = []
         columns = ['x', 'y', 'z', 'rx', 'ry', 'rz']
@@ -646,4 +646,4 @@ def load_opto_data(path, st):
         cPickle.dump(datatosave, open(savepath, 'wb'))
 
 
-    return spikes, position, wake_ep, opto_ep, sws_ep#, tuning_curves
+    return spikes, position, wake_ep, opto_ep, sws_ep, tuning_curves
