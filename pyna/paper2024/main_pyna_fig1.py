@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   gviejo
-# @Last Modified time: 2025-05-30 21:56:42
+# @Last Modified time: 2025-06-02 22:19:43
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -137,11 +137,11 @@ s = "A5011-201014A"
 name = s
 
 data = cPickle.load(open(dropbox_path + "/DATA_FIG_LMN_ADN_{}.pickle".format(s), "rb"))
-decoding = {
-    "wak": nap.Tsd(t=data["wak"].index.values, d=data["wak"].values, time_units="s"),
-    "sws": nap.Tsd(t=data["sws"].index.values, d=data["sws"].values, time_units="s"),
-    "rem": nap.Tsd(t=data["rem"].index.values, d=data["rem"].values, time_units="s"),
-}
+# decoding = {
+#     "wak": nap.Tsd(t=data["wak"].index.values, d=data["wak"].values, time_units="s"),
+#     "sws": nap.Tsd(t=data["sws"].index.values, d=data["sws"].values, time_units="s"),
+#     "rem": nap.Tsd(t=data["rem"].index.values, d=data["rem"].values, time_units="s"),
+# }
 angle = data["angle"]
 tcurves = data["tcurves"]
 peaks = data["peaks"]
@@ -153,10 +153,6 @@ waveforms = data['waveforms']
 
 exs = {"wak": data["ex_wak"], "rem": data["ex_rem"], "sws": data["ex_sws"]}
 
-p_decoding = {e:data["p_"+e].restrict(exs[e]) for e in exs.keys()}
-
-# exs["wak"] = nap.IntervalSet(start=7968.0, end=7990.14)
-# exs["sws"] = nap.IntervalSet(start=12695.73, end=12701.38)
 
 data = cPickle.load(open(os.path.join(dropbox_path, 'All_correlation_LMN.pickle'), 'rb'))
 allrlmn = data['allr']
@@ -363,21 +359,22 @@ ax.add_artist(ab)
 # Raster
 #####################################
 gs_raster = gridspec.GridSpecFromSubplotSpec(
-    3, 3, subplot_spec=gs_top[0, 1], width_ratios=[0.5, 0.5, 0.005], wspace=0.2
+    3, 4, subplot_spec=gs_top[0, 1], width_ratios=[0.5, 0.1, 0.5, 0.1], wspace=0.1
 )
 
 
 # Raster
 for i, (g, idx) in enumerate(zip(['adn', 'lmn'], [adn, lmn])):
     for j, e in enumerate(['wak', 'sws']):
-        subplot(gs_raster[i, j])
+        subplot(gs_raster[i, [0, 2][j]])
         simpleaxis(gca())        
         gca().spines["bottom"].set_visible(False)
-        if j == 1: gca().spines["left"].set_visible(False)
+        gca().spines['left'].set_bounds(0, len(idx)-1)
+        # if j == 1: gca().spines["left"].set_visible(False)
         for k,n in enumerate(idx):
             plot(spikes[n].restrict(exs[e]).fillna(k), 
                 '|', 
-                markersize = 1, markeredgewidth=0.1,
+                markersize = 1, markeredgewidth=0.5,
                 color=colors[g])
         xlim(exs[e].start[0], exs[e].end[0])
         if j == 0:
@@ -391,21 +388,59 @@ for i, (g, idx) in enumerate(zip(['adn', 'lmn'], [adn, lmn])):
         if i == 0:
             title(epochs[e])
 
-# Position
+
+tuning_curves = nap.compute_1d_tuning_curves(spikes[adn], angle, 24, minmax=(0, 2*np.pi), ep = angle.time_support.loc[[0]])
+tuning_curves = smoothAngularTuningCurves(tuning_curves)
+
+
+# Decoding
 for i, e in enumerate(['wak', 'sws']):
-    subplot(gs_raster[2,i])
+    subplot(gs_raster[2,[0,2][i]])
     simpleaxis(gca())
-    if i == 1: gca().spines["left"].set_visible(False)
-    im = imshow(p_decoding[e].values.T, aspect='auto', origin='lower',
-        cmap='binary', extent=(exs[e].start[0], exs[e].end[0], 0, 2*np.pi))
+    # if i == 1: gca().spines["left"].set_visible(False)
+
+    exex = nap.IntervalSet(exs[e].start[0] - 10, exs[e].end[0] + 10)
+    
+    if i == 0:
+        da, P = nap.decode_1d(tuning_curves, spikes[adn], exex, 0.1)
+    elif i == 1:
+        da, P = nap.decode_1d(tuning_curves, spikes[adn].count(0.005, exex).smooth(0.01, size_factor=10), exex, 0.005)
+    
+    da = smoothAngle(da, 1)
+
+    d = gaussian_filter(P.values, 3)
+    tmp2 = nap.TsdFrame(t=P.index.values, d=d, time_support=exs[e])
+
+    # tmp2 = P.restrict(exs[e])
+
+    im = imshow(tmp2.values.T, aspect='auto', 
+        origin='lower',
+        cmap='coolwarm', 
+        extent=(exs[e].start[0], exs[e].end[0], 0, 2*np.pi)
+        )
+
     if e == "wak":
-        plot(smoothAngle(angle, 5).restrict(exs['wak']), linewidth=0.75, label="True HD")
+        tmp = smoothAngle(angle, 3).restrict(exs['wak'])
+        iset=np.abs(np.gradient(tmp)).threshold(1.0, method='below').time_support
+        for s, e in iset.values:
+            plot(tmp.get(s, e), linewidth=0.5, color=COLOR)
+
+        plot(tmp.get(s, e), linewidth=0.75, color=COLOR)
         legend(
                 handlelength=1,
                 loc="center",
                 bbox_to_anchor=(0.1, -0.5, 0.5, 0.5),
                 framealpha=0,
-            )            
+            )
+    elif e == "sws":
+        H = np.sum(P*np.log(P.values), 1)
+        H = H-H.min()
+        H = H/H.max()
+        a_ex = H.threshold(0.12).time_support.intersect(exs[e])
+
+        for s, e in a_ex.values:
+            plot(da.get(s, e), 'o', markersize= 0.5, markerfacecolor=COLOR, markeredgecolor=None, markeredgewidth=0)
+
 
     if i == 0:
         yticks([0, 2*np.pi], [0, 360])
@@ -421,13 +456,15 @@ for i, e in enumerate(['wak', 'sws']):
         xticks([exs['sws'].end[0] - 0.25], ["0.5 s"])
 
     
-        axip = gca().inset_axes([1.03, 0, 0.04, 0.6])
-        cbar = colorbar(im, cax=axip)
-        axip.set_title("P", fontsize=fontsize-1, y=0.8)
-        # if i == 0:
-        #     axip.set_yticks([0, 0.4], [0, 0.4])
-        if i == 1:
-            axip.set_yticks([0, 0.1], [0, 0.1])
+    axip = gca().inset_axes([1.03, 0, 0.04, 0.6])
+    cbar = colorbar(im, cax=axip)
+    axip.set_title("P", fontsize=fontsize-1, y=0.8)
+    # if i == 0:
+    #     axip.set_yticks([0, 0.4], [0, 0.4])
+    if i == 1:
+        axip.set_yticks([0, 0.1], [0, 0.1])
+    elif i== 0:
+        axip.set_yticks([0, 0.15], [0, 0.15])
 
 
 
@@ -606,9 +643,9 @@ gca().spines['bottom'].set_bounds(1, 2)
 ylim(0, 1.1)
 gca().spines['left'].set_bounds(0, 1.1)
 
-ylabel("Pearson r")
+ylabel("Pop. coherence (r)", y=0, labelpad=3)
 xticks([1, 2], [names['adn'], names['lmn']])
-title("Sessions")
+# title("Sessions")
 
 
 subplot(gs_bottom_left[2,0])
@@ -633,7 +670,7 @@ m = [a.mean() for a in tmp]
 plot([1, 2], m, 'o', markersize=0.5, color=COLOR)
 
 xticks([1,2],['ADN','LMN'])
-ylabel(r"Mean$\Delta$")
+# ylabel(r"Mean$\Delta$")
 
 
 # COmputing tests

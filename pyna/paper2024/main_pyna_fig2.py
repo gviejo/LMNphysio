@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-06-02 12:49:05
+# @Last Modified by:   gviejo
+# @Last Modified time: 2025-06-02 22:31:29
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -396,8 +396,8 @@ gca().spines['bottom'].set_bounds(1, 2)
 ymin = pearson[['decimated','down']].min().min()
 ylim(ymin-0.1, 1.1)
 gca().spines['left'].set_bounds(ymin-0.1, 1.1)
-
-ylabel("Pearson r")
+yticks([0, 0.5,1], [0, 0.5, 1])
+ylabel("Pop. coherence (r)", y=-0.2, labelpad=2)
 xticks([1, 2], ['Down', 'Up'])
 title("Sessions")
 
@@ -424,7 +424,7 @@ m = [pearson[c].mean() for c in ['down', 'decimated']]
 plot([1, 2], m, 'o', markersize=0.5, color=COLOR)
 
 xticks([1,2],['',''])
-ylabel(r"Mean$\Delta$")
+# ylabel(r"Mean$\Delta$")
 
 # COmputing tests
 map_significance = {
@@ -573,10 +573,9 @@ for i, (s, ex, name) in enumerate(exs):
 
     spikes, position, wake_ep, opto_ep, sws_ep, tuning_curves = load_opto_data(path, st)
 
-    # Decoding 
-
+    # spikes = spikes[spikes.restrict(ex).rate>1]
     
-    gs2_ex = gridspec.GridSpecFromSubplotSpec(2, 1, gs2[i,0], hspace = 0.15, height_ratios=[1, 0.8])
+    gs2_ex = gridspec.GridSpecFromSubplotSpec(2, 1, gs2[i,0], hspace = 0.2, height_ratios=[1, 0.8])
     
     subplot(gs2_ex[0,0])
     simpleaxis(gca())    
@@ -603,27 +602,58 @@ for i, (s, ex, name) in enumerate(exs):
 
     #
     exex = nap.IntervalSet(ex.start[0] - 10, ex.end[0] + 10)
-    p = spikes.count(0.01, exex).smooth(0.04, size_factor=20)
-    d=np.array([p.loc[i] for i in spikes.index[np.argsort(spikes.order)]]).T
-    p = nap.TsdFrame(t=p.t, d=d, time_support=p.time_support)
-    p = np.sqrt(p / p.max(0))
-    # p = 100*(p / p.max(0))
+
+
+    # p = spikes.count(0.01, exex).smooth(0.04, size_factor=20)
+    # d=np.array([p.loc[i] for i in spikes.index[np.argsort(spikes.order)]]).T
+    # p = nap.TsdFrame(t=p.t, d=d, time_support=p.time_support)
+    # p = np.sqrt(p / p.max(0))
+    # # p = 100*(p / p.max(0))
+
+        
+
+    tuning_curves = nap.compute_1d_tuning_curves(spikes, position['ry'], 24, minmax=(0, 2*np.pi), ep = position.time_support.loc[[0]])
+    tuning_curves = smoothAngularTuningCurves(tuning_curves)
+
+    if i == 0:
+        da, P = nap.decode_1d(tuning_curves, spikes, exex, 0.1)
+    elif i == 1:
+        da, P = nap.decode_1d(tuning_curves, spikes.count(0.002, exex).smooth(0.02, size_factor=15), exex, 0.002)
+    # da, P = nap.decode_1d(tuning_curves, spikes, exex, 0.01)
+
 
     subplot(gs2_ex[1,0])
     simpleaxis(gca())
-    tmp = p.restrict(ex)
+    tmp = P.restrict(ex)
     d = gaussian_filter(tmp.values, 2)
     tmp2 = nap.TsdFrame(t=tmp.index.values, d=d)
 
-    im = pcolormesh(tmp2.index.values, 
-            np.linspace(0, 2*np.pi, tmp2.shape[1]),
-            tmp2.values.T, cmap='GnBu', antialiased=True)
+    # im = pcolormesh(tmp2.index.values, 
+    #         np.linspace(0, 2*np.pi, tmp2.shape[1]),
+    #         tmp2.values.T, cmap='GnBu', antialiased=True)
 
-    x = np.linspace(0, 2*np.pi, tmp2.shape[1])
-    yticks([0, 2*np.pi], [1, len(spikes)])
-    
+    im = imshow(tmp2.values.T, 
+        extent = (ex.start[0], ex.end[0], 0, 2*np.pi), 
+        aspect='auto', origin='lower', cmap='coolwarm', vmin=0)
+
+    yticks([0, 2*np.pi], [0, 360])
+
+    if i == 1:
+
+        H = np.sum(P*np.log(P.values), 1)
+        H = H-H.min()
+        H = H/H.max()
+        a_ex = H.threshold(0.15).time_support.intersect(ex)
+
+        for s, e in a_ex.values:
+            plot(da.get(s, e), 'o', markersize= 0.5, markerfacecolor=COLOR, markeredgecolor=None, markeredgewidth=0)
+
+
+    s, e = opto_ep.intersect(ex).values[0]
     gca().spines['bottom'].set_bounds(s, e)
     xticks([s, e], ['', ''])
+
+
     if i == 0: xlabel("10 s", labelpad=-1)
     if i == 1: xlabel("1 s", labelpad=-1)
 
@@ -632,13 +662,20 @@ for i, (s, ex, name) in enumerate(exs):
         iset=np.abs(np.gradient(tmp)).threshold(1.0, method='below').time_support
         for s, e in iset.values:
             plot(tmp.get(s, e), linewidth=0.5, color=COLOR)
-
+        plot(tmp.get(s, e), linewidth=0.5, color=COLOR, label="True HD")
     # Colorbar
     axip = gca().inset_axes([1.05, 0.0, 0.05, 0.75])
     noaxis(axip)
     cbar = colorbar(im, cax=axip)
-    axip.set_title("r", y=0.75)
-    axip.set_yticks([0.25, 0.75])
+    axip.set_title("P", y=0.75)
+    legend(
+            handlelength=1,
+            loc="center",
+            bbox_to_anchor=(0.8, -0.6, 0.5, 0.5),
+            framealpha=0,
+        )            
+    
+    # axip.set_yticks([0.25, 0.75])
 
 
 ##########################################
@@ -769,7 +806,7 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
         ylim(ymin-0.1, 1.1)
         gca().spines['left'].set_bounds(ymin-0.1, 1.1)
 
-        ylabel("Pop. coherence (r)", y=0)
+        ylabel("Pop. coherence (r)", y=0, labelpad=3)
         xticks([1, 2], ['Chrimson', 'TdTomato'], fontsize=fontsize-1)
 
         #
@@ -845,7 +882,7 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
         for s in corr3.index:
             plot([1, 2], corr3.loc[s,['opto', 'decimated']], '-', color=COLOR, linewidth=0.1)
         plot(np.ones(len(corr3)),   corr3['opto'], 'o', color=opto_color, markersize=1)
-        plot(np.ones(len(corr3))*2, corr3['decimated'], 'o', color=COLOR, markersize=1)
+        plot(np.ones(len(corr3))*2, corr3['decimated'], 'o', color="grey", markersize=1)
 
         
         ymin = corr3['opto'].min()
@@ -873,7 +910,7 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
         vp = violinplot(tmp, showmeans=False, 
             showextrema=False, vert=True, side='high'
             )
-        colors4 = [opto_color, COLOR]
+        colors4 = [opto_color, "grey"]
         for k, p in enumerate(vp['bodies']): 
             p.set_color(colors4[k])
             p.set_alpha(1)
