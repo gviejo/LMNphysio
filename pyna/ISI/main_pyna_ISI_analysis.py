@@ -2,20 +2,22 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-07 14:55:34
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2022-03-10 10:29:05
+# @Last Modified time: 2025-06-05 18:05:09
 import numpy as np
 import pandas as pd
 import pynapple as nap
 from pylab import *
-from functions import *
 import sys
+sys.path.append("..")
+from functions import *
 from pycircstat.descriptive import mean as circmean
 import _pickle as cPickle
 from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 from itertools import combinations
 
+dropbox_path = os.path.expanduser("~/Dropbox/LMNphysio/data")
 
-data = cPickle.load(open(os.path.join('../data/', 'All_ISI.pickle'), 'rb'))
+data = cPickle.load(open(os.path.join(dropbox_path, 'All_ISI.pickle'), 'rb'))
 
 isis = data['isis']
 frs = data['frs']
@@ -35,7 +37,7 @@ for st in isis.keys():
 			tmp = isis[st][e][n]
 			weights = np.ones_like(tmp)/float(len(tmp))
 			isi[n]= pd.Series(index=bins[0:-1], data=np.histogram(tmp, bins,weights=weights)[0])
-		isi = pd.concat(isi, 1)
+		isi = pd.concat(isi, axis=1)
 		isi = isi.rolling(window=50,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
 		hisi[st][e] = isi
 
@@ -71,7 +73,7 @@ for st in isis.keys():
 			weights = np.ones_like(tmp)/float(len(tmp))
 			isi[n]= pd.Series(index=bins[0:-1], data=np.histogram(tmp, bins,weights=weights)[0])
 			#isi[n]= pd.Series(index=bins[0:-1], data=np.histogram(tmp, bins)[0])
-		isi = pd.concat(isi, 1)
+		isi = pd.concat(isi, axis=1)
 		isi = isi.rolling(window=50,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
 		logisi[st][e] = isi
 
@@ -125,7 +127,7 @@ show()
 
 
 datatosave = {'hisi':hisi,'logisi':logisi, 'frs':frs}
-cPickle.dump(datatosave, open(os.path.join('../data/', 'ALL_LOG_ISI.pickle'), 'wb'))
+cPickle.dump(datatosave, open(os.path.join(dropbox_path, 'ALL_LOG_ISI.pickle'), 'wb'))
 
 # ########################################################################################
 # # RETURN MAP
