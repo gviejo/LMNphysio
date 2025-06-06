@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-02-28 16:16:36
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-06-02 11:02:50
+# @Last Modified time: 2025-06-06 12:16:12
 import numpy as np
 from numba import jit
 import pandas as pd
@@ -14,7 +14,7 @@ from pycircstat.descriptive import mean as circmean
 from pylab import *
 import pynapple as nap
 from matplotlib.colors import hsv_to_rgb
-# import xgboost as xgb
+import xgboost as xgb
 # from LinearDecoder import linearDecoder
 from scipy.ndimage import gaussian_filter1d
 
@@ -251,10 +251,10 @@ def compute_ISI_HD(spikes, angle, ep, bins):
     for n in spikes.keys():
         spk = spikes[n]
         isi = nap.Tsd(t = spk.index.values[0:-1]+np.diff(spk.index.values)/2, d=np.diff(spk.index.values))            
-        idx = angle.index.get_indexer(isi.index, method="nearest")
+        idx = angle.as_series().index.get_indexer(isi.index.values, method="nearest")
         isi_angle = pd.Series(index = angle.index.values, data = np.nan)
         isi_angle.loc[angle.index.values[idx]] = isi.values
-        isi_angle = isi_angle.fillna(method='ffill')
+        isi_angle = isi_angle.ffill()        
         isi_angle = nap.Tsd(isi_angle)        
         isi_angle = isi_angle.restrict(ep)
 
