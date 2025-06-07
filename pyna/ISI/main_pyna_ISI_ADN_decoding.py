@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-07 18:43:39
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-06-06 12:39:15
+# @Last Modified time: 2025-06-07 16:17:50
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -120,11 +120,10 @@ for s in datasets:
             tokeep = np.intersect1d(tokeep2[0], tokeep2[1])
             
 
-            if len(tokeep) > 5 and rem_ep.tot_length('s') > 60:
+            if len(tokeep) > 5:
                 print(s)
 
                 spikes = spikes[tokeep]
-                # groups = spikes._metadata.loc[tokeep].groupby("location").groups
                 tcurves         = tuning_curves[tokeep]
 
                 try:
@@ -150,16 +149,16 @@ for s in datasets:
 
 
                 
-                bin_size_wake = 0.3
-                count = spikes.count(bin_size_wake, position.time_support.loc[[0]])
-                count = count.as_dataframe()
-                ratewak = count/bin_size_wake
-                # ratewak = np.sqrt(count/bin_size_wake)
-                ratewak = ratewak.rolling(window=50,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
-                ratewak = nap.TsdFrame(ratewak, time_support = position.time_support.loc[[0]])
-                ratewak = zscore_rate(ratewak)                    
-                ratewak = ratewak.restrict(newwake_ep)
-                angle2 = getBinnedAngle(position['ry'], position.time_support.loc[[0]], bin_size_wake).restrict(newwake_ep)
+                # bin_size_wake = 0.3
+                # count = spikes.count(bin_size_wake, position.time_support.loc[[0]])
+                # count = count.as_dataframe()
+                # ratewak = count/bin_size_wake
+                # # ratewak = np.sqrt(count/bin_size_wake)
+                # ratewak = ratewak.rolling(window=50,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
+                # ratewak = nap.TsdFrame(ratewak, time_support = position.time_support.loc[[0]])
+                # ratewak = zscore_rate(ratewak)                    
+                # ratewak = ratewak.restrict(newwake_ep)
+                # angle2 = getBinnedAngle(position['ry'], position.time_support.loc[[0]], bin_size_wake).restrict(newwake_ep)
 
 
                 # ##########################################################
@@ -169,30 +168,37 @@ for s in datasets:
 
                 # Binning sws
                 bin_size_sws = 0.02
-                count = spikes.count(bin_size_sws, sws_ep)        
-                sumcount = count.sum(1)                
-                newsws_ep = sumcount.threshold(0.5).time_support
-                ratesws = count/bin_size_wake
-                # ratesws = ratesws.rolling(window=50,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
-                ratesws = ratesws.smooth(std=bin_size_sws*2, size_factor=20)                
-                ratesws = zscore_rate(ratesws)
-                ratesws = ratesws.restrict(newsws_ep)
 
-                #sys.exit()
+                sws_angle, P = nap.decode_1d(tcurves, spikes, sws_ep, bin_size_sws)
+                sws_angle2 = smoothAngle(sws_angle, 1)
 
-                sws_angle, proba, bst = xgb_decodage(Xr=ratewak, Yr=angle2, Xt=ratesws)
+                sumcount = spikes.count(bin_size_sws, sws_ep).sum(1)                    
+                new_sws_ep = sumcount.threshold(3).time_support
+
+                # count = spikes.count(bin_size_sws, sws_ep)        
+                # sumcount = count.sum(1)                
+                # newsws_ep = sumcount.threshold(0.5).time_support
+                # ratesws = count/bin_size_wake
+                # # ratesws = ratesws.rolling(window=50,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
+                # ratesws = ratesws.smooth(std=bin_size_sws*2, size_factor=20)                
+                # ratesws = zscore_rate(ratesws)
+                # ratesws = ratesws.restrict(newsws_ep)
+
+                # #sys.exit()
+
+                # sws_angle, proba, bst = xgb_decodage(Xr=ratewak, Yr=angle2, Xt=ratesws)
 
 
-                tmp = pd.Series(index = sumcount.index.values, data = np.nan)
-                tmp.loc[sws_angle.index] = sws_angle.values
-                tmp = tmp.ffill()#fillna(method='pad').fillna(0)        
-                tmp = nap.Tsd(tmp, time_support = sws_ep)
-                sws_angle2 = smoothAngle(tmp, 1)
+                # tmp = pd.Series(index = sumcount.index.values, data = np.nan)
+                # tmp.loc[sws_angle.index] = sws_angle.values
+                # tmp = tmp.ffill()#fillna(method='pad').fillna(0)        
+                # tmp = nap.Tsd(tmp, time_support = sws_ep)
+                # sws_angle2 = smoothAngle(tmp, 1)
                 
-                pisi_sws, xbins, ybins = compute_ISI_HD(spikes, sws_angle2, newsws_ep, bins = bins)
+                pisi_sws, xbins, ybins = compute_ISI_HD(spikes, sws_angle2, new_sws_ep, bins = bins)
                 pisi_sws = np.array([pisi_sws[n].values for n in pisi_sws.keys()])        
                 
-                tuning_curves = nap.compute_1d_tuning_curves(spikes, sws_angle2, 120, minmax=(0, 2*np.pi), ep = sws_ep)
+                tuning_curves = nap.compute_1d_tuning_curves(spikes, sws_angle2, 120, minmax=(0, 2*np.pi), ep = new_sws_ep)
                 tuning_curves = smoothAngularTuningCurves(tuning_curves, window = 20, deviation = 2.0)
 
                 tcurves_sws.append(tuning_curves)

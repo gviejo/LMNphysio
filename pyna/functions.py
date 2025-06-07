@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-02-28 16:16:36
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-06-06 12:16:12
+# @Last Modified time: 2025-06-07 16:56:31
 import numpy as np
 from numba import jit
 import pandas as pd
@@ -246,23 +246,39 @@ def compute_ISI_HD(spikes, angle, ep, bins):
     # angle2 = angle.restrict(ep)
     xbins = np.linspace(0, 2*np.pi, nb_bin_hd)
     xpos = xbins[0:-1] + np.diff(xbins)/2    
+    
 
     pisiall = {}
     for n in spikes.keys():
         spk = spikes[n]
-        isi = nap.Tsd(t = spk.index.values[0:-1]+np.diff(spk.index.values)/2, d=np.diff(spk.index.values))            
-        idx = angle.as_series().index.get_indexer(isi.index.values, method="nearest")
-        isi_angle = pd.Series(index = angle.index.values, data = np.nan)
-        isi_angle.loc[angle.index.values[idx]] = isi.values
-        isi_angle = isi_angle.ffill()        
-        isi_angle = nap.Tsd(isi_angle)        
-        isi_angle = isi_angle.restrict(ep)
+
+        data = []
+        for s, e in ep.values:
+            tmp = spk.get(s, e).t
+            isi = nap.Tsd(tmp[0:-1], np.diff(tmp), time_support=nap.IntervalSet(s, e))
+            idx = angle.get(s, e).as_series().index.get_indexer(isi.index.values, method="nearest")
+            isi_angle = pd.Series(index = angle.get(s, e).index.values, data = np.nan)
+            isi_angle.loc[angle.get(s,e).index.values[idx]] = isi.values
+            isi_angle = isi_angle.ffill()
+            data.append(np.vstack((isi_angle.values, angle.get(s, e).values)))
+
+        data = np.hstack(data)
+
+        # isi = nap.Tsd(t=np.hstack(t), d=np.hstack(d), time_support=ep)
+        # # isi = nap.Tsd(t = spk.index.values[0:-1]+np.diff(spk.index.values)/2, d=np.diff(spk.index.values))
+        # idx = angle.as_series().index.get_indexer(isi.index.values, method="nearest")
+
+        # isi_angle = pd.Series(index = angle.index.values, data = np.nan)
+        # isi_angle.loc[angle.index.values[idx]] = isi.values
+        # isi_angle = isi_angle.ffill()        
+        # isi_angle = nap.Tsd(isi_angle)        
+        # isi_angle = isi_angle.restrict(ep)
 
         # isi_angle = nap.Ts(t = angle.index.values, time_support = ep)
         # isi_angle = isi_angle.value_from(isi, ep)
         
         #data = np.vstack([np.hstack([isi_before.values, isi_after.values]), np.hstack([isi_angle.values, isi_angle.values])])
-        data = np.vstack((isi_angle.values, angle.restrict(ep).values))
+        # data = np.vstack((isi_angle.values, angle.restrict(ep).values))
 
         pisi, _, _ = np.histogram2d(data[0], data[1], bins=[bins, xbins], weights = np.ones(len(data[0]))/float(len(data[0])))
         m = pisi.max()

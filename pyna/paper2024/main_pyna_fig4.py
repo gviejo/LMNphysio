@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-06-06 13:12:51
+# @Last Modified time: 2025-06-07 17:35:06
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -180,38 +180,57 @@ gs1 = gridspec.GridSpecFromSubplotSpec(3,3, gs_top[0,0],
     hspace = 0.45, wspace = 0.4, width_ratios=[0.15, 0.5, 0.5])
 
 
-path2 = os.path.expanduser("~") + "/Dropbox/CosyneData"
-name = 'A5011-201014A'
-path = os.path.join(path2, name)
-data = nap.load_session(path, 'neurosuite')
-spikes = data.spikes
-angle = data.position['ry']
-position = data.position
-wake_ep = data.epochs['wake']
-sleep_ep = data.epochs['sleep']
-sws_ep = sleep_ep
-# sws_ep = data.read_neuroscope_intervals('sws')
-# rem_ep = data.read_neuroscope_intervals('rem')
-wake_ep = wake_ep.loc[[0]]
-tuning_curves = nap.compute_1d_tuning_curves(spikes, angle, 120, minmax=(0, 2*np.pi))
-tuning_curves = smoothAngularTuningCurves(tuning_curves)
-SI = nap.compute_1d_mutual_info(tuning_curves, angle, angle.time_support.loc[[0]], minmax=(0,2*np.pi))
-spikes.set_info(SI)
-spikes = spikes.getby_threshold('SI', 0.1, op = '>')
-tuning_curves = tuning_curves[spikes.keys()]
-tokeep = list(spikes.keys())
-adn = spikes[spikes.location=="adn"].keys()
-lmn = spikes[spikes.location=="lmn"].keys()
-tcurves = tuning_curves
+dropbox_path = os.path.expanduser("~") + "/Dropbox/LMNphysio/data"
+
+filepath = os.path.join(dropbox_path, "DATA_FIG_LMN_ADN_A5011-201014A.pickle")
+data = cPickle.load(open(filepath, 'rb'))
+
+
+tcurves = data['tcurves']
+angle = data['angle']
+peaks = data['peaks']
+spikes = data['spikes']
+lmn = data['lmn']
+adn = data['adn']
+
+
+
+# path2 = os.path.expanduser("~") + "/Dropbox/CosyneData"
+# name = 'A5011-201014A'
+# path = os.path.join(path2, name)
+# data = nap.load_session(path, 'neurosuite')
+# spikes = data.spikes
+# angle = data.position['ry']
+# position = data.position
+# wake_ep = data.epochs['wake']
+# sleep_ep = data.epochs['sleep']
+# sws_ep = sleep_ep
+# # sws_ep = data.read_neuroscope_intervals('sws')
+# # rem_ep = data.read_neuroscope_intervals('rem')
+# wake_ep = wake_ep.loc[[0]]
+# tuning_curves = nap.compute_1d_tuning_curves(spikes, angle, 120, minmax=(0, 2*np.pi))
+# tuning_curves = smoothAngularTuningCurves(tuning_curves)
+# SI = nap.compute_1d_mutual_info(tuning_curves, angle, angle.time_support.loc[[0]], minmax=(0,2*np.pi))
+# spikes.set_info(SI)
+# spikes = spikes.getby_threshold('SI', 0.1, op = '>')
+# tuning_curves = tuning_curves[spikes.keys()]
+# tokeep = list(spikes.keys())
+# adn = spikes[spikes.location=="adn"].keys()
+# lmn = spikes[spikes.location=="lmn"].keys()
+# tcurves = tuning_curves
 exs = {'wak':nap.IntervalSet(start = 7587976595.668784, end = 7604189853.273991, time_units='us'),
         'sws':nap.IntervalSet(start = 15038.3265, end = 15039.4262, time_units = 's')}
 neurons={'adn':adn,'lmn':lmn}
+
+tokeep = np.sort(np.hstack((adn,lmn)))
+decoded, P = nap.decode_1d(tcurves[tokeep], spikes[tokeep], exs['sws'], 0.01)
+
 # decoding = cPickle.load(open(os.path.join(path2, 'figures_poster_2022/fig_cosyne_decoding.pickle'), 'rb'))
 
 peak = pd.Series(index=tcurves.columns,data = np.array([circmean(tcurves.index.values, tcurves[i].values) for i in tcurves.columns]))
 
-n_adn = peak[adn].sort_values().index.values[-1]
-n_lmn = peak[lmn].sort_values().index.values[-10]
+n_adn = peak[adn].sort_values().index.values[-4]
+n_lmn = peak[lmn].sort_values().index.values[-8]
 
 ex_neurons = [n_adn, n_lmn]
 
@@ -219,25 +238,25 @@ ex_neurons = [n_adn, n_lmn]
 for j, e in enumerate(['wak', 'sws']):
     subplot(gs1[0,j+1])
     simpleaxis(gca())
-    # for i, st in enumerate(['adn', 'lmn']):
-    #     if e == 'wak':
-    #         angle2 = angle
-    #     if e == 'sws':
-    #         angle2 = decoding['sws']
+    for i, st in enumerate(['adn', 'lmn']):
+        if e == 'wak':
+            angle2 = angle
+        if e == 'sws':
+            angle2 = decoded
 
-    #     spk = spikes[ex_neurons[i]]
-    #     isi = nap.Tsd(t = spk.index.values[0:-1], d=np.diff(spk.index.values))
-    #     idx = angle2.index.get_indexer(isi.index, method="nearest")
-    #     isi_angle = pd.Series(index = angle2.index.values, data = np.nan)
-    #     isi_angle.loc[angle2.index.values[idx]] = isi.values
-    #     isi_angle = isi_angle.fillna(method='ffill')
+        spk = spikes[ex_neurons[i]]
+        isi = nap.Tsd(t = spk.index.values[0:-1], d=np.diff(spk.index.values))
+        idx = angle2.as_series().index.get_indexer(isi.index, method="nearest")
+        isi_angle = pd.Series(index = angle2.index.values, data = np.nan)
+        isi_angle.loc[angle2.index.values[idx]] = isi.values
+        isi_angle = isi_angle.fillna(method='ffill')
 
-    #     isi_angle = nap.Tsd(isi_angle)
-    #     isi_angle = isi_angle.restrict(exs[e])
+        isi_angle = nap.Tsd(isi_angle)
+        isi_angle = isi_angle.restrict(exs[e])
 
-    #     # isi_angle = isi_angle.value_from(isi, exs[e])
-    #     plot(isi_angle, '.-', color = clrs[i], linewidth = 1, markersize = 1)
-    #     xlim(exs[e].loc[0,'start'], exs[e].loc[0,'end'])
+        # isi_angle = isi_angle.value_from(isi, exs[e])
+        plot(isi_angle, '.-', color = colors[st], linewidth = 1, markersize = 1)
+        xlim(exs[e].loc[0,'start'], exs[e].loc[0,'end'])
     xticks([])
     title(Epochs[j])
     if j == 0: ylabel('ISI (s)', rotation =0, y=0.4, labelpad = 15)
@@ -246,7 +265,7 @@ for i, st in enumerate(['adn', 'lmn']):
 
     subplot(gs1[i+1, 0])
     # simpleaxis(gca())
-    tmp = tuning_curves[ex_neurons[i]]
+    tmp = tcurves[ex_neurons[i]]
     plot(tmp.values, tmp.index.values, linewidth = 1, color = colors[st])
 
     gca().invert_xaxis()
@@ -267,17 +286,22 @@ for i, st in enumerate(['adn', 'lmn']):
         ylim(0, 2*np.pi)
         xticks([])
         if e == 'wak':
-            tmp = position['ry'].restrict(exs[e])
+            tmp = angle.restrict(exs[e])
             tmp = tmp.as_series().rolling(window=40,win_type='gaussian',center=True,min_periods=1).mean(std=2.0)
             plot(tmp, linewidth = 1, color = 'black', label = 'Head-direction')
-        # if e == 'sws':
-        #     tmp2 = decoding['sws']
-        #     tmp2 = nap.Tsd(tmp2, time_support = sws_ep)
-        #     tmp2 = smoothAngle(tmp2, 1)
-        #     tmp2 = tmp2.restrict(exs[e])
-        #     #plot(tmp2, '--', linewidth = 1.5, color = 'black', alpha = alp, 
-        #     plot(tmp2.loc[:tmp2.idxmax()],'--', linewidth = 1, color = 'black', alpha = alp, label = 'Decoded head-direction')
-        #     plot(tmp2.loc[tmp2.idxmax()+0.01:],'--', linewidth = 1, color = 'black', alpha = alp)
+        if e == 'sws':
+            # tmp2 = decoded
+            # tmp2 = nap.Tsd(tmp2, time_support = sws_ep)
+            tmp2 = decoded
+            tmp2 = smoothAngle(tmp2, 1)
+            tmp2 = tmp2.restrict(exs[e])
+            iset=np.abs(np.gradient(tmp2)).threshold(1.0, method='below').time_support
+            for a, b in iset.values:
+                plot(tmp2.get(a, b), '--', linewidth=1, color=COLOR, label="Decoded H.D.")
+
+            # plot(tmp2, '--', linewidth = 1.5, color = 'black', label = 'Decoded head-direction')
+            # plot(tmp2.loc[:tmp2.idxmax()],'--', linewidth = 1, color = 'black', alpha = alp, label = 'Decoded head-direction')
+            # plot(tmp2.loc[tmp2.idxmax()+0.01:],'--', linewidth = 1, color = 'black', alpha = alp)
 
 
         n = ex_neurons[i]
@@ -352,8 +376,8 @@ for i, st in enumerate(['adn', 'lmn']):
         xt = [np.argmin(np.abs(bins - x)) for x in [10**-2, 1]]
         tmp = pisi[st][e].mean(0)
         tmp2 = np.hstack((tmp, tmp, tmp))
-        tmp2 = gaussian_filter(tmp2, sigma=(1,1))
-        tmp3 = tmp2[:,tmp.shape[1]:tmp.shape[1]*2]      
+        tmp2 = gaussian_filter(tmp2, sigma=(1.5,1.5))
+        tmp3 = tmp2[:,tmp.shape[1]:tmp.shape[1]*2]
         imshow(tmp3, cmap = 'turbo', aspect= 'auto')
         xticks([0, tmp3.shape[1]//2, tmp3.shape[1]-1], ['-180', '0', '180'])
         yticks(xt, ['',''])

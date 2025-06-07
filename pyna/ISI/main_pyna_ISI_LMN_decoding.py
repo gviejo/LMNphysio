@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-07 18:43:39
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-06-06 12:48:32
+# @Last Modified time: 2025-06-07 16:57:48
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -34,7 +34,7 @@ elif os.path.exists('/media/guillaume/Raid2'):
 elif os.path.exists('/Users/gviejo/Data'):
     data_directory = '/Users/gviejo/Data'  
 
-datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN.list'), delimiter = '\n', dtype = str, comments = '#')
+datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#')
 
 
 allpisi_wak = []
@@ -76,17 +76,7 @@ for s in datasets:
         sws_ep = nwb['sws']
         rem_ep = nwb['rem']
         
-        
-        # hmm_eps = []
-        # try:
-        #     filepath = os.path.join(data_directory, s, os.path.basename(s))
-        #     hmm_eps.append(nap.load_file(filepath+"_HMM_ep0.npz"))
-        #     hmm_eps.append(nap.load_file(filepath+"_HMM_ep1.npz"))
-        #     hmm_eps.append(nap.load_file(filepath+"_HMM_ep2.npz"))
-        # except:
-        #     pass
-
-        spikes = spikes[spikes.location == "lmn"]
+        spikes = spikes[(spikes.location == "lmn") | (spikes.location == "adn")]
 
         if len(spikes):
     
@@ -120,91 +110,94 @@ for s in datasets:
                 stats2.append(stat)
                 tcurves2.append(tcurves_half)       
             tokeep = np.intersect1d(tokeep2[0], tokeep2[1])
-            
 
-            if len(tokeep) > 5 and rem_ep.tot_length('s') > 60:
-                print(s)
+            spikes = spikes[tokeep]    
 
-                spikes = spikes[tokeep]
-                # groups = spikes._metadata.loc[tokeep].groupby("location").groups
-                tcurves         = tuning_curves[tokeep]
-
-                try:
-                    velocity = computeLinearVelocity(position[['x', 'z']], position.time_support.loc[[0]], 0.2)
-                    newwake_ep = velocity.threshold(0.003).time_support.drop_short_intervals(1)
-                except:
-                    velocity = computeAngularVelocity(position['ry'], position.time_support.loc[[0]], 0.2)
-                    newwake_ep = velocity.threshold(0.07).time_support.drop_short_intervals(1)
-                
-                ############################################################################################### 
-                # WAKEFULNESS ISI HD
-                ###############################################################################################
+            if len(spikes):
                 
 
-                # ep = newwake_ep
-                bins = np.geomspace(0.002, 30.0, 100)
+                adn = spikes.index[spikes.location=="adn"]
+                lmn = spikes.index[spikes.location=="lmn"]
+
+                if len(adn) > 5:
                 
-                
-                pisi_wak, xbins, ybins = compute_ISI_HD(spikes, position['ry'], newwake_ep, bins = bins)
-                pisi_wak = np.array([pisi_wak[n].values for n in pisi_wak.keys()])
-                
-                tcurves_wak.append(tuning_curves)
+                    tcurves         = tuning_curves[tokeep]
+
+                    try:
+                        velocity = computeLinearVelocity(position[['x', 'z']], position.time_support.loc[[0]], 0.2)
+                        newwake_ep = velocity.threshold(0.003).time_support.drop_short_intervals(1)
+                    except:
+                        velocity = computeAngularVelocity(position['ry'], position.time_support.loc[[0]], 0.2)
+                        newwake_ep = velocity.threshold(0.07).time_support.drop_short_intervals(1)
+                    
+                    ############################################################################################### 
+                    # WAKEFULNESS ISI HD
+                    ###############################################################################################
+                    
+
+                    # ep = newwake_ep
+                    bins = np.geomspace(0.002, 30.0, 100)
+                                        
+                    pisi_wak, xbins, ybins = compute_ISI_HD(spikes, position['ry'], newwake_ep, bins = bins)
+                    pisi_wak = np.array([pisi_wak[n].values for n in pisi_wak.keys()])
+                    
+                    tcurves_wak.append(tuning_curves[lmn])
 
 
-                
-                bin_size_wake = 0.3
-                count = spikes.count(bin_size_wake, position.time_support.loc[[0]])
-                count = count.as_dataframe()
-                ratewak = count/bin_size_wake
-                # ratewak = np.sqrt(count/bin_size_wake)
-                ratewak = ratewak.rolling(window=50,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
-                ratewak = nap.TsdFrame(ratewak, time_support = position.time_support.loc[[0]])
-                ratewak = zscore_rate(ratewak)                    
-                ratewak = ratewak.restrict(newwake_ep)
-                angle2 = getBinnedAngle(position['ry'], position.time_support.loc[[0]], bin_size_wake).restrict(newwake_ep)
+                    
+                    bin_size_wake = 0.3
+                    count = spikes.count(bin_size_wake, position.time_support.loc[[0]])
+                    count = count.as_dataframe()
+                    ratewak = count/bin_size_wake
+                    # ratewak = np.sqrt(count/bin_size_wake)
+                    ratewak = ratewak.rolling(window=50,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
+                    ratewak = nap.TsdFrame(ratewak, time_support = position.time_support.loc[[0]])
+                    ratewak = zscore_rate(ratewak)                    
+                    ratewak = ratewak.restrict(newwake_ep)
+                    angle2 = getBinnedAngle(position['ry'], position.time_support.loc[[0]], bin_size_wake).restrict(newwake_ep)
 
 
-                # ##########################################################
-                # # SWS ISI HD
-                # ##########################################################        
+                    # ##########################################################
+                    # # SWS ISI HD
+                    # ##########################################################        
+                    
+                    # Binning sws
+                    bin_size_sws = 0.01
 
+                    sws_angle, P = nap.decode_1d(tcurves, spikes, sws_ep, bin_size_sws)
+                    sws_angle2 = smoothAngle(sws_angle, 1)
+                    
+                    
+                    sumcount = spikes.count(bin_size_sws, sws_ep).sum(1)                    
+                    new_sws_ep = sumcount.threshold(5).time_support
+                    
+                    # ratesws = count/bin_size_wake
+                    # # ratesws = ratesws.rolling(window=50,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
+                    # ratesws = ratesws.smooth(std=bin_size_sws*2, size_factor=20)                
+                    # ratesws = zscore_rate(ratesws)
+                    # ratesws = ratesws.restrict(newsws_ep)
+                    # sws_angle, proba, bst = xgb_decodage(Xr=ratewak, Yr=angle2, Xt=ratesws)
+                    # tmp = pd.Series(index = sumcount.index.values, data = np.nan)
+                    # tmp.loc[sws_angle.index] = sws_angle.values
+                    # tmp = tmp.ffill()#fillna(method='pad').fillna(0)        
+                    # tmp = nap.Tsd(tmp, time_support = sws_ep)
+                    # sws_angle2 = smoothAngle(tmp, 1)
+                    
+                    pisi_sws, xbins, ybins = compute_ISI_HD(spikes[lmn], sws_angle2, new_sws_ep, bins = bins)
+                    pisi_sws = np.array([pisi_sws[n].values for n in pisi_sws.keys()])
+                    
+                    tuning_curves = nap.compute_1d_tuning_curves(spikes[lmn], sws_angle2, 120, minmax=(0, 2*np.pi), ep = new_sws_ep)
+                    tuning_curves = smoothAngularTuningCurves(tuning_curves, window = 20, deviation = 2.0)
 
-                # Binning sws
-                bin_size_sws = 0.02
-                count = spikes.count(bin_size_sws, sws_ep)        
-                sumcount = count.sum(1)                
-                newsws_ep = sumcount.threshold(0.5).time_support
-                ratesws = count/bin_size_wake
-                # ratesws = ratesws.rolling(window=50,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
-                ratesws = ratesws.smooth(std=bin_size_sws*2, size_factor=20)                
-                ratesws = zscore_rate(ratesws)
-                ratesws = ratesws.restrict(newsws_ep)
+                    tcurves_sws.append(tuning_curves)
 
-                #sys.exit()
+                    
+                    ########################################################
+                    # Saving
+                    ########################################################
+                    allpisi_wak.append(pisi_wak)
+                    allpisi_sws.append(pisi_sws)
 
-                sws_angle, proba, bst = xgb_decodage(Xr=ratewak, Yr=angle2, Xt=ratesws)
-
-
-                tmp = pd.Series(index = sumcount.index.values, data = np.nan)
-                tmp.loc[sws_angle.index] = sws_angle.values
-                tmp = tmp.ffill()#fillna(method='pad').fillna(0)        
-                tmp = nap.Tsd(tmp, time_support = sws_ep)
-                sws_angle2 = smoothAngle(tmp, 1)
-                
-                pisi_sws, xbins, ybins = compute_ISI_HD(spikes, sws_angle2, newsws_ep, bins = bins)
-                pisi_sws = np.array([pisi_sws[n].values for n in pisi_sws.keys()])        
-                
-                tuning_curves = nap.compute_1d_tuning_curves(spikes, sws_angle2, 120, minmax=(0, 2*np.pi), ep = sws_ep)
-                tuning_curves = smoothAngularTuningCurves(tuning_curves, window = 20, deviation = 2.0)
-
-                tcurves_sws.append(tuning_curves)
-
-                
-                ########################################################
-                # Saving
-                ########################################################
-                allpisi_wak.append(pisi_wak)
-                allpisi_sws.append(pisi_sws)
 
 
 allpisi_wak = np.vstack(allpisi_wak)
