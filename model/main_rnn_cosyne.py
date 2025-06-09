@@ -2,7 +2,7 @@
 # @Author: gviejo
 # @Date:   2023-02-25 21:25:43
 # @Last Modified by:   gviejo
-# @Last Modified time: 2023-03-07 18:34:39
+# @Last Modified time: 2025-06-08 19:45:36
 import numpy as np
 from matplotlib.pyplot import *
 from scipy.ndimage import gaussian_filter
@@ -195,6 +195,6 @@ datatosave = {
 import _pickle as cPickle
 
 
-cPickle.dump(
-	datatosave, 
-	open('/home/guillaume/Dropbox/CosyneData/DATA_MODEL_RNN4.pickle', 'wb'))
+# cPickle.dump(
+# 	datatosave, 
+# 	open('/home/guillaume/Dropbox/CosyneData/DATA_MODEL_RNN4.pickle', 'wb'))

@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-02-28 16:16:36
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-06-07 16:56:31
+# @Last Modified by:   gviejo
+# @Last Modified time: 2025-06-07 18:59:42
 import numpy as np
 from numba import jit
 import pandas as pd
@@ -14,7 +14,7 @@ from pycircstat.descriptive import mean as circmean
 from pylab import *
 import pynapple as nap
 from matplotlib.colors import hsv_to_rgb
-import xgboost as xgb
+# import xgboost as xgb
 # from LinearDecoder import linearDecoder
 from scipy.ndimage import gaussian_filter1d
 
