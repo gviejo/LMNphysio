@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-06-14 17:16:23
+# @Last Modified time: 2025-06-14 17:28:47
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -170,7 +170,7 @@ Epochs = ['Wake', 'Sleep']
 
 
 gs_top = gridspec.GridSpecFromSubplotSpec(1,3, outergs[0,0], 
-    hspace = 0.45, wspace = 0.4, width_ratios=[0.3, 0.4, 0.2])
+    hspace = 0.45, wspace = 0.5, width_ratios=[0.3, 0.4, 0.2])
 
 
 #####################################
@@ -409,6 +409,7 @@ for i, st in enumerate(['adn', 'lmn']):
         if j == 0:
             yticks(xt, ['0.01', '1'])
             ylabel('ISI (s)')
+            text(-1.0, 0.5, s=names[st], va="center", ha="left", transform=gca().transAxes)
 
 
 # Colorbar
@@ -482,7 +483,7 @@ for j, e in enumerate(['wak', 'sws']):
     m = [tmp[i].mean(0) for i in range(2)]
     plot([1, 2], m, 'o', markersize=0.5, color=COLOR)
 
-    xticks([1, 2], ['ADN', 'LMN'])
+    xticks([1, 2], ['ADN', 'LMN'], rotation=45)
     ylim(-0.01, 0.4)
 
     # # COmputing tests    
@@ -507,39 +508,11 @@ for j, e in enumerate(['wak', 'sws']):
             
 
 
-
-
-
-
-# tmp = []
-# tmp2 = []
-# for e in ['wak', 'sws']:
-#     for st in ['adn', 'lmn']:
-#         a = pisi[st]['betas'][e]        
-#         tmp.append(a[(a>0)&(a<20)])
-#         tmp2.append(e+"-"+st)
-
-# violinplot(tmp, showextrema=False)
-# plot([1,2,3,4], [a.mean() for a in tmp], 'o', markersize=1)
-# xticks([1,2,3,4], tmp2)
-
-# bins = np.linspace(0, 100, 1000)
-# tmp = {st:np.histogram(pisi[st]['betas']['sws'], bins)[0] for st in ['adn', 'lmn']}
-
-# [bar(bins[0:-1], tmp[st], label=st) for st in ['adn', 'lmn']]
-
-# legend()
-# for j, e in enumerate(['wak', 'sws']):
-
-#     for i, st in enumerate(['adn', 'lmn']):
-    
-#         subplot(gs3[j,0])
-
-
-
 # ##########################################
 # BOTTOM
 # ##########################################
+
+# MODEL
 
 gs_bottom = gridspec.GridSpecFromSubplotSpec(
     2, 1, subplot_spec=outergs[1,0], hspace=0.4
