@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   gviejo
-# @Last Modified time: 2025-06-08 18:52:43
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2025-06-14 17:16:23
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -18,7 +18,7 @@ import matplotlib.font_manager as font_manager
 import matplotlib.patches as patches
 from matplotlib.patches import FancyArrow, FancyArrowPatch
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
-
+from scipy.optimize import curve_fit
 
 from scipy.stats import zscore
 
@@ -159,7 +159,7 @@ markers = ["d", "o", "v"]
 
 fig = figure(figsize=figsize(1))
 
-outergs = GridSpec(2, 1, hspace = 0.4)
+outergs = GridSpec(2, 1, hspace = 0.4, height_ratios=[0.4,0.6])
 
 
 names = {'adn':"ADN", 'lmn':"LMN"}
@@ -170,7 +170,7 @@ Epochs = ['Wake', 'Sleep']
 
 
 gs_top = gridspec.GridSpecFromSubplotSpec(1,3, outergs[0,0], 
-    hspace = 0.45, wspace = 0.4, width_ratios=[0.5, 0.4, 0.3])
+    hspace = 0.45, wspace = 0.4, width_ratios=[0.3, 0.4, 0.2])
 
 
 #####################################
@@ -232,7 +232,7 @@ for j, e in enumerate(['wak', 'sws']):
         isi_angle = isi_angle.restrict(exs[e])        
 
         # isi_angle = isi_angle.value_from(isi, exs[e])
-        semilogy(isi_angle, '-', color = colors[st], linewidth = 1, markersize = 0.5, alpha=0.8)
+        semilogy(isi_angle, '-', color = colors[st], linewidth = 0.5, markersize = 0.5, alpha=1)
     
     xlim(exs[e].loc[0,'start'], exs[e].loc[0,'end'])
     ylim(0.001, 10)
@@ -278,15 +278,15 @@ for i, st in enumerate(['adn', 'lmn']):
         if e == 'wak':
             tmp = angle.restrict(exs[e])
             tmp = tmp.as_series().rolling(window=40,win_type='gaussian',center=True,min_periods=1).mean(std=2.0)
-            plot(tmp, linewidth = 1, color = COLOR, label = 'Head-direction')
+            plot(tmp, linewidth = 1, color = COLOR, label = 'H.D.')
         if e == 'sws':
             tmp2 = decoded
             tmp2 = smoothAngle(tmp2, 2)
             tmp2 = tmp2.restrict(exs[e])
             iset=np.abs(np.gradient(tmp2)).threshold(1.0, method='below').time_support
             for a, b in iset.values:
-                plot(tmp2.get(a, b), '--', linewidth=1, color=COLOR)
-            plot(tmp2.get(a, b), '--', linewidth=1, color=COLOR, label="Decoded H.D.")
+                plot(tmp2.get(a, b), linestyle='dashdot', linewidth=1, color=COLOR)
+            plot(tmp2.get(a, b), linestyle='dashdot', linewidth=1, color=COLOR, label="Decoded H.D.")
 
 
         n = ex_neurons[i]
@@ -312,7 +312,10 @@ for i, st in enumerate(['adn', 'lmn']):
         yticks([0, 2*np.pi], [])
             # ylabel(names[i], rotation=0)
         if i == 1:
-            legend(handlelength = 1.8, frameon=False, bbox_to_anchor=(0.6, 0.9, 0.5, 0.5))
+            if j == 0:
+                legend(handlelength = 1.1, frameon=False, bbox_to_anchor=(0.3, -0.7, 0.5, 0.5))
+            else:
+                legend(handlelength = 1.5, frameon=False, bbox_to_anchor=(0.8, -0.7, 0.5, 0.5))
 
 
 
@@ -335,9 +338,9 @@ pisi = {'adn':cPickle.load(open(os.path.join(dropbox_path, 'PISI_ADN.pickle'), '
 
 mkrstype = ['-', '--']
 
-gs2 = gridspec.GridSpecFromSubplotSpec(3,2, gs_top[0,1], 
-    wspace = 0.5, hspace = 0.1, 
-    height_ratios=[0.12,0.2,0.2])
+gs2 = gridspec.GridSpecFromSubplotSpec(3,4, gs_top[0,1], 
+    wspace = 0.4, hspace = 0.2, 
+    height_ratios=[0.1,0.2,0.2], width_ratios=[0.5, 0.5, 0.02, 0.3])
 
 for j, e in enumerate(['wak', 'sws']):
     subplot(gs2[0,j])
@@ -350,8 +353,8 @@ for j, e in enumerate(['wak', 'sws']):
         plot(m, mkrstype[j], label = names[st], color = colors[st], linewidth = 1)
         fill_between(m.index.values,  m-s, m+s, color = colors[st], alpha = 0.1)
         
-        ylim(0, 1)
-        xticks([])
+        ylim(0, 1.01)
+        xticks([-np.pi, 0, np.pi], ['', '', ''])
         xlim(-np.pi, np.pi)
         
     if j==0:
@@ -370,7 +373,7 @@ minmax = []
 for i, st in enumerate(['adn', 'lmn']):
     pisihd[st] = {}
     for j, e in enumerate(['wak', 'sws']):
-        cut = -20
+        cut = -40
         bins = pisi[st]['bins'][0:cut]
         xt = [np.argmin(np.abs(bins - x)) for x in [10**-2, 1]]
         tmp = pisi[st][e].mean(0)[0:cut]
@@ -387,19 +390,13 @@ for i, st in enumerate(['adn', 'lmn']):
     
     for j, e in enumerate(['wak', 'sws']):
         subplot(gs2[i+1,j])
-        # tmp4 = tmp3.mean(1)
-        # tmp4 = tmp4/tmp4.sum()
-        # pisihd.append(tmp4)
 
+        im = imshow(pisihd[st][e], cmap = 'bwr', 
+            aspect= 'auto', origin='lower')
 
-        im = imshow(pisihd[st][e], cmap = 'turbo', 
-            aspect= 'auto', origin='lower',
-            vmin=np.min(minmax[:,0]), vmax=np.max(minmax[:,1])
-            )
-        
         yticks(xt, ['',''])
 
-        if i == 0:
+        if i == 0:            
             xticks([0, tmp3.shape[1]//2, tmp3.shape[1]-1], ['', '', ''])
         if i == 1:
             xticks([0, tmp3.shape[1]//2, tmp3.shape[1]-1], ['-180', '0', '180'])
@@ -407,7 +404,7 @@ for i, st in enumerate(['adn', 'lmn']):
 
         if j == 1:            
             yticks(xt, ['', ''])
-            ylabel(names[st], rotation=0, labelpad=8)
+            # ylabel(names[st], rotation=0, labelpad=8)
             # text(names[st], 1, 0.5)
         if j == 0:
             yticks(xt, ['0.01', '1'])
@@ -415,54 +412,130 @@ for i, st in enumerate(['adn', 'lmn']):
 
 
 # Colorbar
-axip = gca().inset_axes([1.1, 0.5, 0.1, 0.75])
+axip = gca().inset_axes([1.2, 2.3, 0.1, 0.6])
 noaxis(axip)
 cbar = colorbar(im, cax=axip)
-axip.set_title("%")#, y=0.8)
+axip.set_title("%", y=0.8)
 
-# axip.set_yticks([0.0, 0.1], [0, 0.1])
+
+
+
+for i, st in enumerate(['adn', 'lmn']):    
+    subplot(gs2[i+1,3])
+    simpleaxis(gca())    
+    linestyle = ['-', '--']    
+
+    for j, e in enumerate(['wak', 'sws']):
+        cut = -40
+        bins = pisi[st]['bins'][0:cut]        
+        tmp = pisi[st][e].mean(0)[0:cut]
+        y = tmp.mean(1)
+        y = (y/y.sum())*100
+        semilogy(y, bins[0:-1], linestyle=linestyle[j], linewidth=0.8, color=colors[st],
+            label=epochs[e]
+            )
+
+    yticks([0.01, 1], ['0.01', '1'])
+    xlim(0, 1.8)
+    if i == 0:
+        xticks([0, 1], ['',''])
+        legend(handlelength = 1.1, frameon=False, bbox_to_anchor=(0.2, 1.2, 0.5, 0.5))
+    if i == 1:
+        xticks([0, 1])
+        xlabel("%")
+
+
+
+        
+
 
 #########################################
-#
+# Gaussian Mixture fit
 #########################################
 
-gs3 = gridspec.GridSpecFromSubplotSpec(2,1, gs_top[0,2], 
-    wspace = 0.6, hspace = 0.1)
+data = cPickle.load(open(os.path.join(dropbox_path, 'All_ISI.pickle'), 'rb'))
+# isis = data['isis']
+pr2 = data['pr2']
 
-subplot(gs3[0,0])
+
+gs3 = gridspec.GridSpecFromSubplotSpec(3,2, gs_top[0,2], 
+    wspace = 0.6, hspace = 0.1, height_ratios=[0.1, 0.3, 0.1])
+
 
 for j, e in enumerate(['wak', 'sws']):
 
-    for i, st in enumerate(['adn', 'lmn']):
+    subplot(gs3[1,j])
+
+    simpleaxis(gca())    
+
+    title(epochs[e])
+
+    tmp = [pr2[st][e] for st in ['adn', 'lmn']]
     
-        subplot(gs3[j,0])
+    vp = violinplot(tmp, [1,2], showmeans=False, 
+        showextrema=False, vert=True)#, side='high')
 
-        bins = pisi[st]['bins']
+    for k, p in enumerate(vp['bodies']):
+        p.set_color(colors[['adn','lmn'][k]])
+        p.set_alpha(1)
 
-        
+    m = [tmp[i].mean(0) for i in range(2)]
+    plot([1, 2], m, 'o', markersize=0.5, color=COLOR)
 
-        a = pisi[st][e]
-        # b = (a[:,:,0:15] + a[:,:,15:][:,:,::-1])/2
-        b = a
-        
-        # b = b/b.sum(0)
+    xticks([1, 2], ['ADN', 'LMN'])
+    ylim(-0.01, 0.4)
 
-        m = np.argmax(b, 1)
-        t = bins[m].T
+    # # COmputing tests    
+    # for i in range(2):
+    #     zw, p = scipy.stats.wilcoxon(tmp[i])
+    #     signi = np.digitize(p, [1, 0.05, 0.01, 0.001, 0.0])
+    #     text(i+0.9, m[i]-0.01, s=map_significance[signi], va="center", ha="right")
 
-        # tt = np.pad(t, ((15, 15),(0,0)), mode="edge")
-        # tt = gaussian_filter1d(tt, sigma=1, axis=0)
+    xl, xr = 2.5, 2.6
+    plot([xl, xr], [m[0], m[0]], linewidth=0.2, color=COLOR)
+    plot([xr, xr], [m[0], m[1]], linewidth=0.2, color=COLOR)
+    plot([xl, xr], [m[1], m[1]], linewidth=0.2, color=COLOR)
+    zw, p = scipy.stats.mannwhitneyu(tmp[0].dropna(), tmp[1].dropna())
+    signi = np.digitize(p, [1, 0.05, 0.01, 0.001, 0.0])
+    text(xr+0.1, np.mean(m)-0.01, s=map_significance[signi], va="center", ha="left")
 
-        # t = tt[15:30]
+    if j == 1:
+        yticks([0.0, 0.2, 0.4], ['', '', ''])
+    else:
+        yticks([0.0, 0.2, 0.4])
+        ylabel(r"Bimodality ($pR^{2}$)")
+            
 
-        # t = t-t[0:7].min(0)
-        # t = t/t[7:].max(0)
 
-        semilogy(t.mean(1), '-', color=colors[st])
 
-        title(epochs[e])
 
-legend()
+
+
+# tmp = []
+# tmp2 = []
+# for e in ['wak', 'sws']:
+#     for st in ['adn', 'lmn']:
+#         a = pisi[st]['betas'][e]        
+#         tmp.append(a[(a>0)&(a<20)])
+#         tmp2.append(e+"-"+st)
+
+# violinplot(tmp, showextrema=False)
+# plot([1,2,3,4], [a.mean() for a in tmp], 'o', markersize=1)
+# xticks([1,2,3,4], tmp2)
+
+# bins = np.linspace(0, 100, 1000)
+# tmp = {st:np.histogram(pisi[st]['betas']['sws'], bins)[0] for st in ['adn', 'lmn']}
+
+# [bar(bins[0:-1], tmp[st], label=st) for st in ['adn', 'lmn']]
+
+# legend()
+# for j, e in enumerate(['wak', 'sws']):
+
+#     for i, st in enumerate(['adn', 'lmn']):
+    
+#         subplot(gs3[j,0])
+
+
 
 # ##########################################
 # BOTTOM
@@ -480,7 +553,7 @@ gs_bottom = gridspec.GridSpecFromSubplotSpec(
 
 
 
-outergs.update(top=0.96, bottom=0.09, right=0.99, left=0.06)
+outergs.update(top=0.93, bottom=0.09, right=0.98, left=0.06)
 
 
 savefig(

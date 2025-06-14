@@ -2,7 +2,8 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-07 18:43:39
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-06-07 16:17:50
+# @Last Modified time: 2025-06-14 15:43:37
+# %%
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -16,6 +17,9 @@ import _pickle as cPickle
 from matplotlib.gridspec import GridSpec
 from scipy.ndimage import gaussian_filter
 from pycircstat.descriptive import mean as circmean
+import yaml
+
+
 
 
 ############################################################################################### 
@@ -35,20 +39,32 @@ elif os.path.exists('/Users/gviejo/Data'):
 datasets = np.genfromtxt(os.path.join(data_directory,'datasets_ADN.list'), delimiter = '\n', dtype = str, comments = '#')
 
 
+datasets2 = yaml.safe_load(
+    open(os.path.join(
+        data_directory,
+        "datasets_OPTO.yaml"), "r"))['opto']
+
+datasets2 = ["OPTO/"+s for s in datasets2['adn']['opto']['ipsi']['sleep']]
+
+datasets = np.hstack((datasets, datasets2))
+
+
 allpisi_wak = []
 allpisi_sws = []
 
 tcurves_wak = []
 tcurves_sws = []
 
-for s in datasets:
-    print(s)
+allscores = []
+
+for s in datasets:    
     ############################################################################################### 
     # LOADING DATA
     ###############################################################################################
     path = os.path.join(data_directory, s)
     basename = os.path.basename(path)
     filepath = os.path.join(path, "kilosort4", basename + ".nwb")
+    # filepath = os.path.join(path, "pynapplenwb", basename + ".nwb")
     
     if os.path.exists(filepath):
         
@@ -71,20 +87,25 @@ for s in datasets:
 
         epochs = nwb['epochs']
         wake_ep = epochs[epochs.tags == "wake"]
+        sleep_ep = epochs[epochs.tags == "sleep"]
         sws_ep = nwb['sws']
-        rem_ep = nwb['rem']
+        # rem_ep = nwb['rem']
+        
+        # data = nap.load_session(path, 'neurosuite')
+        # spikes = data.spikes
+        # position = data.position
+        # epochs = data.epochs
+        # wake_ep = epochs['wake']
+        # sleep_ep = epochs['sleep']
+        # sws_ep = data.read_neuroscope_intervals('sws')
         
         
-        # hmm_eps = []
-        # try:
-        #     filepath = os.path.join(data_directory, s, os.path.basename(s))
-        #     hmm_eps.append(nap.load_file(filepath+"_HMM_ep0.npz"))
-        #     hmm_eps.append(nap.load_file(filepath+"_HMM_ep1.npz"))
-        #     hmm_eps.append(nap.load_file(filepath+"_HMM_ep2.npz"))
-        # except:
-        #     pass
+        if "OPTO" in s:
+            sws_ep = sws_ep.intersect(sleep_ep[0])
+        
 
         spikes = spikes[spikes.location == "adn"]
+        
 
         if len(spikes):
     
@@ -99,7 +120,7 @@ for s in datasets:
             SI = nap.compute_1d_mutual_info(tuning_curves, position['ry'], position.time_support.loc[[0]], minmax=(0,2*np.pi))
             spikes.set_info(SI)
 
-            spikes = spikes[spikes.SI>0.1]
+            spikes = spikes[spikes.SI>0.3]
 
             # CHECKING HALF EPOCHS
             wake2_ep = splitWake(position.time_support.loc[[0]])    
@@ -120,6 +141,8 @@ for s in datasets:
             tokeep = np.intersect1d(tokeep2[0], tokeep2[1])
             
 
+            print(s, len(tokeep))
+
             if len(tokeep) > 5:
                 print(s)
 
@@ -132,70 +155,65 @@ for s in datasets:
                 except:
                     velocity = computeAngularVelocity(position['ry'], position.time_support.loc[[0]], 0.2)
                     newwake_ep = velocity.threshold(0.07).time_support.drop_short_intervals(1)
-                
+
+
+
                 ############################################################################################### 
                 # WAKEFULNESS ISI HD
                 ###############################################################################################
-                
+                nb_bin_hd=32
 
                 # ep = newwake_ep
-                bins = np.geomspace(0.002, 30.0, 100)
+                bins = np.geomspace(0.002, 100.0, 200)
+
+                # # Interpolation
+                # angle2 = np.unwrap(position['ry']).interpolate(spikes[tokeep[0]].count(0.002, wake_ep))
+                # angle2 = angle2%(2*np.pi)
+                angle2 = position['ry']
                 
-                
-                pisi_wak, xbins, ybins = compute_ISI_HD(spikes, position['ry'], newwake_ep, bins = bins)
+                pisi_wak, xbins, ybins = compute_ISI_HD(spikes, angle2, newwake_ep, bins = bins, nb_bin_hd=nb_bin_hd)
                 pisi_wak = np.array([pisi_wak[n].values for n in pisi_wak.keys()])
                 
-                tcurves_wak.append(tuning_curves)
+                tcurves_wak.append(tuning_curves)                
 
-
+                # a = pisi_wak.mean(-1).T                 
+                # plot(gaussian_filter1d(a, 2, axis=0)[:,0])
+                # show()
                 
-                # bin_size_wake = 0.3
-                # count = spikes.count(bin_size_wake, position.time_support.loc[[0]])
-                # count = count.as_dataframe()
-                # ratewak = count/bin_size_wake
-                # # ratewak = np.sqrt(count/bin_size_wake)
-                # ratewak = ratewak.rolling(window=50,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
-                # ratewak = nap.TsdFrame(ratewak, time_support = position.time_support.loc[[0]])
-                # ratewak = zscore_rate(ratewak)                    
-                # ratewak = ratewak.restrict(newwake_ep)
-                # angle2 = getBinnedAngle(position['ry'], position.time_support.loc[[0]], bin_size_wake).restrict(newwake_ep)
-
-
                 # ##########################################################
                 # # SWS ISI HD
                 # ##########################################################        
 
 
                 # Binning sws
-                bin_size_sws = 0.02
+                bin_size_sws = 0.01
 
-                sws_angle, P = nap.decode_1d(tcurves, spikes, sws_ep, bin_size_sws)
-                sws_angle2 = smoothAngle(sws_angle, 1)
-
-                sumcount = spikes.count(bin_size_sws, sws_ep).sum(1)                    
-                new_sws_ep = sumcount.threshold(3).time_support
-
-                # count = spikes.count(bin_size_sws, sws_ep)        
-                # sumcount = count.sum(1)                
-                # newsws_ep = sumcount.threshold(0.5).time_support
-                # ratesws = count/bin_size_wake
-                # # ratesws = ratesws.rolling(window=50,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=1)
-                # ratesws = ratesws.smooth(std=bin_size_sws*2, size_factor=20)                
-                # ratesws = zscore_rate(ratesws)
-                # ratesws = ratesws.restrict(newsws_ep)
-
-                # #sys.exit()
-
-                # sws_angle, proba, bst = xgb_decodage(Xr=ratewak, Yr=angle2, Xt=ratesws)
-
-
-                # tmp = pd.Series(index = sumcount.index.values, data = np.nan)
-                # tmp.loc[sws_angle.index] = sws_angle.values
-                # tmp = tmp.ffill()#fillna(method='pad').fillna(0)        
-                # tmp = nap.Tsd(tmp, time_support = sws_ep)
-                # sws_angle2 = smoothAngle(tmp, 1)
+                # sws_angle, P = nap.decode_1d(tcurves, spikes, sws_ep, bin_size_sws)
+                count = spikes.count(bin_size_sws).smooth(bin_size_sws*2, size_factor=20, norm=False).restrict(sws_ep)
+                sws_angle, P = nap.decode_1d(tcurves, count, sws_ep, bin_size_sws)
                 
-                pisi_sws, xbins, ybins = compute_ISI_HD(spikes, sws_angle2, new_sws_ep, bins = bins)
+
+                # sws_angle, P = decode_xgb(spikes, newwake_ep, 0.2, sws_ep, bin_size_sws, position['ry'], std=1)
+                # sws_angle2 = smoothAngle(sws_angle, 1)
+
+
+
+                # # # Interpolation
+                sws_angle2 = np.unwrap(sws_angle).interpolate(spikes[tokeep[0]].count(0.002, sws_ep))
+                sws_angle2 = sws_angle2%(2*np.pi)
+
+
+                # Thresholding
+                count = spikes.count(bin_size_sws).smooth(bin_size_sws, size_factor=20, norm=False).restrict(sws_ep)
+                sumcount = count.sum(1)
+                new_sws_ep = sumcount.threshold(1.5).time_support.drop_short_intervals(0.05)
+
+                # sumcount = sumcount/sumcount.max()
+                # new_sws_ep = sumcount.threshold(np.percentile(sumcount, 0.01)).time_support
+                # new_sws_ep = sws_ep
+
+                
+                pisi_sws, xbins, ybins = compute_ISI_HD(spikes, sws_angle2, new_sws_ep, bins = bins, nb_bin_hd = nb_bin_hd)
                 pisi_sws = np.array([pisi_sws[n].values for n in pisi_sws.keys()])        
                 
                 tuning_curves = nap.compute_1d_tuning_curves(spikes, sws_angle2, 120, minmax=(0, 2*np.pi), ep = new_sws_ep)
@@ -222,34 +240,110 @@ tcurves_sws.columns = np.arange(tcurves_sws.shape[1])
 tcurves_sws = centerTuningCurves_with_peak(tcurves_sws)
 
 
+
+
+
+######################################################
 figure()
-subplot(131)
+subplot(231)
 extents = [xbins[0], xbins[-1], ybins[-1], ybins[0]]
-tmp = gaussian_filter(allpisi_wak.mean(0), sigma=1)
+tmp = allpisi_wak.mean(0)
+tmp = tmp/tmp.sum(0)
+tmp = gaussian_filter(tmp, sigma=1)
 imshow(tmp, aspect = 'auto', cmap = 'jet', extent = extents)
 
-subplot(132)
+subplot(232)
 extents = [xbins[0], xbins[-1], ybins[-1], ybins[0]]
-tmp = gaussian_filter(allpisi_sws.mean(0), sigma=1)
+tmp = allpisi_sws.mean(0)
+tmp = tmp/tmp.sum(0)
+tmp = gaussian_filter(tmp, sigma=1)
 imshow(tmp, aspect = 'auto', cmap = 'jet', extent = extents)
 
-subplot(133)
+subplot(233)
 semilogx(ybins[0:-1], allpisi_sws.mean(0).sum(1), label = 'sws')
 semilogx(ybins[0:-1], allpisi_wak.mean(0).sum(1), label = 'wak')
+legend()
+title("ADN")
 
+
+savefig(os.path.expanduser("~/Dropbox/LMNphysio/summary_isi/"+"isi_adn.pdf"))
 show()
 
-# tcurves = tuning_curves
-# peaks = pd.Series(index=tcurves.columns,data = np.array([circmean(tcurves.index.values, tcurves[i].values) for i in tcurves.columns]))
-# figure()
-# ax = subplot(111)
-# for n in spikes.keys():
-#     plot(spikes[n].restrict(newsws_ep).as_units('s').fillna(peaks.loc[n]), '|')    
-# plot(sws_angle.restrict(newsws_ep).as_units('s'), '.-') 
 
-datatosave = {'wak':allpisi_wak, 'sws':allpisi_sws, 'bins':bins, 'tc_wak':tcurves_wak, 'tc_sws':tcurves_sws}
+
+
+
+
+
+datatosave = {'wak':allpisi_wak, 
+        'sws':allpisi_sws, 
+        'bins':bins, 
+        'tc_wak':tcurves_wak, 
+        'tc_sws':tcurves_sws
+        }
 
 
 dropbox_path = os.path.expanduser("~/Dropbox/LMNphysio/data")
 cPickle.dump(datatosave, open(os.path.join(dropbox_path, 'PISI_ADN.pickle'), 'wb'))
 # cPickle.dump(datatosave, open(os.path.join('../data/', 'PISI_ADN2.pickle'), 'wb'))
+
+
+
+# ##############################################
+# # FITTING SIGMOIDE
+# ##############################################
+# def sigmoid(x, L, x0, k):
+#     return L / (1 + np.exp(-k * (x - x0)))
+
+# def sigmoid_offset(x, A, L, x0, k):
+#     return A + L / (1 + np.exp(-k * (x - x0)))     
+
+# from scipy.optimize import OptimizeWarning
+# import warnings
+# from scipy.optimize import curve_fit
+
+# Ypred = {}
+# Ydata = {}
+# betas = {}
+
+# for e, pisi in zip(['wak', 'sws'], [allpisi_wak, allpisi_sws]):
+#     # folding pisi in 2
+#     n = (pisi.shape[-1]//2)
+#     a = (pisi[:,:,0:n] + pisi[:,:,-n:][:,:,::-1])/2
+#     # b = gaussian_filter(a, (0, 1, 1))
+#     b = a
+#     m = np.argmax(b, 1)
+#     t = m.T[::-1]
+#     # t = bins[m].T[::-1]
+    
+#     ydata = np.pad(t, ((10, 10), (0,0)), 'edge')    
+#     ydata = ydata - ydata.mean(0)
+#     ydata = ydata / ydata.std(0)
+#     # ydata = gaussian_filter1d(ydata, sigma=3, axis=0)
+
+
+#     xdata = np.linspace(-10, 10, len(ydata))
+
+#     popt = []
+#     idx = []    
+#     for k in range(ydata.shape[1]):
+#         with warnings.catch_warnings():
+#             warnings.simplefilter("error", OptimizeWarning)        
+#             try:
+#                 p, _ = curve_fit(sigmoid_offset, xdata, ydata[:,k], p0=[0, 1, 0, 1])
+#                 popt.append(p)
+#                 idx.append(k)                
+#             except:
+#                 pass
+
+#     popt = np.array(popt)
+#     idx = np.array(idx)
+
+#     ypred = np.array([sigmoid_offset(xdata, *popt[k]) for k in range(len(popt))]).T
+
+#     Ypred[e] = ypred
+#     if len(idx):
+#         Ydata[e] = ydata[:,idx]
+#     else:
+#         Ydata[e] = ydata
+#     betas[e] = popt

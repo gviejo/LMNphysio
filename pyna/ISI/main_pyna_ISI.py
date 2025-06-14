@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-07 10:52:17
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-06-05 17:58:29
+# @Last Modified time: 2025-06-13 18:11:06
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -43,6 +43,7 @@ datasets = {
 
 isis = {}
 frs = {}
+pr2 = {}
 
 for st in ['adn', 'lmn']:
     ############################################################################################### 
@@ -50,6 +51,7 @@ for st in ['adn', 'lmn']:
     ###############################################################################################
     isis[st] = {e:{} for e in ['wak', 'rem', 'sws']}
     frs[st] = {e:[] for e in ['wak', 'rem', 'sws']}
+    pr2[st] = {e:{} for e in ['wak', 'rem', 'sws']}
 
     for s in datasets[st]:
         print(s)
@@ -109,7 +111,10 @@ for st in ['adn', 'lmn']:
                 SI = nap.compute_1d_mutual_info(tuning_curves, position['ry'], position.time_support.loc[[0]], minmax=(0,2*np.pi))
                 spikes.set_info(SI)
 
-                spikes = spikes[spikes.SI>0.1]
+                if st == "adn":
+                    spikes = spikes[spikes.SI>0.3]
+                else:
+                    spikes = spikes[spikes.SI>0.1]
 
                 # CHECKING HALF EPOCHS
                 wake2_ep = splitWake(position.time_support.loc[[0]])    
@@ -130,7 +135,7 @@ for st in ['adn', 'lmn']:
                 tokeep = np.intersect1d(tokeep2[0], tokeep2[1])
                 
 
-                if len(tokeep) > 5 and rem_ep.tot_length('s') > 60:
+                if len(tokeep) > 2 and rem_ep.tot_length('s') > 60:
                     print(s)
 
                     spikes = spikes[tokeep]
@@ -148,30 +153,55 @@ for st in ['adn', 'lmn']:
                     
                     ############################################################################################### 
                     # ISI
-                    ###############################################################################################
-                    
-                    
-                    for e, ep in zip(['wak', 'rem', 'sws'], [newwake_ep, rem_ep, sws_ep]):
-                        isi = {}
-                        fr = spikes.restrict(ep).rate
-                        fr.index = pd.Index([basename+'_'+str(n) for n in fr.index])
-                        frs[st][e].append(fr)
-                        for n in spikes.keys():
-                            tmp = []
-                            for j in ep.index:
-                                spk = spikes[n].get(ep.start[j], ep.end[j]).index.values
-                                if len(spk)>2:
-                                    tmp.append(np.diff(spk))
-                            tmp = np.hstack(tmp)
-                                                        
-                            isis[st][e][basename+'_'+str(n)] = tmp
-            
-            
-for st in frs.keys():
-    for e in frs[st].keys():
-        frs[st][e] = pd.concat(frs[st][e])
+                    ###############################################################################################                                        
 
-datatosave = {'isis':isis, 'frs':frs}
+                    for n in spikes.keys():
+                        
+                        isi = nap.Tsd(spikes[n].t[0:-1], np.diff(spikes[n].t))
+
+                        scores = {}
+
+                        for e, ep in zip(['wak', 'rem', 'sws'], [newwake_ep, rem_ep, sws_ep]):                        
+
+                            tmp = isi.restrict(ep).values
+
+                            ll = evaluate_gmm(np.log(tmp[(tmp>0.002)&(tmp<10.0)]))
+                            # scores[e] = 1 - ll[1] / ll[0]
+
+                            # fr = spikes[n].restrict(ep).rate
+                            # fr.index = pd.Index([basename+'_'+str(n) for n in fr.index])
+                            # frs[st][e].append(fr)
+                            
+                                
+                            
+                            pr2[st][e][basename+'_'+str(n)] = 1 - ll[1] / ll[0]
+
+
+
+for st in pr2.keys():
+    pr2[st] = pd.DataFrame(pr2[st])            
+            
+# for st in frs.keys():
+#     for e in frs[st].keys():
+#         frs[st][e] = pd.concat(frs[st][e])
+
+figure()
+
+violinplot(pr2['adn'][['wak', 'sws']], [1,2], showextrema=False, showmeans=True)
+violinplot(pr2['lmn'][['wak', 'sws']], [3,4], showextrema=False, showmeans=True)
+
+xticks(np.arange(1, 5), [st+"-"+e for st in ['adn', 'lmn'] for e in ['wak', 'sws']])
+
+
+ylabel("pseudo-R2")
+ylim(-0.05, 0.3)
+
+tight_layout()
+savefig(os.path.expanduser("~/Dropbox/LMNphysio/summary_isi/"+"isi_gaussian_mixture.pdf"))
+show()
+
+
+datatosave = {'isis':isis, 'frs':frs, 'pr2':pr2}
 
 dropbox_path = os.path.expanduser("~/Dropbox/LMNphysio/data")
 cPickle.dump(datatosave, open(os.path.join(dropbox_path, 'All_ISI.pickle'), 'wb'))

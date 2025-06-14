@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-02-28 16:16:36
-# @Last Modified by:   gviejo
-# @Last Modified time: 2025-06-07 18:59:42
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2025-06-13 18:09:48
 import numpy as np
 from numba import jit
 import pandas as pd
@@ -14,9 +14,11 @@ from pycircstat.descriptive import mean as circmean
 from pylab import *
 import pynapple as nap
 from matplotlib.colors import hsv_to_rgb
-# import xgboost as xgb
+import xgboost as xgb
 # from LinearDecoder import linearDecoder
 from scipy.ndimage import gaussian_filter1d
+from sklearn.mixture import GaussianMixture
+
 
 def smooth_series(series, sigma=1):
     smoothed_series = gaussian_filter1d(series, sigma=sigma, mode='constant')
@@ -121,7 +123,7 @@ def getBinnedAngle(angle, ep, bin_size):
     tmp = angle.as_series().groupby(np.digitize(angle.as_units('s').index.values, bins)-1).mean()
     tmp2 = pd.Series(index = np.arange(0, len(bins)-1), dtype = float64)
     tmp2.loc[tmp.index.values] = tmp.values
-    tmp2 = tmp2.fillna(method='ffill')
+    tmp2 = tmp2.ffill()
     tmp = nap.Tsd(t = bins[0:-1] + np.diff(bins)/2., d = tmp2.values, time_support = ep)
     return tmp
 
@@ -157,6 +159,26 @@ def xgb_decodage(Xr, Yr, Xt):
     proba = nap.TsdFrame(t = Xt.index.values, d = ymat, time_support = Xt.time_support)
 
     return Yp, proba, bst
+
+def decode_xgb(spikes, eptrain, bin_size_train, eptest, bin_size_test, angle, std = 1):    
+    count = spikes.count(bin_size_train, eptrain)
+    rate_train = count/bin_size_train
+    rate_train = rate_train.smooth(std, size_factor=20)        
+    rate_train = zscore_rate(rate_train)
+    
+    # angle2 = getBinnedAngle(angle, eptrain, bin_size_train)
+    angle2 = np.unwrap(angle).bin_average(bin_size_train, eptrain) % (2*np.pi)
+
+    count = spikes.count(bin_size_test, eptest)
+    rate_test = count/bin_size_test
+    rate_test = rate_test.smooth(std, size_factor=20)        
+    rate_test = zscore_rate(rate_test)
+    rate_test = rate_test.restrict(eptest)
+
+    angle_predi, proba, bst = xgb_decodage(Xr=rate_train, Yr=angle2, Xt=rate_test)
+
+    return angle_predi, proba
+
 
 def xgb_predict(bst, Xt, n_class = 120):
     dtest = xgb.DMatrix(Xt.values)
@@ -240,10 +262,11 @@ def centerTuningCurves_with_peak(tcurve, by=None):
     
 
 
-def compute_ISI_HD(spikes, angle, ep, bins):
-    nb_bin_hd = 31
-    tc2 = nap.compute_1d_tuning_curves(spikes, angle, nb_bin_hd, minmax=(0, 2*np.pi), ep = angle.time_support.loc[[0]])
-    # angle2 = angle.restrict(ep)
+def compute_ISI_HD(spikes, angle, ep, bins, nb_bin_hd = 62):
+    
+    tc2 = nap.compute_1d_tuning_curves(spikes, angle, nb_bin_hd, minmax=(0, 2*np.pi), ep = ep)
+    tc2 = smoothAngularTuningCurves(tc2, 20, 4)
+    
     xbins = np.linspace(0, 2*np.pi, nb_bin_hd)
     xpos = xbins[0:-1] + np.diff(xbins)/2    
     
@@ -252,33 +275,23 @@ def compute_ISI_HD(spikes, angle, ep, bins):
     for n in spikes.keys():
         spk = spikes[n]
 
-        data = []
-        for s, e in ep.values:
-            tmp = spk.get(s, e).t
-            isi = nap.Tsd(tmp[0:-1], np.diff(tmp), time_support=nap.IntervalSet(s, e))
-            idx = angle.get(s, e).as_series().index.get_indexer(isi.index.values, method="nearest")
-            isi_angle = pd.Series(index = angle.get(s, e).index.values, data = np.nan)
-            isi_angle.loc[angle.get(s,e).index.values[idx]] = isi.values
-            isi_angle = isi_angle.ffill()
-            data.append(np.vstack((isi_angle.values, angle.get(s, e).values)))
+        isi = nap.Tsd(spk.t[0:-1], np.diff(spk.t))
+        isi = isi[(isi.values>0.001) & (isi.values<10)]
+        # isi = isi / np.mean(isi)
 
-        data = np.hstack(data)
+        # isi_angle = angle.value_from(isi, mode='before')
 
-        # isi = nap.Tsd(t=np.hstack(t), d=np.hstack(d), time_support=ep)
-        # # isi = nap.Tsd(t = spk.index.values[0:-1]+np.diff(spk.index.values)/2, d=np.diff(spk.index.values))
-        # idx = angle.as_series().index.get_indexer(isi.index.values, method="nearest")
+        idx = angle.as_series().index.get_indexer(isi.index.values, method="nearest")
+        isi_angle = pd.Series(index = angle.index.values, data = np.nan)
 
-        # isi_angle = pd.Series(index = angle.index.values, data = np.nan)
-        # isi_angle.loc[angle.index.values[idx]] = isi.values
-        # isi_angle = isi_angle.ffill()        
-        # isi_angle = nap.Tsd(isi_angle)        
-        # isi_angle = isi_angle.restrict(ep)
+        isi_angle.loc[angle.index.values[idx]] = isi.values
+        isi_angle = isi_angle.ffill()
+        isi_angle = nap.Tsd(isi_angle)
 
-        # isi_angle = nap.Ts(t = angle.index.values, time_support = ep)
-        # isi_angle = isi_angle.value_from(isi, ep)
+        isi_angle = isi_angle.restrict(ep)
+
         
-        #data = np.vstack([np.hstack([isi_before.values, isi_after.values]), np.hstack([isi_angle.values, isi_angle.values])])
-        # data = np.vstack((isi_angle.values, angle.restrict(ep).values))
+        data = np.vstack((isi_angle.values, angle.restrict(ep).values))
 
         pisi, _, _ = np.histogram2d(data[0], data[1], bins=[bins, xbins], weights = np.ones(len(data[0]))/float(len(data[0])))
         m = pisi.max()
@@ -298,27 +311,6 @@ def compute_ISI_HD(spikes, angle, ep, bins):
         pisiall[n] = pisi
 
     return pisiall, xbins, bins
-
-def decode_xgb(spikes, eptrain, bin_size_train, eptest, bin_size_test, angle, std = 1):    
-    count = spikes.count(bin_size_train, eptrain)
-    count = count.as_dataframe()    
-    rate_train = count/bin_size_train
-    #rate_train = rate_train.rolling(window=50,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=std)
-    rate_train = nap.TsdFrame(rate_train, time_support = eptrain)
-    rate_train = zscore_rate(rate_train)
-    rate_train = rate_train.restrict(eptrain)
-    angle2 = getBinnedAngle(angle, angle.time_support.loc[[0]], bin_size_train).restrict(eptrain)
-
-    count = spikes.count(bin_size_test, eptest)
-    count = count.as_dataframe()
-    rate_test = count/bin_size_test
-    #rate_test = rate_test.rolling(window=50,win_type='gaussian',center=True,min_periods=1, axis = 0).mean(std=std)
-    rate_test = nap.TsdFrame(rate_test, time_support = eptest)
-    rate_test = zscore_rate(rate_test)
-
-    angle_predi, proba, bst = xgb_decodage(Xr=rate_train, Yr=angle2, Xt=rate_test)
-
-    return angle_predi, proba
 
 def correlate_TC_half_epochs(spikes, feature, nb_bins, minmax):
     two_ep = splitWake(feature.time_support.loc[[0]])
@@ -663,3 +655,18 @@ def load_opto_data(path, st):
 
 
     return spikes, position, wake_ep, opto_ep, sws_ep, tuning_curves
+
+
+
+
+def evaluate_gmm(data: np.ndarray) -> dict:    
+    X = data.reshape(-1, 1)  # Ensure 2D shape for sklearn
+    ll = []
+
+    for n_components in [1, 2]:
+        gmm = GaussianMixture(n_components=n_components, random_state=0)
+        gmm.fit(X)
+      
+        ll.append(np.sum(gmm.score_samples(X)))           
+
+    return ll
