@@ -2,7 +2,7 @@
 # @Author: gviejo
 # @Date:   2022-02-21 12:10:37
 # @Last Modified by:   gviejo
-# @Last Modified time: 2022-03-15 13:25:00
+# @Last Modified time: 2025-06-14 20:50:07
 
 import scipy.io
 import sys,os
@@ -115,7 +115,7 @@ IO_fr = pd.DataFrame(index = firing_rates, columns = ['adn', 'lmn'])
 for j, f in enumerate(firing_rates):
 	for i, n in enumerate(['adn', 'lmn']):
 		spk = spikes.restrict(nap.IntervalSet(start=epochs[j,0], end=epochs[j,1]))
-		IO_fr.loc[f] = spk._metadata['freq'].values
+		IO_fr.loc[f] = spk.rate
 
 IO_fr = IO_fr.fillna(0)
 
