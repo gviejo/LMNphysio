@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-07 10:52:17
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-06-13 18:11:06
+# @Last Modified time: 2025-06-16 10:17:21
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -86,7 +86,7 @@ for st in ['adn', 'lmn']:
             sws_ep = nwb['sws']
             rem_ep = nwb['rem']
             
-            
+            sys.exit()
             # hmm_eps = []
             # try:
             #     filepath = os.path.join(data_directory, s, os.path.basename(s))
