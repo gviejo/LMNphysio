@@ -125,7 +125,7 @@ for s in datasets:
             tokeep = np.intersect1d(tokeep2[0], tokeep2[1])
             
 
-            if len(tokeep) > 8:
+            if len(tokeep) > 7:
                 print(s)
 
                 spikes = spikes[tokeep]
@@ -209,10 +209,15 @@ for s in datasets:
 
                     return curved*max_v
 
-
+                def cut_percentile(x, alpha):
+                    y = x.copy()
+                    y[y<np.percentile(y, alpha)] = 0.0
+                    return y
                 
                 beta_values = np.linspace(0.001, 5, 20)
-                alpha_values = np.linspace(0, 1, 10)
+                alpha_values = np.linspace(0, 100, 10)[0:-1]
+                alpha_values = np.geomspace(0.2, 100, 100)[0:-1]
+                alpha_values = (100-np.geomspace(0.1, 100, 50))[::-1]
                 
                 r_sig = pd.DataFrame(
                     index=pairs, columns=alpha_values
@@ -225,9 +230,10 @@ for s in datasets:
                     new_rate = []
                     for n in rates2['sws'].columns:
                         # new_rate.append(morph_sigmoid_to_linear(rates2['sws'][n].values, alpha))
-                        new_rate.append(linear_to_downward_curve(rates2['sws'][n].values, alpha))
+                        new_rate.append(cut_percentile(rates2['sws'][n].values, alpha))
                     new_rate = np.stack(new_rate).T
-                    tmp = pd.DataFrame(new_rate).apply(zscore)
+                    # tmp = pd.DataFrame(new_rate).apply(zscore)
+                    tmp = pd.DataFrame(new_rate)#.apply(zscore)
                     tmp2 = np.corrcoef(tmp.values.T)
                     r_sig[alpha] = tmp2[np.triu_indices(tmp2.shape[0], 1)]
 
@@ -249,17 +255,20 @@ dropbox_path = os.path.expanduser("~/Dropbox/LMNphysio/data")
 # cPickle.dump(datatosave, open(os.path.join(dropbox_path, 'All_correlation_LMN.pickle'), 'wb'))
 
 
-
+# %%
 # print(pearson)
 figure()
 plot(pearson.mean(0))
+# ylim(0, 1)
 show()
+
+
 # %%
 
 
 # print(pearson)
 figure()
-plot(pearson.T)
-plot(pearson.mean(0))
+plot(pearson.T, '.-')
+plot(pearson.mean(0), 'o-')
 show()
 # %%
