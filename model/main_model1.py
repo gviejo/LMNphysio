@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2025-06-19 15:28:18
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-06-20 10:28:32
+# @Last Modified time: 2025-06-24 18:04:28
 """
 First model of the paper 
 LMN -> ADN 
@@ -18,6 +18,7 @@ from sklearn.decomposition import KernelPCA
 from scipy.stats import pearsonr
 
 from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
+from numba import jit, njit
 
 def make_LMN_weights(N, sigma=100):
 	x = np.arange(-N//2, N//2)
@@ -29,88 +30,126 @@ def make_LMN_weights(N, sigma=100):
 	return w
 
 
-tau = 0.1
+@njit
+def make_LMN_weights(N, sigma=100.0):
+    x = np.arange(-N//2, N//2)
+    y = np.exp(-(x * x) / sigma)
+    
+    # Manual tiling replacement: concatenate y with itself
+    y_tiled = np.concatenate((y, y))
+    
+    # Slice the middle portion
+    y = y_tiled[N//2:-N//2]
+    
+    w = np.zeros((N, N))
+    for i in range(N):
+        w[i] = np.roll(y, i)
+    
+    return w
 
-N_lmn = 60
-N_adn = 60
-N_psb = 60
+@njit
+def run_network(w_lmn_lmn, noise_lmn_, 
+				w_lmn_adn_, noise_adn_, 
+				w_adn_trn_, w_trn_adn_, thr_adn, N_t=4000):
+	tau = 0.1
+	N_lmn = 60
+	N_adn = 60
+	N_psb = 60
+
+	phase = np.linspace(0, 2*np.pi*(N_t//200), N_t)%(2*np.pi)
+	idx = np.digitize(phase, np.linspace(0, 2*np.pi, N_lmn))
+	# phase[N_t//3:] = 0
+
+	#############################
+	# LMN
+	#############################
+	inp_lmn = np.zeros((N_t, N_lmn))
+	for i in range(N_t):
+		inp_lmn[i,idx] = 1
+	w_lmn = make_LMN_weights(N_lmn, 30)*w_lmn_lmn*0
+	noise_lmn = np.random.randn(N_t, N_lmn)*noise_lmn_
+	r_lmn = np.zeros((N_t, N_lmn))
+	x_lmn = np.zeros(N_lmn)
+
+
+	#############################
+	# ADN
+	#############################
+	w_lmn_adn = w_lmn_adn_
+	noise_adn = np.random.randn(N_t, N_adn)*noise_adn_
+	r_adn = np.zeros((N_t, N_adn))
+	# x_adn = np.random.randn(N_adn)
+	x_adn = np.zeros(N_adn)
+	
+
+	#############################
+	# TRN
+	#############################
+	r_trn = np.zeros((N_t))
+	x_trn = 0 #np.random.randn()
+	w_adn_trn = w_adn_trn_
+	w_trn_adn = w_trn_adn_
+
+
+	alpha = 1.0
+	beta = 1.0
+
+
+	###########################
+	# MAIN LOOP
+	###########################
+
+	for i in range(N_t):
+
+		# REmoving driver	
+		if i == N_t//2:
+			alpha = 0.0
+
+		# if i == 2*N_t//3:
+		# 	beta = 0.0
+
+		# LMN
+		r_lmn[i] = np.maximum(0, np.tanh(x_lmn))
+		x_lmn = x_lmn + tau * (
+			-x_lmn 
+			+ np.dot(w_lmn, r_lmn[i])
+			# + np.dot(w_psb_lmn, r_psb[i])*beta
+			+ noise_lmn[i]
+			+ inp_lmn[i]*alpha
+			)
+
+		# ADN
+		r_adn[i] = np.maximum(0, np.tanh(x_adn))
+		# TRN
+		r_trn[i] = np.maximum(0, np.tanh(x_trn))
+
+		x_adn = x_adn + tau * (
+			-x_adn 
+			+ (1/(1+np.exp(-(r_lmn[i]-thr_adn)*5)))*w_lmn_adn
+			+ noise_adn[i]
+			- r_trn[i]
+			)
+		x_trn = x_trn + tau * (
+			-x_trn
+			+ np.sum(r_adn[i]*w_adn_trn)
+			)
+
+	return (r_lmn, r_adn, r_trn)
+
 
 N_t = 4000
 
-phase = np.linspace(0, 2*np.pi*(N_t//200), N_t)%(2*np.pi)
-idx = np.digitize(phase, np.linspace(0, 2*np.pi, N_lmn))
-# phase[N_t//3:] = 0
 
-#############################
-# LMN
-#############################
-inp_lmn = np.zeros((N_t, N_lmn))
-inp_lmn[np.arange(N_t),idx] = 1
-w_lmn = make_LMN_weights(N_lmn, 30)*0.0
-noise_lmn = np.random.randn(N_t, N_lmn)*0.3
-r_lmn = np.zeros((N_t, N_lmn))
-x_lmn = np.random.randn(N_lmn)
-
-
-#############################
-# ADN
-#############################
-noise_adn = np.random.randn(N_t, N_adn)*0.01
-r_adn = np.zeros((N_t, N_adn))
-x_adn = np.random.randn(N_adn)
-w_lmn_adn = 10
-
-
-#############################
-# TRN
-#############################
-r_trn = np.zeros((N_t))
-x_trn = np.random.randn()
-w_adn_trn = 1
-
-
-alpha = 1.0
-beta = 1.0
-
-
-###########################
-# MAIN LOOP
-###########################
-
-for i in range(N_t):
-
-	# REmoving driver	
-	if i == N_t//2:
-		alpha = 0.0
-
-	# if i == 2*N_t//3:
-	# 	beta = 0.0
-
-	# LMN
-	r_lmn[i] = np.maximum(0, np.tanh(x_lmn))
-	x_lmn = x_lmn + tau * (
-		-x_lmn 
-		+ np.dot(w_lmn, r_lmn[i])
-		# + np.dot(w_psb_lmn, r_psb[i])*beta
-		+ noise_lmn[i]
-		+ inp_lmn[i]*alpha
-		)
-
-	# ADN
-	r_adn[i] = np.maximum(0, np.tanh(x_adn))
-	# TRN
-	r_trn[i] = np.maximum(0, np.tanh(x_trn))
-
-	x_adn = x_adn + tau * (
-		-x_adn 
-		+ (1/(1+np.exp(-(r_lmn[i]-0.5)*5)))*w_lmn_adn
-		+ noise_adn[i]
-		- r_trn[i]
-		)
-	x_trn = x_trn + tau * (
-		-x_trn
-		+ np.sum(r_adn[i]*w_adn_trn)
-		)
+r_lmn, r_adn, r_trn = run_network(
+	w_lmn_lmn=1, 
+	noise_lmn_=1,
+	w_lmn_adn_=1, 
+	noise_adn_=1, 
+	w_adn_trn_=1, 
+	w_trn_adn_=1, 
+	thr_adn=1, 
+	N_t=N_t
+	)
 
 
 imap = {}

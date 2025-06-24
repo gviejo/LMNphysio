@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-01 12:03:19
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-06-16 18:35:26
+# @Last Modified time: 2025-06-18 17:21:50
 
 # %%
 import numpy as np
@@ -146,7 +146,7 @@ for s in datasets:
                 # Wake rate                
                 rates = {}
                 rates2 = {}
-                for e, ep, bin_size, std in zip(['wak', 'sws'], [newwake_ep, sws_ep], [0.1, 0.02], [3, 3]):
+                for e, ep, bin_size, std in zip(['wak', 'sws'], [newwake_ep, sws_ep], [0.1, 0.01], [3, 3]):
                     ep = ep.drop_short_intervals(bin_size*22)
                     count = spikes.count(bin_size, ep)
                     rate = count/bin_size
@@ -217,7 +217,7 @@ for s in datasets:
                 beta_values = np.linspace(0.001, 5, 20)
                 alpha_values = np.linspace(0, 100, 10)[0:-1]
                 alpha_values = np.geomspace(0.2, 100, 100)[0:-1]
-                alpha_values = (100-np.geomspace(0.1, 100, 50))[::-1]
+                alpha_values = (100-np.geomspace(0.1, 90, 50))[::-1]
                 
                 r_sig = pd.DataFrame(
                     index=pairs, columns=alpha_values
@@ -229,7 +229,7 @@ for s in datasets:
                 for alpha in alpha_values:
                     new_rate = []
                     for n in rates2['sws'].columns:
-                        # new_rate.append(morph_sigmoid_to_linear(rates2['sws'][n].values, alpha))
+                        # new_rate.append(morph_sigmoid_to_linear(rates2['sws'][n].values, alpha))                        
                         new_rate.append(cut_percentile(rates2['sws'][n].values, alpha))
                     new_rate = np.stack(new_rate).T
                     # tmp = pd.DataFrame(new_rate).apply(zscore)
@@ -258,17 +258,18 @@ dropbox_path = os.path.expanduser("~/Dropbox/LMNphysio/data")
 # %%
 # print(pearson)
 figure()
+subplot(211)
 plot(pearson.mean(0))
 # ylim(0, 1)
-show()
+
 
 
 # %%
-
+subplot(212)
 
 # print(pearson)
-figure()
 plot(pearson.T, '.-')
 plot(pearson.mean(0), 'o-')
+savefig(os.path.expanduser("~/Dropbox/LMNphysio/summary_cc/lmn_model.pdf"))
 show()
 # %%
