@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2025-06-19 15:28:18
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-06-24 16:32:08
+# @Last Modified time: 2025-06-25 12:59:52
 """
 First model of the paper 
 LMN -> ADN 
@@ -65,8 +65,8 @@ def run_network(w_lmn_lmn, noise_lmn_,
 	#############################
 	inp_lmn = np.zeros((N_t, N_lmn))
 	for i in range(N_t):
-		inp_lmn[i,idx] = 1
-	w_lmn = make_LMN_weights(N_lmn, 30)*w_lmn_lmn*0
+		inp_lmn[i,idx[i]] = 1
+	w_lmn = make_LMN_weights(N_lmn, 10)*w_lmn_lmn
 	noise_lmn = np.random.randn(N_t, N_lmn)*noise_lmn_
 	r_lmn = np.zeros((N_t, N_lmn))
 	x_lmn = np.zeros(N_lmn)
@@ -146,7 +146,7 @@ opt = []
 for i in range(10000):	
 
 	p = {
-		'w_lmn_lmn':np.random.uniform(0.0, 10.0, 1)[0],
+		'w_lmn_lmn':np.random.uniform(0.0, 1.0, 1)[0],
 		'noise_lmn_':np.random.uniform(0.0, 2.0, 1)[0],
 		'w_lmn_adn_':np.random.uniform(0.0, 2.0, 1)[0],
 		'noise_adn_':np.random.uniform(0.0, 2.0, 1)[0],
