@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2025-06-19 15:28:18
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-06-25 14:03:12
+# @Last Modified time: 2025-06-25 14:18:41
 """
 First model of the paper 
 LMN -> ADN 
@@ -142,7 +142,7 @@ N_t = 4000
 
 r_lmn, r_adn, r_trn = run_network(
 	w_lmn_lmn=0.19, 
-	noise_lmn_=0.45,
+	noise_lmn_=0.3,
 	w_lmn_adn_=1.65, 
 	noise_adn_=0.089, 
 	w_adn_trn_=0.054, 
@@ -160,7 +160,7 @@ popcoh = {}
 for k, r in zip(['lmn', 'adn'],[r_lmn, r_adn]):
 	imap[k] = {}
 	popcoh[k] = {}
-	for i, sl in enumerate([slice(0, N_t//2), slice(N_t//2, N_t)]):
+	for i, sl in enumerate([slice(100, N_t//2), slice(N_t//2+100, N_t)]):
 	
 		# sum_ = r[sl].sum(1)
 		# idx = sum_>np.percentile(sum_, 10)
