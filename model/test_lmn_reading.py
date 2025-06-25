@@ -2,7 +2,7 @@
 # @Author: gviejo
 # @Date:   2025-06-14 21:08:45
 # @Last Modified by:   gviejo
-# @Last Modified time: 2025-06-15 20:59:07
+# @Last Modified time: 2025-06-16 21:49:42
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -64,6 +64,8 @@ def morph_sigmoid_to_linear(x, alpha=0.0):
     return (1 - alpha) * s + alpha * l
 
 
+
+
 plot(rate[34])
 
 plot(morph_sigmoid_to_linear(rate[34], 0.2), label="alpha=0.2")
@@ -74,55 +76,56 @@ legend()
 show()
 
 
-predicted_rate = sigmoide(np.log(rate), 20)
 
-pspikes = get_spikes(predicted_rate)
+# predicted_rate = sigmoide(np.log(rate), 20)
 
-pspikes.order = spikes.order
+# pspikes = get_spikes(predicted_rate)
 
-
-n = 34
-
-figure()
-subplot(211)
-plot(rate.loc[n], '-')
-plot(spikes[n].restrict(ep).fillna(-1), '|')
-subplot(212)
-plot(sigmoide(np.log(rate.loc[n]), 0.001))
-
-figure()
-x = np.arange(-1000, 1000, 0.001)
-plot(x, sigmoide(x, 0.001))
-show()
+# pspikes.order = spikes.order
 
 
+# n = 34
 
+# figure()
+# subplot(211)
+# plot(rate.loc[n], '-')
+# plot(spikes[n].restrict(ep).fillna(-1), '|')
+# subplot(212)
+# plot(sigmoide(np.log(rate.loc[n]), 0.001))
+
+# figure()
+# x = np.arange(-1000, 1000, 0.001)
+# plot(x, sigmoide(x, 0.001))
+# show()
 
 
 
 
-figure()
-ax = subplot(211)
-pcolormesh(np.random.poisson(sigmoide(np.log(rate), 0.01).values.T))
-subplot(212)
-pcolormesh(rate.values.T)
-show()
 
 
 
-
-figure()
-
-ax = subplot(211)
-
-# pcolormesh(np.random.poisson(predicted.values.T))
-plot(pspikes.restrict(ep).to_tsd("order"), '|')
-
-subplot(212)
-
+# figure()
+# ax = subplot(211)
+# pcolormesh(np.random.poisson(sigmoide(np.log(rate), 0.01).values.T))
+# subplot(212)
 # pcolormesh(rate.values.T)
+# show()
 
-plot(spikes.restrict(ep).to_tsd("order"), '|')
 
-show()
+
+
+# figure()
+
+# ax = subplot(211)
+
+# # pcolormesh(np.random.poisson(predicted.values.T))
+# plot(pspikes.restrict(ep).to_tsd("order"), '|')
+
+# subplot(212)
+
+# # pcolormesh(rate.values.T)
+
+# plot(spikes.restrict(ep).to_tsd("order"), '|')
+
+# show()
 

@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-06-24 10:26:13
+# @Last Modified by:   gviejo
+# @Last Modified time: 2025-06-24 23:02:55
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -261,19 +261,28 @@ subplot(gs_top[0,0])
 # img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/papezhdcircuit.png")
 # imshow(img, aspect="equal")
 
-box_width, box_height = 0.75, 0.4
+box_width, box_height = 0.5, 0.3
 y_positions = [1, 2, 3]
 x_position = 0
 
 box_colors = [colors[st] for st in ['lmn', 'adn', 'psb']]
 ax = gca()
-ax.set_xlim(-box_width/2-0.2, 5)
-ax.set_ylim(y_positions[0]-box_height/2-0.1, y_positions[-1]+box_height/2+0.1)
+ax.set_xlim(-1.1, 4.8)
+ax.set_ylim(y_positions[0]-box_height/2-0.2, y_positions[-1]+box_height/2+0.2)
 # ax.set_aspect('equal')
 ax.axis('off')
 
 # Draw boxes
 for i, y in enumerate(y_positions):
+    outerrect = patches.FancyBboxPatch((x_position - 1, y - box_height),
+                                   box_width*2.7, box_height*2,
+                                   boxstyle="round,pad=0.05",
+                                   edgecolor=COLOR,
+                                   facecolor="white", linewidth=0.5, linestyle='--')
+    ax.add_patch(outerrect)
+    ax.text(x_position-0.70, y, 
+        ['Mammilary\nBody', 'Anterior\nThalamus', 'Cortex'][i], ha='center', va='center', fontsize=4)
+
     rect = patches.FancyBboxPatch((x_position - box_width/2, y - box_height/2),
                                    box_width, box_height,
                                    boxstyle="round,pad=0.1",
@@ -282,6 +291,8 @@ for i, y in enumerate(y_positions):
     ax.add_patch(rect)
     ax.text(x_position, y, 
         ['LMN', 'ADN', 'PSB'][i], ha='center', va='center')
+
+
 
 # Draw reversed vertical arrows using FancyArrow (Box 3 → 2 → 1)
 for i in range(2):
@@ -308,9 +319,14 @@ arrow = FancyArrowPatch(
 ax.add_patch(arrow)
 
 
+
+##############################################################
+# PICTURES
+##############################################################
+
 # axip = ax.inset_axes([3, 0.5, 2, 1], transform=ax.transData)
 img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/LMN_probes.png")
-imagebox = OffsetImage(img, zoom=0.055)
+imagebox = OffsetImage(img, zoom=0.05)
 ab = AnnotationBbox(imagebox, (2, 1.0), frameon=False)
 ab.patch.set_linewidth(0.05)      # Line width in points
 ab.patch.set_edgecolor(COLOR) 
@@ -319,11 +335,13 @@ ax.add_artist(ab)
 
 
 img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/adn_probes.png")
-imagebox = OffsetImage(img, zoom=0.055)
+imagebox = OffsetImage(img, zoom=0.05)
 ab = AnnotationBbox(imagebox, (2, 2.75), frameon=False)
 ab.patch.set_linewidth(0.05)     # Line width in points
 ab.patch.set_edgecolor(COLOR) 
 ax.add_artist(ab)
+
+
 
 
 
@@ -359,7 +377,7 @@ ax.add_artist(ab)
 # Raster
 #####################################
 gs_raster = gridspec.GridSpecFromSubplotSpec(
-    3, 4, subplot_spec=gs_top[0, 1], width_ratios=[0.5, 0.1, 0.5, 0.1], wspace=0.1
+    3, 4, subplot_spec=gs_top[0, 1], width_ratios=[0.5, 0.1, 0.5, 0.04], wspace=0.1
 )
 
 
@@ -379,7 +397,8 @@ for i, (g, idx) in enumerate(zip(['adn', 'lmn'], [adn, lmn])):
         xlim(exs[e].start[0], exs[e].end[0])
         if j == 0:
             yticks([len(idx)-1], [len(idx)])
-            ylabel(names[g], rotation=0, y=0.2, labelpad=10)
+            if i == 0:
+                ylabel("Neurons", y=0)#, rotation=0, y=0.2, labelpad=10)
         else:
             yticks([])
         xticks([])
@@ -425,7 +444,7 @@ for i, e in enumerate(['wak', 'sws']):
         for s, e in iset.values:
             plot(tmp.get(s, e), linewidth=0.5, color=COLOR)
 
-        plot(tmp.get(s, e), linewidth=0.75, color=COLOR)
+        plot(tmp.get(s, e), linewidth=0.75, color=COLOR, label="Actual HD")
         legend(
                 handlelength=1,
                 loc="center",
@@ -440,20 +459,30 @@ for i, e in enumerate(['wak', 'sws']):
 
         for s, e in a_ex.values:
             plot(da.get(s, e), 'o', markersize= 0.5, markerfacecolor=COLOR, markeredgecolor=None, markeredgewidth=0)
+        plot(da.get(s, e), 'o', markersize= 0.5, markerfacecolor=COLOR, markeredgecolor=None, markeredgewidth=0, label="Decoded HD")
+        legend(
+                handlelength=1,                
+                loc="center",
+                bbox_to_anchor=(0.1, -0.5, 0.5, 0.5),
+                framealpha=0,
+                markerscale=4
+            )
 
 
     if i == 0:
         yticks([0, 2*np.pi], [0, 360])
-        ylabel("H.D.\n(deg)", rotation=0, y=0.0, labelpad=10)
+        ylabel("Direction (°)", labelpad=3)
     else:
         yticks([])
 
     if i == 0:
         gca().spines["bottom"].set_bounds(exs['wak'].end[0] - 3, exs['wak'].end[0])
-        xticks([exs['wak'].end[0] - 1.5], ["3 s"])
+        xticks([exs['wak'].end[0] - 3, exs['wak'].end[0]], ["", ""])
+        text(exs['wak'].end[0]-1.5, -2.2, s="3 sec.", va="center", ha="center")
     if i == 1:
         gca().spines["bottom"].set_bounds(exs['sws'].end[0] - 0.5, exs['sws'].end[0])
-        xticks([exs['sws'].end[0] - 0.25], ["0.5 s"])
+        xticks([exs['sws'].end[0] - 0.5, exs['sws'].end[0]], ["", ""])
+        text(exs['sws'].end[0] - 0.23, -2.2, s="0.5 sec.", va="center", ha="center")
 
     
     axip = gca().inset_axes([1.03, 0, 0.04, 0.6])
