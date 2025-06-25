@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2025-06-19 15:28:18
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-06-25 14:18:41
+# @Last Modified time: 2025-06-25 16:38:05
 """
 First model of the paper 
 LMN -> ADN 
@@ -124,10 +124,11 @@ def run_network(w_lmn_lmn, noise_lmn_,
 		r_trn[i] = np.maximum(0, np.tanh(x_trn))
 
 		x_adn = x_adn + tau * (
-			-x_adn 
+			-x_adn
 			+ (1/(1+np.exp(-(r_lmn[i]-thr_adn)*5)))*w_lmn_adn
 			+ noise_adn[i]
 			- r_trn[i]
+			+ 0.99 * x_adn
 			)
 		x_trn = x_trn + tau * (
 			-x_trn
@@ -137,17 +138,17 @@ def run_network(w_lmn_lmn, noise_lmn_,
 	return (r_lmn, r_adn, r_trn)
 
 
-N_t = 4000
+N_t = 8000
 
 
 r_lmn, r_adn, r_trn = run_network(
-	w_lmn_lmn=0.19, 
-	noise_lmn_=0.3,
-	w_lmn_adn_=1.65, 
-	noise_adn_=0.089, 
-	w_adn_trn_=0.054, 
-	w_trn_adn_=1.376, 
-	thr_adn=0.547,
+	w_lmn_lmn=0.0,
+	noise_lmn_=0.2,
+	w_lmn_adn_=3,
+	noise_adn_=0,
+	w_adn_trn_=0.2,
+	w_trn_adn_=0.4,
+	thr_adn=0.3,
 	N_t=N_t
 	)
 
@@ -160,11 +161,12 @@ popcoh = {}
 for k, r in zip(['lmn', 'adn'],[r_lmn, r_adn]):
 	imap[k] = {}
 	popcoh[k] = {}
-	for i, sl in enumerate([slice(100, N_t//2), slice(N_t//2+100, N_t)]):
+	for i, sl in enumerate([slice(100, N_t//2), slice(N_t//2+1000, N_t)]):
 	
 		# sum_ = r[sl].sum(1)
 		# idx = sum_>np.percentile(sum_, 10)
-		tmp = gaussian_filter1d(r[sl], 1)
+		# tmp = gaussian_filter1d(r[sl], 1)
+		tmp = r[sl]
 
 		imap[k][i] = KernelPCA(n_components=2, kernel='cosine').fit_transform(tmp)
 

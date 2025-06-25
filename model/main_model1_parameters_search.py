@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2025-06-19 15:28:18
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-06-25 12:59:52
+# @Last Modified time: 2025-06-25 16:38:23
 """
 First model of the paper 
 LMN -> ADN 
@@ -124,10 +124,11 @@ def run_network(w_lmn_lmn, noise_lmn_,
 		r_trn[i] = np.maximum(0, np.tanh(x_trn))
 
 		x_adn = x_adn + tau * (
-			-x_adn 
+			-x_adn
 			+ (1/(1+np.exp(-(r_lmn[i]-thr_adn)*5)))*w_lmn_adn
 			+ noise_adn[i]
 			- r_trn[i]
+			+ 0.99 * x_adn
 			)
 		x_trn = x_trn + tau * (
 			-x_trn
@@ -135,7 +136,6 @@ def run_network(w_lmn_lmn, noise_lmn_,
 			)
 
 	return (r_lmn, r_adn, r_trn)
-
 
 
 corr = pd.DataFrame(columns=['lmn', 'adn'])
