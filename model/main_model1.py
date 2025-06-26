@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2025-06-19 15:28:18
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-06-25 16:38:05
+# @Last Modified by:   gviejo
+# @Last Modified time: 2025-06-25 20:49:55
 """
 First model of the paper 
 LMN -> ADN 
@@ -47,7 +47,7 @@ def make_LMN_weights(N, sigma=100.0):
     
     return w
 
-@njit
+# @njit
 def run_network(w_lmn_lmn, noise_lmn_, 
 				w_lmn_adn_, noise_adn_, 
 				w_adn_trn_, w_trn_adn_, thr_adn, N_t=4000):
@@ -80,7 +80,7 @@ def run_network(w_lmn_lmn, noise_lmn_,
 	r_adn = np.zeros((N_t, N_adn))
 	# x_adn = np.random.randn(N_adn)
 	x_adn = np.zeros(N_adn)
-	
+	x_cal = np.zeros((N_t, N_adn))
 
 	#############################
 	# TRN
@@ -91,8 +91,8 @@ def run_network(w_lmn_lmn, noise_lmn_,
 	w_trn_adn = w_trn_adn_
 
 
-	alpha = 1
-	beta = 1.0
+	alpha = 2
+	beta = 0
 
 
 	###########################
@@ -104,18 +104,17 @@ def run_network(w_lmn_lmn, noise_lmn_,
 		# REmoving driver	
 		if i == N_t//2:
 			alpha = 0.0
-
-		# if i == 2*N_t//3:
-		# 	beta = 0.0
+			beta= 1.0
 
 		# LMN
 		r_lmn[i] = np.maximum(0, np.tanh(x_lmn))
 		x_lmn = x_lmn + tau * (
 			-x_lmn 
-			+ np.dot(w_lmn, r_lmn[i])
+			# + np.dot(w_lmn, r_lmn[i])
 			# + np.dot(w_psb_lmn, r_psb[i])*beta
 			+ noise_lmn[i]
 			+ inp_lmn[i]*alpha
+			+ beta/N_lmn
 			)
 
 		# ADN
@@ -123,32 +122,42 @@ def run_network(w_lmn_lmn, noise_lmn_,
 		# TRN
 		r_trn[i] = np.maximum(0, np.tanh(x_trn))
 
+		# Calcium
+		x_cal[i] = x_cal[i] + tau * (
+			- x_cal[i]
+			+ r_adn[i]
+			)
+
+		I_ext = x_cal[i] + r_lmn[i]*w_lmn_adn + noise_adn[i] - r_trn[i]
+
 		x_adn = x_adn + tau * (
 			-x_adn
-			+ (1/(1+np.exp(-(r_lmn[i]-thr_adn)*5)))*w_lmn_adn
-			+ noise_adn[i]
-			- r_trn[i]
-			+ 0.99 * x_adn
+			+ (1/(1+np.exp(-(I_ext-thr_adn)*3)))
+			# + ( 1/(1+np.exp(-(r_lmn[i]-thr_adn)*5)))*w_lmn_adn
+			# + noise_adn[i]
+			# - r_trn[i]
+			# + x_cal[i]
 			)
 		x_trn = x_trn + tau * (
 			-x_trn
 			+ np.sum(r_adn[i]*w_adn_trn)
 			)
 
-	return (r_lmn, r_adn, r_trn)
+	return (r_lmn, r_adn, r_trn, x_cal)
 
 
-N_t = 8000
+N_t = 6000
 
 
-r_lmn, r_adn, r_trn = run_network(
+
+r_lmn, r_adn, r_trn, x_cal = run_network(
 	w_lmn_lmn=0.0,
-	noise_lmn_=0.2,
-	w_lmn_adn_=3,
-	noise_adn_=0,
-	w_adn_trn_=0.2,
-	w_trn_adn_=0.4,
-	thr_adn=0.3,
+	noise_lmn_=0.1,
+	w_lmn_adn_=0.5,
+	noise_adn_=0.5,
+	w_adn_trn_=0.5,
+	w_trn_adn_=0.5,
+	thr_adn=0.5,
 	N_t=N_t
 	)
 
@@ -179,17 +188,22 @@ for k, r in zip(['lmn', 'adn'],[r_lmn, r_adn]):
 
 
 
-figure()
-subplot(311)
+figure(figsize=(12, 20))
+subplot(411)
 imshow(r_adn.T, aspect='auto')
 title("ADN")
-subplot(312)
+subplot(412)
 imshow(r_lmn.T, aspect='auto')
 title("LMN")
-subplot(313)
+subplot(414)
+imshow(x_cal.T, aspect='auto')
+title("TRN")
+subplot(413)
 plot(r_lmn.sum(1), 'o-', label="LMN")
 plot(r_adn.sum(1), 'o-', label="ADN")
+plot(r_trn, 'o-', label="TRN")
 legend()
+tight_layout()
 
 figure()
 count = 0

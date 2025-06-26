@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2025-06-19 15:28:18
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-06-25 16:38:23
+# @Last Modified by:   gviejo
+# @Last Modified time: 2025-06-25 22:38:47
 """
 First model of the paper 
 LMN -> ADN 
@@ -80,19 +80,19 @@ def run_network(w_lmn_lmn, noise_lmn_,
 	r_adn = np.zeros((N_t, N_adn))
 	# x_adn = np.random.randn(N_adn)
 	x_adn = np.zeros(N_adn)
-	
+	x_cal = np.zeros((N_t, N_adn))
 
 	#############################
 	# TRN
 	#############################
 	r_trn = np.zeros((N_t))
-	x_trn = 0 #np.random.randn()
+	x_trn = 0
 	w_adn_trn = w_adn_trn_
 	w_trn_adn = w_trn_adn_
 
 
-	alpha = 1.0
-	beta = 1.0
+	alpha = 2
+	beta = 0
 
 
 	###########################
@@ -104,18 +104,17 @@ def run_network(w_lmn_lmn, noise_lmn_,
 		# REmoving driver	
 		if i == N_t//2:
 			alpha = 0.0
-
-		# if i == 2*N_t//3:
-		# 	beta = 0.0
+			beta= 1.0
 
 		# LMN
 		r_lmn[i] = np.maximum(0, np.tanh(x_lmn))
 		x_lmn = x_lmn + tau * (
 			-x_lmn 
-			+ np.dot(w_lmn, r_lmn[i])
+			# + np.dot(w_lmn, r_lmn[i])
 			# + np.dot(w_psb_lmn, r_psb[i])*beta
 			+ noise_lmn[i]
 			+ inp_lmn[i]*alpha
+			+ beta/N_lmn
 			)
 
 		# ADN
@@ -123,12 +122,21 @@ def run_network(w_lmn_lmn, noise_lmn_,
 		# TRN
 		r_trn[i] = np.maximum(0, np.tanh(x_trn))
 
+		# Calcium
+		x_cal[i] = x_cal[i] + tau * (
+			- x_cal[i]
+			+ r_adn[i]
+			)
+
+		I_ext = x_cal[i] + r_lmn[i]*w_lmn_adn + noise_adn[i] - r_trn[i]
+
 		x_adn = x_adn + tau * (
 			-x_adn
-			+ (1/(1+np.exp(-(r_lmn[i]-thr_adn)*5)))*w_lmn_adn
-			+ noise_adn[i]
-			- r_trn[i]
-			+ 0.99 * x_adn
+			+ (1/(1+np.exp(-(I_ext-thr_adn)*3)))
+			# + ( 1/(1+np.exp(-(r_lmn[i]-thr_adn)*5)))*w_lmn_adn
+			# + noise_adn[i]
+			# - r_trn[i]
+			# + x_cal[i]
 			)
 		x_trn = x_trn + tau * (
 			-x_trn
@@ -138,12 +146,43 @@ def run_network(w_lmn_lmn, noise_lmn_,
 	return (r_lmn, r_adn, r_trn)
 
 
+def fit_circle_taubin(points):
+    x = points[:, 0]
+    y = points[:, 1]
+
+    # Center the data
+    x_m = np.mean(x)
+    y_m = np.mean(y)
+    u = x - x_m
+    v = y - y_m
+
+    Suu = np.sum(u * u)
+    Suv = np.sum(u * v)
+    Svv = np.sum(v * v)
+    Suuu = np.sum(u * u * u)
+    Suvv = np.sum(u * v * v)
+    Svvv = np.sum(v * v * v)
+    Svuu = np.sum(v * u * u)
+
+    # Solving the linear system
+    A = np.array([[Suu, Suv], [Suv, Svv]])
+    B = 0.5 * np.array([Suuu + Suvv, Svvv + Svuu])
+
+    uc, vc = np.linalg.solve(A, B)
+
+    xc = x_m + uc
+    yc = y_m + vc
+    R = np.sqrt(uc**2 + vc**2 + (Suu + Svv) / len(x))
+
+    return xc, yc, R
+
+
 corr = pd.DataFrame(columns=['lmn', 'adn'])
 
 opt = []
 
 
-for i in range(10000):	
+for i in range(100):	
 
 	p = {
 		'w_lmn_lmn':np.random.uniform(0.0, 1.0, 1)[0],
@@ -159,14 +198,21 @@ for i in range(10000):
 	r_lmn, r_adn, r_trn = run_network(**p)
 
 	N_t = r_lmn.shape[0]
-	
-	for k, r in zip(['lmn', 'adn'],[r_lmn, r_adn]):
-		popcoh = {}
-		for j, sl in enumerate([slice(0, N_t//2), slice(N_t//2, N_t)]):
-			tmp = np.corrcoef(r[sl].T)
-			popcoh[j] = tmp[np.triu_indices(tmp.shape[0], 1)]
 
-		corr.loc[i, k] = pearsonr(popcoh[0], popcoh[1])[0]
+	imap = KernelPCA(n_components=2, kernel='cosine').fit_transform(r_adn[N_t//2:])
+	
+	_, _, R = fit_circle_taubin(imap)
+
+	corr.loc[i, "adn"] = R
+
+	##################################################	
+	# for k, r in zip(['lmn', 'adn'],[r_lmn, r_adn]):
+	# 	popcoh = {}
+	# 	for j, sl in enumerate([slice(0, N_t//2), slice(N_t//2, N_t)]):
+	# 		tmp = np.corrcoef(r[sl].T)
+	# 		popcoh[j] = tmp[np.triu_indices(tmp.shape[0], 1)]
+
+	# 	corr.loc[i, k] = pearsonr(popcoh[0], popcoh[1])[0]
 
 	opt.append(pd.DataFrame({i:p}).T)
 
