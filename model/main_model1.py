@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2025-06-19 15:28:18
-# @Last Modified by:   gviejo
-# @Last Modified time: 2025-06-25 20:49:55
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2025-06-26 15:47:44
 """
 First model of the paper 
 LMN -> ADN 
@@ -47,6 +47,10 @@ def make_LMN_weights(N, sigma=100.0):
     
     return w
 
+@njit
+def sigmoide(x, beta=10, thr=1):
+	return 1/(1+np.exp(-(x-thr)*beta))
+
 # @njit
 def run_network(w_lmn_lmn, noise_lmn_, 
 				w_lmn_adn_, noise_adn_, 
@@ -80,7 +84,8 @@ def run_network(w_lmn_lmn, noise_lmn_,
 	r_adn = np.zeros((N_t, N_adn))
 	# x_adn = np.random.randn(N_adn)
 	x_adn = np.zeros(N_adn)
-	x_cal = np.zeros((N_t, N_adn))
+	x_cal = np.zeros(N_adn)
+	I_ext = np.zeros((N_t, N_adn))
 
 	#############################
 	# TRN
@@ -123,16 +128,19 @@ def run_network(w_lmn_lmn, noise_lmn_,
 		r_trn[i] = np.maximum(0, np.tanh(x_trn))
 
 		# Calcium
-		x_cal[i] = x_cal[i] + tau * (
-			- x_cal[i]
-			+ r_adn[i]
+		x_cal = x_cal + tau * (
+			- x_cal
+			+ r_adn[i] * 3
 			)
 
-		I_ext = x_cal[i] + r_lmn[i]*w_lmn_adn + noise_adn[i] - r_trn[i]
+		# I_ext[i] = sigmoide(x_cal+r_lmn[i]*w_lmn_adn-r_trn[i], 10, thr_adn) + noise_adn[i]
+		I_ext[i] = np.maximum(0, np.tanh(x_cal+r_lmn[i]*w_lmn_adn-r_trn[i])) + noise_adn[i]
 
 		x_adn = x_adn + tau * (
-			-x_adn
-			+ (1/(1+np.exp(-(I_ext-thr_adn)*3)))
+			- x_adn
+			+ I_ext[i]
+			# + sigmoide(I_ext[i], 7, thr_adn)
+			# + (1/(1+np.exp(-(I_ext-thr_adn)*5)))
 			# + ( 1/(1+np.exp(-(r_lmn[i]-thr_adn)*5)))*w_lmn_adn
 			# + noise_adn[i]
 			# - r_trn[i]
@@ -140,24 +148,24 @@ def run_network(w_lmn_lmn, noise_lmn_,
 			)
 		x_trn = x_trn + tau * (
 			-x_trn
-			+ np.sum(r_adn[i]*w_adn_trn)
+			+ np.sum(r_adn[i])*w_adn_trn
 			)
 
-	return (r_lmn, r_adn, r_trn, x_cal)
+	return (r_lmn, r_adn, r_trn, I_ext)
 
 
 N_t = 6000
 
 
 
-r_lmn, r_adn, r_trn, x_cal = run_network(
+r_lmn, r_adn, r_trn, I_ext = run_network(
 	w_lmn_lmn=0.0,
-	noise_lmn_=0.1,
-	w_lmn_adn_=0.5,
-	noise_adn_=0.5,
-	w_adn_trn_=0.5,
-	w_trn_adn_=0.5,
-	thr_adn=0.5,
+	noise_lmn_=1,
+	w_lmn_adn_=1,
+	noise_adn_=1,
+	w_adn_trn_=50,
+	w_trn_adn_=50,
+	thr_adn=3,
 	N_t=N_t
 	)
 
@@ -176,6 +184,7 @@ for k, r in zip(['lmn', 'adn'],[r_lmn, r_adn]):
 		# idx = sum_>np.percentile(sum_, 10)
 		# tmp = gaussian_filter1d(r[sl], 1)
 		tmp = r[sl]
+		# tmp = tmp[tmp.mean(1) > np.percentile(np.mean(tmp, 1), 50)]
 
 		imap[k][i] = KernelPCA(n_components=2, kernel='cosine').fit_transform(tmp)
 
@@ -188,7 +197,7 @@ for k, r in zip(['lmn', 'adn'],[r_lmn, r_adn]):
 
 
 
-figure(figsize=(12, 20))
+figure(figsize=(40, 15))
 subplot(411)
 imshow(r_adn.T, aspect='auto')
 title("ADN")
@@ -196,8 +205,8 @@ subplot(412)
 imshow(r_lmn.T, aspect='auto')
 title("LMN")
 subplot(414)
-imshow(x_cal.T, aspect='auto')
-title("TRN")
+imshow(I_ext.T, aspect='auto')
+title("I_ext")
 subplot(413)
 plot(r_lmn.sum(1), 'o-', label="LMN")
 plot(r_adn.sum(1), 'o-', label="ADN")
@@ -205,25 +214,25 @@ plot(r_trn, 'o-', label="TRN")
 legend()
 tight_layout()
 
-figure()
-count = 0
-for i in range(2):
-	for j, k in enumerate(['lmn', 'adn']):
-		subplot(2,2,count+1)
-		count += 1
-		scatter(imap[k][i][:,0], imap[k][i][:,1])
-		title(k)
-		if i == 0:
-			ylabel(['wake', 'sleep'][i])
+# figure(figsize=(40, 15))
+# count = 0
+# for i in range(2):
+# 	for j, k in enumerate(['lmn', 'adn']):
+# 		subplot(2,2,count+1)
+# 		count += 1
+# 		scatter(imap[k][i][:,0], imap[k][i][:,1])
+# 		title(k)
+# 		if i == 0:
+# 			ylabel(['wake', 'sleep'][i])
 
 
-figure()
-subplot(121)
-plot(popcoh['lmn'][0], popcoh['lmn'][1], 'o')
-title("r="+str(np.round(pearsonr(popcoh['lmn'][0], popcoh['lmn'][1])[0], 3)))
-subplot(122)
-plot(popcoh['adn'][0], popcoh['adn'][1], 'o')
-title("r="+str(np.round(pearsonr(popcoh['adn'][0], popcoh['adn'][1])[0], 3)))
+# figure()
+# subplot(121)
+# plot(popcoh['lmn'][0], popcoh['lmn'][1], 'o')
+# title("r="+str(np.round(pearsonr(popcoh['lmn'][0], popcoh['lmn'][1])[0], 3)))
+# subplot(122)
+# plot(popcoh['adn'][0], popcoh['adn'][1], 'o')
+# title("r="+str(np.round(pearsonr(popcoh['adn'][0], popcoh['adn'][1])[0], 3)))
 show()
 
 

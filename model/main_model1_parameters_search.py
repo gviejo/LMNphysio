@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2025-06-19 15:28:18
-# @Last Modified by:   gviejo
-# @Last Modified time: 2025-06-25 22:38:47
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2025-06-26 12:03:37
 """
 First model of the paper 
 LMN -> ADN 
@@ -66,7 +66,7 @@ def run_network(w_lmn_lmn, noise_lmn_,
 	inp_lmn = np.zeros((N_t, N_lmn))
 	for i in range(N_t):
 		inp_lmn[i,idx[i]] = 1
-	w_lmn = make_LMN_weights(N_lmn, 10)*w_lmn_lmn
+	# w_lmn = make_LMN_weights(N_lmn, 10)*w_lmn_lmn
 	noise_lmn = np.random.randn(N_t, N_lmn)*noise_lmn_
 	r_lmn = np.zeros((N_t, N_lmn))
 	x_lmn = np.zeros(N_lmn)
@@ -146,53 +146,26 @@ def run_network(w_lmn_lmn, noise_lmn_,
 	return (r_lmn, r_adn, r_trn)
 
 
-def fit_circle_taubin(points):
-    x = points[:, 0]
-    y = points[:, 1]
-
-    # Center the data
-    x_m = np.mean(x)
-    y_m = np.mean(y)
-    u = x - x_m
-    v = y - y_m
-
-    Suu = np.sum(u * u)
-    Suv = np.sum(u * v)
-    Svv = np.sum(v * v)
-    Suuu = np.sum(u * u * u)
-    Suvv = np.sum(u * v * v)
-    Svvv = np.sum(v * v * v)
-    Svuu = np.sum(v * u * u)
-
-    # Solving the linear system
-    A = np.array([[Suu, Suv], [Suv, Svv]])
-    B = 0.5 * np.array([Suuu + Suvv, Svvv + Svuu])
-
-    uc, vc = np.linalg.solve(A, B)
-
-    xc = x_m + uc
-    yc = y_m + vc
-    R = np.sqrt(uc**2 + vc**2 + (Suu + Svv) / len(x))
-
-    return xc, yc, R
 
 
-corr = pd.DataFrame(columns=['lmn', 'adn'])
+# corr = pd.DataFrame(columns=['lmn', 'adn'])
+corr = pd.DataFrame(columns=['radius', 'std', 'min'])
 
 opt = []
 
 
-for i in range(100):	
+for i in range(10000):
 
 	p = {
-		'w_lmn_lmn':np.random.uniform(0.0, 1.0, 1)[0],
-		'noise_lmn_':np.random.uniform(0.0, 2.0, 1)[0],
-		'w_lmn_adn_':np.random.uniform(0.0, 2.0, 1)[0],
-		'noise_adn_':np.random.uniform(0.0, 2.0, 1)[0],
-		'w_adn_trn_':np.random.uniform(0.0, 2.0, 1)[0],
-		'w_trn_adn_':np.random.uniform(0.0, 2.0, 1)[0],
-		'thr_adn'  :np.random.uniform(0.0, 10.0, 1)[0],
-		'N_t': 4000
+		# 'w_lmn_lmn': np.random.uniform(0.0, 1.0, 1)[0],
+		'w_lmn_lmn' : 0.0,
+		'noise_lmn_': np.random.uniform(0.0, 10.0, 1)[0],
+		'w_lmn_adn_': np.random.uniform(0.0, 10.0, 1)[0],
+		'noise_adn_': np.random.uniform(0.0, 10.0, 1)[0],
+		'w_adn_trn_': np.random.uniform(0.0, 10.0, 1)[0],
+		'w_trn_adn_': np.random.uniform(0.0, 10.0, 1)[0],
+		'thr_adn'  :  np.random.uniform(-1.0, 1.0, 1)[0],
+		'N_t': 6000
 	}
 
 	r_lmn, r_adn, r_trn = run_network(**p)
@@ -200,10 +173,11 @@ for i in range(100):
 	N_t = r_lmn.shape[0]
 
 	imap = KernelPCA(n_components=2, kernel='cosine').fit_transform(r_adn[N_t//2:])
-	
-	_, _, R = fit_circle_taubin(imap)
+		
 
-	corr.loc[i, "adn"] = R
+	corr.loc[i, "radius"] = np.mean(np.linalg.norm(imap, axis=1))
+	corr.loc[i, "std"] = np.std(np.linalg.norm(imap, axis=1))
+	corr.loc[i, "min"] = np.min(np.linalg.norm(imap, axis=1))
 
 	##################################################	
 	# for k, r in zip(['lmn', 'adn'],[r_lmn, r_adn]):
@@ -216,11 +190,11 @@ for i in range(100):
 
 	opt.append(pd.DataFrame({i:p}).T)
 
-	print(i, corr['adn'].max())
+	print(i, corr['min'].max())
 
 opt = pd.concat(opt, axis=0)
 
-parameters = dict(opt.loc[corr['adn'].idxmax()])
+parameters = dict(opt.loc[corr['radius'].idxmax()])
 
 
 #####################################################################
@@ -233,7 +207,7 @@ r_lmn, r_adn, r_trn = run_network(
 	w_adn_trn_=parameters['w_adn_trn_'], 
 	w_trn_adn_=parameters['w_trn_adn_'], 
 	thr_adn=parameters['thr_adn'], 
-	N_t=4000
+	N_t=6000
 	)
 
 
