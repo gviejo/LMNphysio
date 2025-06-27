@@ -1,8 +1,14 @@
 # -*- coding: utf-8 -*-
 # @Author: gviejo
 # @Date:   2025-06-26 20:21:36
-# @Last Modified by:   gviejo
-# @Last Modified time: 2025-06-27 08:36:21
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2025-06-27 17:46:50
+"""
+First model of the paper 
+1 LMN -> 1 ADN 
+Non linearity + CAN current
+
+"""
 
 import numpy as np
 from matplotlib.pyplot import *
@@ -25,16 +31,20 @@ tau = 0.1
 N_lmn = 1
 N_adn = 1
 
-noise_lmn_=0.2
+noise_lmn_=0.1
+noise_adn_=0.1
+noise_cal_=0.1
+
 w_lmn_adn_=1
-noise_adn_=0.5
+
+thr_adn=1.5
+thr_cal=1.0
+thr_shu=1.0
+
+I_lmn = 1.0
 
 
-
-w_adn_trn_=50
-w_trn_adn_=50
-thr_adn=3
-N_t=4000
+N_t=6000
 
 
 
@@ -44,7 +54,7 @@ N_t=4000
 inp_lmn = np.zeros((N_t, N_lmn))
 noise_lmn = np.random.randn(N_t, N_lmn)*noise_lmn_
 r_lmn = np.zeros((N_t, N_lmn))
-x_lmn = np.zeros(N_lmn)
+x_lmn = np.zeros((N_t, N_lmn))
 
 
 #############################
@@ -52,20 +62,11 @@ x_lmn = np.zeros(N_lmn)
 #############################
 w_lmn_adn = w_lmn_adn_
 noise_adn =  np.random.randn(N_t, N_adn)*noise_adn_
+noise_cal =  np.random.randn(N_t, N_adn)*noise_cal_
 r_adn = np.zeros((N_t, N_adn))
-# x_adn = np.random.randn(N_adn)
 x_adn = np.zeros((N_t, N_adn))
 x_cal = np.zeros((N_t, N_adn))
 I_ext = np.zeros((N_t, N_adn))
-
-
-#############################
-# TRN
-#############################
-r_trn = np.zeros((N_t))
-x_trn = 0
-w_adn_trn = w_adn_trn_
-w_trn_adn = w_trn_adn_
 
 
 ###########################
@@ -74,46 +75,36 @@ w_trn_adn = w_trn_adn_
 
 for i in range(1, N_t):
 
-	# LMN
-	r_lmn[i] = np.maximum(0, np.tanh(x_lmn))
-	x_lmn = x_lmn + tau * (
-		-x_lmn 
+	# LMN	
+	x_lmn[i] = x_lmn[i-1] + tau * (
+		-x_lmn[i-1] 
 		+ noise_lmn[i]
-		+ 1
+		+ I_lmn
 		)
+	# r_lmn[i] = np.maximum(0, np.tanh(x_lmn))
+	# r_lmn[i] = sigmoide(x_lmn[i], beta=1, thr=0)
+	r_lmn[i] = np.maximum(0, x_lmn[i])
+
+	# ADN
+	I_ext[i] = r_lmn[i]*w_lmn_adn
 
 
 	# Calcium
 	x_cal[i] = x_cal[i-1] + tau * (
 		- x_cal[i-1]
-		+ sigmoide(x_adn[i-1], thr=1.3)
-		+ np.random.randn()
+		+ sigmoide(x_adn[i-1], thr=thr_cal)		
+		+ noise_cal[i]
 		)
 
-	I_ext[i] = r_lmn[i]*w_lmn_adn
-
-	# I_ext[i] = sigmoide(x_cal+r_lmn[i]*w_lmn_adn-r_trn[i], 10, thr_adn) + noise_adn[i]
-	# I_ext[i] = np.maximum(0, np.tanh(x_cal+r_lmn[i]*w_lmn_adn-r_trn[i])) + noise_adn[i]
-
-
+	
 	x_adn[i] = x_adn[i-1] + tau * (
 		- x_adn[i-1]
 		+ I_ext[i]
 		+ noise_adn[i]
-		+ x_cal[i]
-		# + (1/(1+np.exp(-(I_ext-thr_adn)*5)))
-		# + ( 1/(1+np.exp(-(r_lmn[i]-thr_adn)*5)))*w_lmn_adn
-		# + noise_adn[i]
-		# - r_trn[i]
-		# + x_cal[i]
+		+ sigmoide(-x_cal[i], thr=-thr_shu)
 		)
-	# x_trn = x_trn + tau * (
-	# 	-x_trn
-	# 	+ np.sum(r_adn[i])*w_adn_trn
-	# 	)
-
-	# ADN
-	r_adn[i] = sigmoide(x_adn[i], thr=1.0)
+	
+	r_adn[i] = sigmoide(x_adn[i], thr=thr_adn)
 
 	# # TRN
 	# r_trn[i] = np.maximum(0, np.tanh(x_trn))
@@ -125,18 +116,21 @@ for i in range(1, N_t):
 # N_t = 6000
 figure()
 ax = subplot(411)
-plot(r_lmn, '.-')
+plot(r_lmn, '-', label="r_lmn")
+plot(x_lmn, '--', label="x_lmn", alpha=0.3)
+legend()
 title("r_lmn")
 ax = subplot(412, sharex=ax)
-plot(x_adn, '.-')
-axhline(1.1)
-axhline(1.0)
+plot(x_adn, '-')
+axhline(thr_adn, linestyle='--')
+axhline(thr_cal)
 title("x_adn")
 subplot(413,sharex=ax)
-plot(x_cal, '.-')
+plot(x_cal, '-')
+axhline(thr_shu)
 title("X_cal")
 subplot(414, sharex=ax)
-plot(r_adn, '.-')
+plot(r_adn, '-')
 title("r_adn")
 
 show()

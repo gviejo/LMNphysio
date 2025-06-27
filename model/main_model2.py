@@ -2,9 +2,9 @@
 # @Author: Guillaume Viejo
 # @Date:   2025-06-19 15:28:18
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-06-27 18:08:18
+# @Last Modified time: 2025-06-27 18:29:03
 """
-2 LMN -> 2 ADN 
+N LMN -> N ADN 
 Non linearity + CAN Current + inhibition in ADN
 
 """
@@ -14,8 +14,9 @@ from matplotlib.pyplot import *
 from scipy.ndimage import gaussian_filter, gaussian_filter1d
 from sklearn.manifold import Isomap
 from sklearn.decomposition import KernelPCA
+from sklearn.manifold import Isomap
 from scipy.stats import pearsonr
-
+from sklearn.preprocessing import StandardScaler
 from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 from numba import jit, njit
 
@@ -29,8 +30,8 @@ def sigmoide(x, beta=30, thr=1):
 # 				w_lmn_adn_, noise_adn_, 
 # 				w_adn_trn_, w_trn_adn_, thr_adn, N_t=4000):
 tau = 0.1
-N_lmn = 2
-N_adn = 2
+N_lmn = 12
+N_adn = 12
 
 noise_lmn_=0.1
 noise_adn_=0.1
@@ -86,7 +87,7 @@ w_trn_adn = w_trn_adn_
 
 for i in range(1, N_t):
 
-	# LMN	
+	# LMN
 	x_lmn[i] = x_lmn[i-1] + tau * (
 		-x_lmn[i-1] 
 		+ noise_lmn[i]
@@ -101,7 +102,7 @@ for i in range(1, N_t):
 	# Calcium
 	x_cal[i] = x_cal[i-1] + tau * (
 		- x_cal[i-1]
-		+ sigmoide(x_adn[i-1], thr=thr_cal)
+		+ sigmoide(x_adn[i-1], thr=thr_cal)		
 		+ noise_cal[i]
 		)
 
@@ -115,6 +116,7 @@ for i in range(1, N_t):
 
 	r_adn[i] = sigmoide(x_adn[i], thr=thr_adn)	
 
+
 	# TRN
 	x_trn[i] = x_trn[i-1] + tau * (
 		-x_trn[i-1]
@@ -126,27 +128,42 @@ for i in range(1, N_t):
 
 
 
+tmp = StandardScaler().fit_transform(gaussian_filter1d(r_adn, 1, axis=0))
+idx = np.mean(tmp, 1) > np.percentile(np.mean(tmp, 1), 80)
+imap = KernelPCA(n_components=2, kernel='cosine').fit_transform(tmp)
+# imap = Isomap(n_components=2).fit_transform(tmp)
+# from umap import UMAP
+# imap = UMAP().fit_transform(r_adn)
+
+
 figure()
-ax = subplot(511)
-plot(r_lmn, '-')
+n_rows = 6
+ax = subplot(n_rows,1,1)
+# plot(r_lmn, '-')
+pcolormesh(r_lmn.T, cmap='jet', vmin=0.9)
 ylabel("r_lmn")
-ax = subplot(512, sharex=ax)
+ax = subplot(n_rows,1,2, sharex=ax)
 plot(x_adn, '-')
 axhline(thr_adn, linestyle='--')
 axhline(thr_cal)
 ylabel("x_adn")
-subplot(513,sharex=ax)
+subplot(n_rows,1,3,sharex=ax)
 plot(x_cal, '-')
 axhline(thr_shu)
 ylabel("X_cal")
-subplot(514, sharex=ax)
+subplot(n_rows,1,4, sharex=ax)
 plot(r_adn, '-')
 ylabel("r_adn")
-subplot(515, sharex=ax)
+subplot(n_rows,1,5, sharex=ax)
+pcolormesh(r_adn.T, cmap='jet')
+ylabel("r_adn")
+subplot(n_rows,1,6, sharex=ax)
 plot(r_trn, '-', color='red')
 plot(x_trn, '--', color='gray')
 ylabel("r_trn")
-tight_layout()
+
+figure()
+scatter(imap[:,0], imap[:,1])
 
 
 show()
