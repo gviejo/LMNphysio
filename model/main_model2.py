@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2025-06-19 15:28:18
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-06-27 18:29:03
+# @Last Modified by:   gviejo
+# @Last Modified time: 2025-06-28 13:06:26
 """
 N LMN -> N ADN 
 Non linearity + CAN Current + inhibition in ADN
@@ -22,7 +22,7 @@ from numba import jit, njit
 
 
 @njit
-def sigmoide(x, beta=30, thr=1):
+def sigmoide(x, beta=50, thr=1):
 	return 1/(1+np.exp(-(x-thr)*beta))
 
 # # @njit
@@ -47,7 +47,7 @@ thr_shu=1.0
 
 I_lmn = 1.0
 
-N_t=10000
+N_t=5000
 
 
 
@@ -102,7 +102,7 @@ for i in range(1, N_t):
 	# Calcium
 	x_cal[i] = x_cal[i-1] + tau * (
 		- x_cal[i-1]
-		+ sigmoide(x_adn[i-1], thr=thr_cal)		
+		+ sigmoide(x_adn[i-1], thr=thr_cal, beta=10)		
 		+ noise_cal[i]
 		)
 
@@ -111,7 +111,7 @@ for i in range(1, N_t):
 		- x_adn[i-1]
 		+ I_ext[i]
 		+ noise_adn[i]
-		+ sigmoide(-x_cal[i], thr=-thr_shu)
+		+ sigmoide(-x_cal[i], thr=-thr_shu, beta=10)
 		)
 
 	r_adn[i] = sigmoide(x_adn[i], thr=thr_adn)	

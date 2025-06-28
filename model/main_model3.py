@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2025-06-19 15:28:18
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-06-27 18:48:07
+# @Last Modified by:   gviejo
+# @Last Modified time: 2025-06-28 13:05:32
 """
 N LMN -> N ADN 
 Non linearity + CAN Current + inhibition in ADN + PSB Feedback
@@ -39,7 +39,7 @@ def make_PSB_LMN_weights(N, sigma=100.0):
 
 
 @njit
-def sigmoide(x, beta=20, thr=1):
+def sigmoide(x, beta=50, thr=1):
 	return 1/(1+np.exp(-(x-thr)*beta))
 
 # # @njit
@@ -47,10 +47,10 @@ def sigmoide(x, beta=20, thr=1):
 # 				w_lmn_adn_, noise_adn_, 
 # 				w_adn_trn_, w_trn_adn_, thr_adn, N_t=4000):
 tau = 0.1
-N_lmn = 12
-N_adn = 12
+N_lmn = 60
+N_adn = 60
 
-noise_lmn_=0.1
+noise_lmn_=1.0
 noise_adn_=0.1
 noise_cal_=0.1
 
@@ -64,7 +64,7 @@ thr_cal=1.0
 thr_shu=1.0
 
 
-N_t=20000
+N_t=10000
 
 
 
@@ -101,7 +101,7 @@ w_trn_adn = w_trn_adn_
 ############################
 # PSB FEEDback
 ############################
-w_psb_lmn = make_PSB_LMN_weights(N_lmn, 30)*w_psb_lmn_
+w_psb_lmn = make_PSB_LMN_weights(N_lmn, 100)*w_psb_lmn_
 
 
 ###########################
@@ -117,7 +117,7 @@ for i in range(1, N_t):
 		-x_lmn[i-1] 
 		+ noise_lmn[i]
 		+ I_lmn
-		+ 1.0
+		+ 1.1
 		)
 	r_lmn[i] = np.maximum(0, x_lmn[i])
 
@@ -128,7 +128,7 @@ for i in range(1, N_t):
 	# Calcium
 	x_cal[i] = x_cal[i-1] + tau * (
 		- x_cal[i-1]
-		+ sigmoide(x_adn[i-1], thr=thr_cal)
+		+ sigmoide(x_adn[i-1], thr=thr_cal, beta=1)
 		+ noise_cal[i]
 		)
 
@@ -137,7 +137,7 @@ for i in range(1, N_t):
 		- x_adn[i-1]
 		+ I_ext[i]
 		+ noise_adn[i]
-		+ sigmoide(-x_cal[i], thr=-thr_shu)
+		+ sigmoide(-x_cal[i], thr=-thr_shu, beta=1)
 		)
 
 	r_adn[i] = sigmoide(x_adn[i], thr=thr_adn)
@@ -156,8 +156,10 @@ for i in range(1, N_t):
 
 tmp = StandardScaler().fit_transform(gaussian_filter1d(r_adn, 1, axis=0))
 imap = KernelPCA(n_components=2, kernel='cosine').fit_transform(tmp)
+# imap = Isomap(n_components=2).fit_transform(tmp)
 tmp = StandardScaler().fit_transform(gaussian_filter1d(r_lmn, 1, axis=0))
 imap2 = KernelPCA(n_components=2, kernel='cosine').fit_transform(tmp)
+# imap2 = Isomap(n_components=2).fit_transform(tmp)
 
 # imap = Isomap(n_components=2).fit_transform(tmp)
 # from umap import UMAP
