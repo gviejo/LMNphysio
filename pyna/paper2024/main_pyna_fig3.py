@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-06-02 12:38:53
+# @Last Modified time: 2025-06-28 18:04:18
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -583,3 +583,19 @@ savefig(
     facecolor="white",
 )
 # show()
+
+
+
+corr3['chfr'] = pd.Series({s:delta[delta.index.str.contains(s)].mean() for s in corr3.index.values})
+
+
+figure()
+plot(corr3['opto'], corr3['chfr'], 'o')
+xlabel("Session correlation", fontsize=12)
+ylabel("Delta firing rate", fontsize=12)
+m, b = np.polyfit(corr3['opto'], corr3['chfr'], 1)
+x = np.linspace(corr3['opto'].min(), corr3['opto'].max(),5)
+plot(x, x*m + b)
+tau, p = scipy.stats.kendalltau(corr3['opto'], corr3['chfr'])
+title(f"tau={np.round(tau,2)}, p={np.round(p,2)}", fontsize=12)
+savefig(os.path.expanduser("~") + "/Dropbox/LMNphysio/summary_opto/fig_corr_coh_rate.png")
