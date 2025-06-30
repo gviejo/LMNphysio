@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2025-06-19 15:28:18
 # @Last Modified by:   gviejo
-# @Last Modified time: 2025-06-28 13:06:26
+# @Last Modified time: 2025-06-29 21:51:30
 """
 N LMN -> N ADN 
 Non linearity + CAN Current + inhibition in ADN
@@ -21,6 +21,27 @@ from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 from numba import jit, njit
 
 
+def make_direct_weights(N_in, N_out):
+	w = np.eye(N_in)
+	w = np.repeat(w, N_out//N_in, axis=0)
+	return w
+
+def make_circular_weights(N_in, N_out, sigma=10):
+    x = np.arange(-N_in//2, N_in//2)
+    y = np.exp(-(x * x) / sigma)
+    
+    # Manual tiling replacement: concatenate y with itself
+    y_tiled = np.concatenate((y, y))
+    
+    # Slice the middle portion
+    y = y_tiled[N_in//2:-N_in//2]
+    
+    w = np.zeros((N_out, N_in))
+    for i in range(N_out):
+        w[i] = np.roll(y, i*N_in//N_out)
+    
+    return w	
+
 @njit
 def sigmoide(x, beta=50, thr=1):
 	return 1/(1+np.exp(-(x-thr)*beta))
@@ -31,23 +52,25 @@ def sigmoide(x, beta=50, thr=1):
 # 				w_adn_trn_, w_trn_adn_, thr_adn, N_t=4000):
 tau = 0.1
 N_lmn = 12
-N_adn = 12
+N_adn = 36
 
-noise_lmn_=0.1
+noise_lmn_=1.0
 noise_adn_=0.1
-noise_cal_=0.1
+noise_cal_=0.2
 
 w_lmn_adn_=1
 w_adn_trn_=1
 w_trn_adn_=1
 
-thr_adn=1.5
-thr_cal=1.0
+thr_adn=1.0
+thr_cal=0.5
 thr_shu=1.0
 
-I_lmn = 1.0
+sigma_adn_lmn = 1
 
-N_t=5000
+D_lmn = 1.1
+
+N_t=2000
 
 
 
@@ -63,7 +86,8 @@ x_lmn = np.zeros((N_t, N_lmn))
 #############################
 # ADN
 #############################
-w_lmn_adn = w_lmn_adn_
+# w_lmn_adn = make_circular_weights(N_lmn, N_adn, sigma=sigma_adn_lmn)*w_lmn_adn_
+w_lmn_adn = make_direct_weights(N_lmn, N_adn)*w_lmn_adn_
 noise_adn =  np.random.randn(N_t, N_adn)*noise_adn_
 noise_cal =  np.random.randn(N_t, N_adn)*noise_cal_
 r_adn = np.zeros((N_t, N_adn))
@@ -91,27 +115,26 @@ for i in range(1, N_t):
 	x_lmn[i] = x_lmn[i-1] + tau * (
 		-x_lmn[i-1] 
 		+ noise_lmn[i]
-		+ I_lmn
+		+ D_lmn
 		)
 	r_lmn[i] = np.maximum(0, x_lmn[i])
 
 	# ADN
-	I_ext[i] = r_lmn[i]*w_lmn_adn - r_trn[i-1] * w_trn_adn
+	I_ext[i] = np.dot(w_lmn_adn, r_lmn[i]) - r_trn[i-1] * w_trn_adn + sigmoide(-x_cal[i], thr=-thr_shu)*0
 
 
 	# Calcium
 	x_cal[i] = x_cal[i-1] + tau * (
 		- x_cal[i-1]
-		+ sigmoide(x_adn[i-1], thr=thr_cal, beta=10)		
-		+ noise_cal[i]
+		+ sigmoide(r_adn[i-1], thr=thr_cal)
+		# + noise_cal[i]
 		)
 
 	
 	x_adn[i] = x_adn[i-1] + tau * (
 		- x_adn[i-1]
 		+ I_ext[i]
-		+ noise_adn[i]
-		+ sigmoide(-x_cal[i], thr=-thr_shu, beta=10)
+		+ noise_adn[i]		
 		)
 
 	r_adn[i] = sigmoide(x_adn[i], thr=thr_adn)	
@@ -128,8 +151,8 @@ for i in range(1, N_t):
 
 
 
-tmp = StandardScaler().fit_transform(gaussian_filter1d(r_adn, 1, axis=0))
-idx = np.mean(tmp, 1) > np.percentile(np.mean(tmp, 1), 80)
+tmp = StandardScaler().fit_transform(gaussian_filter1d(r_adn[100:], 1, axis=0))
+# idx = np.mean(tmp, 1) > np.percentile(np.mean(tmp, 1), 80)
 imap = KernelPCA(n_components=2, kernel='cosine').fit_transform(tmp)
 # imap = Isomap(n_components=2).fit_transform(tmp)
 # from umap import UMAP
@@ -137,10 +160,10 @@ imap = KernelPCA(n_components=2, kernel='cosine').fit_transform(tmp)
 
 
 figure()
-n_rows = 6
+n_rows = 7
 ax = subplot(n_rows,1,1)
-# plot(r_lmn, '-')
-pcolormesh(r_lmn.T, cmap='jet', vmin=0.9)
+plot(r_lmn, '-')
+# pcolormesh(r_lmn.T, cmap='jet', vmin=0.9)
 ylabel("r_lmn")
 ax = subplot(n_rows,1,2, sharex=ax)
 plot(x_adn, '-')
@@ -161,6 +184,9 @@ subplot(n_rows,1,6, sharex=ax)
 plot(r_trn, '-', color='red')
 plot(x_trn, '--', color='gray')
 ylabel("r_trn")
+subplot(n_rows,1,7,sharex=ax)
+plot(I_ext)
+ylabel("I ADN")
 
 figure()
 scatter(imap[:,0], imap[:,1])

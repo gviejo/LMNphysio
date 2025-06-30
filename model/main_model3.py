@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2025-06-19 15:28:18
 # @Last Modified by:   gviejo
-# @Last Modified time: 2025-06-28 13:05:32
+# @Last Modified time: 2025-06-29 21:49:43
 """
 N LMN -> N ADN 
 Non linearity + CAN Current + inhibition in ADN + PSB Feedback
@@ -20,26 +20,30 @@ from sklearn.preprocessing import StandardScaler
 from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 from numba import jit, njit
 
-@njit
-def make_PSB_LMN_weights(N, sigma=100.0):
-    x = np.arange(-N//2, N//2)
+
+def make_direct_weights(N_in, N_out):
+	w = np.eye(N_in)
+	w = np.repeat(w, N_out//N_in, axis=0)
+	return w
+
+def make_circular_weights(N_in, N_out, sigma=10):
+    x = np.arange(-N_in//2, N_in//2)
     y = np.exp(-(x * x) / sigma)
     
     # Manual tiling replacement: concatenate y with itself
     y_tiled = np.concatenate((y, y))
     
     # Slice the middle portion
-    y = y_tiled[N//2:-N//2]
+    y = y_tiled[N_in//2:-N_in//2]
     
-    w = np.zeros((N, N))
-    for i in range(N):
-        w[i] = np.roll(y, i)
+    w = np.zeros((N_out, N_in))
+    for i in range(N_out):
+        w[i] = np.roll(y, i*N_in//N_out)
     
     return w
 
-
 @njit
-def sigmoide(x, beta=50, thr=1):
+def sigmoide(x, beta=20, thr=1):
 	return 1/(1+np.exp(-(x-thr)*beta))
 
 # # @njit
@@ -47,24 +51,29 @@ def sigmoide(x, beta=50, thr=1):
 # 				w_lmn_adn_, noise_adn_, 
 # 				w_adn_trn_, w_trn_adn_, thr_adn, N_t=4000):
 tau = 0.1
-N_lmn = 60
-N_adn = 60
+N_lmn = 12
+N_adn = 48
 
 noise_lmn_=1.0
 noise_adn_=0.1
-noise_cal_=0.1
+noise_cal_=0.2
 
 w_lmn_adn_=1
 w_adn_trn_=1
 w_trn_adn_=1
 w_psb_lmn_=1
 
-thr_adn=1.5
-thr_cal=1.0
+thr_adn=1.0
+thr_cal=0.5
 thr_shu=1.0
 
+sigma_adn_lmn = 1
+sigma_psb_lmn = 8
 
-N_t=10000
+D_lmn = 1-w_psb_lmn_
+
+
+N_t=2000
 
 
 
@@ -80,7 +89,8 @@ x_lmn = np.zeros((N_t, N_lmn))
 #############################
 # ADN
 #############################
-w_lmn_adn = w_lmn_adn_
+# w_lmn_adn = make_circular_weights(N_lmn, N_adn, sigma=sigma_adn_lmn)*w_lmn_adn_
+w_lmn_adn = make_direct_weights(N_lmn, N_adn)*w_lmn_adn_
 noise_adn =  np.random.randn(N_t, N_adn)*noise_adn_
 noise_cal =  np.random.randn(N_t, N_adn)*noise_cal_
 r_adn = np.zeros((N_t, N_adn))
@@ -101,7 +111,7 @@ w_trn_adn = w_trn_adn_
 ############################
 # PSB FEEDback
 ############################
-w_psb_lmn = make_PSB_LMN_weights(N_lmn, 100)*w_psb_lmn_
+w_psb_lmn = make_circular_weights(N_adn, N_lmn, sigma=sigma_psb_lmn)*w_psb_lmn_
 
 
 ###########################
@@ -117,18 +127,18 @@ for i in range(1, N_t):
 		-x_lmn[i-1] 
 		+ noise_lmn[i]
 		+ I_lmn
-		+ 1.1
+		+ D_lmn
 		)
 	r_lmn[i] = np.maximum(0, x_lmn[i])
 
 	# ADN
-	I_ext[i] = r_lmn[i]*w_lmn_adn - r_trn[i-1] * w_trn_adn
+	I_ext[i] = np.dot(w_lmn_adn, r_lmn[i]) - r_trn[i-1] * w_trn_adn + sigmoide(-x_cal[i], thr=-thr_shu)
 
 
 	# Calcium
 	x_cal[i] = x_cal[i-1] + tau * (
 		- x_cal[i-1]
-		+ sigmoide(x_adn[i-1], thr=thr_cal, beta=1)
+		+ sigmoide(r_adn[i-1], thr=thr_cal)
 		+ noise_cal[i]
 		)
 
@@ -137,7 +147,6 @@ for i in range(1, N_t):
 		- x_adn[i-1]
 		+ I_ext[i]
 		+ noise_adn[i]
-		+ sigmoide(-x_cal[i], thr=-thr_shu, beta=1)
 		)
 
 	r_adn[i] = sigmoide(x_adn[i], thr=thr_adn)
@@ -175,7 +184,6 @@ ylabel("r_lmn")
 ax = subplot(n_rows,1,2, sharex=ax)
 plot(x_adn, '-')
 axhline(thr_adn, linestyle='--')
-axhline(thr_cal)
 ylabel("x_adn")
 subplot(n_rows,1,3,sharex=ax)
 plot(x_cal, '-')
@@ -183,6 +191,7 @@ axhline(thr_shu)
 ylabel("X_cal")
 subplot(n_rows,1,4, sharex=ax)
 plot(r_adn, '-')
+axhline(thr_cal)
 ylabel("r_adn")
 subplot(n_rows,1,5, sharex=ax)
 pcolormesh(r_adn.T, cmap='jet')

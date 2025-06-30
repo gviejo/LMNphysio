@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2025-06-19 15:28:18
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-06-28 18:19:19
+# @Last Modified by:   gviejo
+# @Last Modified time: 2025-06-29 23:20:41
 """
 N LMN -> N ADN 
 Non linearity + CAN Current + inhibition in ADN + PSB Feedback
@@ -21,38 +21,27 @@ from scipy.stats import pearsonr
 from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 from numba import jit, njit
 
-@njit
-def make_PSB_LMN_weights(N, M, sigma=100.0):
-    x = np.arange(-N//2, N//2)
+
+
+
+def make_direct_weights(N_in, N_out):
+	w = np.eye(N_in)
+	w = np.repeat(w, N_out//N_in, axis=0)
+	return w
+
+def make_circular_weights(N_in, N_out, sigma=10):
+    x = np.arange(-N_in//2, N_in//2)
     y = np.exp(-(x * x) / sigma)
     
     # Manual tiling replacement: concatenate y with itself
     y_tiled = np.concatenate((y, y))
     
     # Slice the middle portion
-    y = y_tiled[N//2:-N//2]
+    y = y_tiled[N_in//2:-N_in//2]
     
-    w = np.zeros((N, N))
-    for i in range(N):
-        w[i] = np.roll(y, i)
-    
-    return w
-
-
-@njit
-def make_ADN_LMN_weights(N, M, sigma=100.0):
-    x = np.arange(-N//2, N//2)
-    y = np.exp(-(x * x) / sigma)
-    
-    # Manual tiling replacement: concatenate y with itself
-    y_tiled = np.concatenate((y, y))
-    
-    # Slice the middle portion
-    y = y_tiled[N//2:-N//2]
-    
-    w = np.zeros((N, N))
-    for i in range(N):
-        w[i] = np.roll(y, i)
+    w = np.zeros((N_out, N_in))
+    for i in range(N_out):
+        w[i] = np.roll(y, i*N_in//N_out)
     
     return w
 
@@ -63,41 +52,47 @@ def sigmoide(x, beta=50, thr=1):
 
 
 tau = 0.1
-N_lmn = 32
-N_adn = 64
+N_lmn = 12
+N_adn = 48
 
-noise_lmn_=0.5
+noise_lmn_=1.0
 noise_adn_=0.1
-noise_cal_=0.1
+noise_cal_=0.2
 
 w_lmn_adn_=1
 w_adn_trn_=1
 w_trn_adn_=1
 w_psb_lmn_=1
 
-thr_adn=1.5
-thr_cal=1.0
+thr_adn=1.0
+thr_cal=0.5
 thr_shu=1.0
 
-D_lmn = 0.1
+sigma_adn_lmn = 1
+sigma_psb_lmn = 8
 
-N_t=30000
+
+D_lmn = 1-w_psb_lmn_
+
+N_t=6000
 
 
-phase = np.linspace(0, 2*np.pi*(N_t//200), N_t)%(2*np.pi)
+alpha = 2.0 # Wakefulness -> Sleep
+beta = 1.0 # OPTO PSB Feedback
+
+
+phase = np.linspace(0, 2*np.pi*(N_t//100), N_t)%(2*np.pi)
 idx = np.digitize(phase, np.linspace(0, 2*np.pi, N_lmn+1))
 if idx.min() == 1:
     idx -= 1
 
 offset = 100
-duration = 10000
+duration = N_t//3
 slices = [
     slice(offset, duration*1), #Wakefulness
     slice(duration*1+offset, duration*2), # Full model
     slice(duration*2+offset, duration*3), # Without PSB Feedback            
         ]
-alpha = 4.0 # Wakefulness -> Sleep
-beta = 1.0 # OPTO PSB Feedback
 
 #############################
 # LMN
@@ -105,7 +100,10 @@ beta = 1.0 # OPTO PSB Feedback
 inp_lmn = np.zeros((N_t, N_lmn))
 for i in range(N_t):
     inp_lmn[i,idx[i]] = 1.0
+# inp_lmn = gaussian_filter1d(inp_lmn, sigma=5, axis=0)
+
 noise_lmn = np.random.randn(N_t, N_lmn)*noise_lmn_
+noise_lmn[0:duration] *= 0.0
 r_lmn = np.zeros((N_t, N_lmn))
 x_lmn = np.zeros((N_t, N_lmn))
 
@@ -113,7 +111,8 @@ x_lmn = np.zeros((N_t, N_lmn))
 #############################
 # ADN
 #############################
-w_lmn_adn = w_lmn_adn_
+w_lmn_adn = make_circular_weights(N_lmn, N_adn, sigma=sigma_adn_lmn)*w_lmn_adn_
+# w_lmn_adn = make_direct_weights(N_lmn, N_adn)*w_lmn_adn_
 noise_adn =  np.random.randn(N_t, N_adn)*noise_adn_
 noise_cal =  np.random.randn(N_t, N_adn)*noise_cal_
 r_adn = np.zeros((N_t, N_adn))
@@ -134,9 +133,7 @@ w_trn_adn = w_trn_adn_
 ############################
 # PSB FEEDback
 ############################
-w_psb_lmn = make_PSB_LMN_weights(N_lmn, N_adn, 50)*w_psb_lmn_
-
-
+w_psb_lmn = make_circular_weights(N_adn, N_lmn, sigma=sigma_psb_lmn)*w_psb_lmn_
 
 
 ###########################
@@ -147,10 +144,10 @@ for i in range(1, N_t):
 
     if i == slices[0].stop:
         alpha = 0.0
-        D_lmn = 1.1
+        D_lmn = 1-w_psb_lmn_
     if i == slices[1].stop:
         beta = 0.0
-        D_lmn = 1.1
+        D_lmn = 1-w_psb_lmn_
 
 
     I_lmn = np.dot(w_psb_lmn, r_adn[i-1]) + inp_lmn[i] * alpha
@@ -165,7 +162,7 @@ for i in range(1, N_t):
     r_lmn[i] = np.maximum(0, x_lmn[i])
 
     # ADN
-    I_ext[i] = r_lmn[i]*w_lmn_adn - r_trn[i-1] * w_trn_adn
+    I_ext[i] = np.dot(w_lmn_adn, r_lmn[i]) - r_trn[i-1] * w_trn_adn + sigmoide(-x_cal[i], thr=-thr_shu)
 
 
     # Calcium
@@ -179,8 +176,7 @@ for i in range(1, N_t):
     x_adn[i] = x_adn[i-1] + tau * (
         - x_adn[i-1]
         + I_ext[i]
-        + noise_adn[i]
-        + sigmoide(-x_cal[i], thr=-thr_shu)
+        + noise_adn[i]        
         )
 
     r_adn[i] = sigmoide(x_adn[i], thr=thr_adn)
@@ -207,8 +203,8 @@ for k, r in zip(['lmn', 'adn'],[r_lmn, r_adn]):
     
         # sum_ = r[sl].sum(1)
         # idx = sum_>np.percentile(sum_, 10)
-        tmp = gaussian_filter(r[sl], sigma=1, order=(0,1))
-        # tmp = r[sl]
+        # tmp = gaussian_filter(r[sl], sigma=1, order=(0,1))
+        tmp = r[sl]
         tmp = StandardScaler().fit_transform(tmp)
         # tmp = r[sl]        
         # tmp = tmp[tmp.mean(1) > np.percentile(np.mean(tmp, 1), 50)]
@@ -235,7 +231,7 @@ for i, st in enumerate(['lmn', 'adn']):
         xlabel("wake")
         if j == 0:
             ylabel("Full sleep")
-        if j == 0:
+        if j == 1:
             ylabel("No PSB feedback")
         title(st + " " + f"r={np.round(r,2)}")
 
