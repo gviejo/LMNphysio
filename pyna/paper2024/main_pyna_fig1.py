@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   gviejo
-# @Last Modified time: 2025-06-24 23:02:55
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2025-07-01 18:29:29
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -510,7 +510,8 @@ gs_top2 = gridspec.GridSpecFromSubplotSpec(
 
 
 
-adn_idx = [adn[12], adn[13], adn[1]]
+# adn_idx = [adn[12], adn[13], adn[1]]
+adn_idx = [adn[12], adn[13], adn[5]] # 3 6
 lmn_idx = [lmn[9], lmn[7], lmn[3]]
 
 for i, (s, idx) in enumerate(zip(['adn', 'lmn'], [adn_idx, lmn_idx])):
@@ -569,15 +570,19 @@ for i, (s, idx) in enumerate(zip(['adn', 'lmn'], [adn_idx, lmn_idx])):
 
 
             xlim(exs[e].start[0], exs[e].end[0])
+            yticks([-1, 0, 1], [1, 0, 1])
             # gca().set_yticks([])
             # gca().spines["left"].set_visible(False)
 
             if j == 0 and k == 1:
                 gca().spines["bottom"].set_bounds(exs['wak'].end[0] - 2, exs['wak'].end[0])
-                xticks([exs['wak'].end[0] - 1], ["2 s"])
+                xticks([exs['wak'].end[0] - 2, exs['wak'].end[0]], ["", ""])                
+                text(exs['wak'].end[0] - 1, -2.2, s="2 sec.", va="center", ha="center")
+
             elif j == 1 and k == 1:
                 gca().spines["bottom"].set_bounds(exs['sws'].end[0] - 0.5, exs['sws'].end[0])
-                xticks([exs['sws'].end[0] - 0.25], ["0.5 s"])
+                xticks([exs['sws'].end[0] - 0.5, exs['sws'].end[0]], ["", ""])
+                text(exs['sws'].end[0] - 0.25, -2.2, s="0.5 sec.", va="center", ha="center")
             else:
                 gca().spines["bottom"].set_visible(False)
                 gca().set_xticks([])                
@@ -611,16 +616,17 @@ for i, (g, idx) in enumerate(zip(['adn', 'lmn'], [adn_idx, lmn_idx])):
     m, b = np.polyfit(tmp['wak'].values, tmp['sws'].values, 1)
     x = np.linspace(tmp['wak'].min(), tmp['wak'].max(),5)
     plot(x, x*m + b, linewidth=0.1)    
-    ylabel(epochs['sws'] + " corr.")
+    ylabel(epochs['sws'] + " corr. (r)")
     if i == 1: 
-        xlabel(epochs['wak'] + " corr.")
+        xlabel(epochs['wak'] + " corr. (r)")
         gca().set_xticks([-0.5, 0., 0.5])
         gca().set_yticks([-0.5, 0., 0.5])
 
 
     xlim(*minmax)
     ylim(*minmax)
-    title(names[g], y=0.8)
+    r, _ = scipy.stats.pearsonr(tmp['wak'].values, tmp['sws'].values)
+    title(f"r={np.round(r, 2)}", y=0.8)
 
     if i == 0: 
         gca().set_xticks([-0.5, 0., 0.5], ['', '', ''])
@@ -633,7 +639,7 @@ for i, (g, idx) in enumerate(zip(['adn', 'lmn'], [adn_idx, lmn_idx])):
     
 
     p1 = tmp.loc[(idx[0],idx[1]),['wak','sws']].values
-    p2 = tmp.loc[(idx[0],idx[2]),['wak','sws']].values
+    p2 = tmp.loc[tuple(np.sort((idx[0],idx[2]))),['wak','sws']].values
     
     plot(p1[0], p1[1], 'o', mec=COLOR, mfc="white", alpha=1, markersize=2)
     plot(p2[0], p2[1], 'o', mec=COLOR, mfc="white", alpha=1, markersize=2)
@@ -755,14 +761,14 @@ subplot(gs_bottom1[0, 1])
 gca().invert_yaxis()
 simpleaxis(gca())
 
-[axhline(b, linewidth=0.25, color = 'grey') for b in angbins[1:-1]]    
+# [axhline(b, linewidth=0.25, color = 'grey') for b in angbins[1:-1]]    
 count = []
 for i, g in enumerate(['adn', 'lmn']):
     tmp = allr[g].dropna()
     angdiff = tmp['ang'].sort_values().values    
     plot(np.arange(len(angdiff)), angdiff, '-', color = colors[g], linewidth=2)
     title("HD neuron\npair")
-    ylabel("Ang.\ndiff.\n(deg.)", rotation=0, labelpad=0, y=0.2)
+    ylabel("Ang. diff. (deg.)")#, rotation=0, labelpad=0, y=0.2)
     yticks([0, np.pi], ["0", "180"])
     ylim(np.pi, 0)
     count.append(len(angdiff))
@@ -822,7 +828,7 @@ for k, g in enumerate(['adn', 'lmn']):
         )
 
     if k == 0:        
-        text(1.0, 1.4, "Corr.", transform=gca().transAxes)
+        text(1.0, 1.4, "Norm. x corr.", transform=gca().transAxes)
         xlabel("Time lag (s)", x = 1.5)
 
     xticks([0, len(Z)//2, len(Z)], [-1, 0, 1])
@@ -833,6 +839,7 @@ for k, g in enumerate(['adn', 'lmn']):
 axip = gca().inset_axes([1.1, 0, 0.15, 0.8])
 colorbar(im, cax=axip)
 axip.set_title("Z", y=0.9)
+axip.set_yticks([-2, 0, 2], ["-2", "0", "2"])
 
 
 # #####################################

@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-08-10 17:16:25
-# @Last Modified by:   gviejo
-# @Last Modified time: 2025-01-08 12:27:10
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2025-07-01 18:19:24
 import scipy.io
 import sys, os
 import numpy as np
@@ -91,7 +91,7 @@ spikes2 = spikes[tokeep]
 
 colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'wheat', 'indianred', 'royalblue', 'plum', 'forestgreen']
 
-shank = spikes._metadata.group.values
+shank = spikes.group.values
 
 figure()
 count = 1
@@ -161,7 +161,8 @@ lmn = peaks[lmn].sort_values().index.values
 exs = {"A5011-201014A":
             { 'wak':nap.IntervalSet(start = 9604.5, end = 9613.7, time_units='s'),
             'rem':nap.IntervalSet(start = 15710.150000, end= 15720.363258, time_units = 's'),
-            'sws':nap.IntervalSet(start = 13653.07, end=13654.86, time_units = 's')},
+            # 'sws':nap.IntervalSet(start = 13653.07, end=13654.86, time_units = 's')},
+            'sws':nap.IntervalSet(start = 13876.0, end=13877.5, time_units = 's')},
         "A5043-230301A":
             { 'wak':nap.IntervalSet(start = 4560.50, end = 4600.00),
             'rem':nap.IntervalSet(start = 7600, end= 7627.0, time_units = 's'),
@@ -201,7 +202,7 @@ cPickle.dump(datatosave, open(filepath, 'wb'))
 sws2_ep = sws_ep[np.argsort(sws_ep.end-sws_ep.start)[-2]]
 
 
-adn_idx = [adn[12], adn[13], adn[4]]
+adn_idx = [adn[12], adn[13], adn[5]] # 3 6
 lmn_idx = [lmn[9], lmn[11], lmn[3]]
 
 # wake
@@ -242,22 +243,33 @@ step(tmp.t, tmp.d)
 subplot(414, sharex=ax)
 tmp = spikes[lmn_idx].restrict(sws_ep).count(0.03)
 step(tmp.t, tmp.d)
-show()
 
 
 
-
-# rem
 figure()
-ax = subplot(311)
-plot(angle_rem, '--')
-title("rem")
-subplot(312, sharex = ax)
-for i,n in enumerate(adn):
-    plot(spikes[n].restrict(rem_ep).fillna(i), '|', markersize = 10)
-subplot(313, sharex = ax)
-for i,n in enumerate(lmn):
-    plot(spikes[n].restrict(rem_ep).fillna(i), '|', markersize = 10)
+bin_sizes = [0.1, 0.01]
+j = 1
+gs = GridSpec(4,1)
+count = 0
+for i, idx in enumerate([adn_idx, lmn_idx]):
+    for k, p in enumerate([(idx[0], idx[1]), (idx[0], idx[2])]):
+        if i == 0 and k == 0:
+            ax = subplot(gs[count,0])
+        else:
+            ax = subplot(gs[count,0], sharex=ax)
+
+        rates = []
+        for u, n in enumerate(p):
+            tmp = spikes[n].count(bin_sizes[j]).smooth(bin_sizes[j]*2).restrict(sws_ep)
+            # tmp = tmp.smooth(5/tmp.rate)
+            tmp = tmp/tmp.max()
+            rates.append(tmp)
+        fill_between(rates[0].t, 0, rates[0].d)
+        step(rates[0].t, rates[0].d, linewidth=1, where='mid')
+
+        fill_between(rates[1].t, 0, -rates[1].d)
+        step(rates[1].t, -rates[1].d, linewidth=1, where='mid')
+        
+        count += 1            
 
 show()
-
