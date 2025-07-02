@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-07-01 18:29:29
+# @Last Modified by:   gviejo
+# @Last Modified time: 2025-07-01 21:36:31
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -236,7 +236,8 @@ outergs = GridSpec(4, 1, hspace = 0.45, height_ratios=[0.4, 0.6, 0.001, 0.25])
 
 
 names = {'adn':"ADN", 'lmn':"LMN"}
-epochs = {'wak':'Wake', 'sws':'Sleep'}
+epochs = {'wak':'Wakefulness', 'sws':'Non-REM sleep'}
+short_epochs = {'wak':'Wake', 'sws':'Sleep'}
 
 gs_top = gridspec.GridSpecFromSubplotSpec(
     1, 2, subplot_spec=outergs[0, 0], width_ratios=[0.5, 0.5], wspace=0.2
@@ -616,9 +617,9 @@ for i, (g, idx) in enumerate(zip(['adn', 'lmn'], [adn_idx, lmn_idx])):
     m, b = np.polyfit(tmp['wak'].values, tmp['sws'].values, 1)
     x = np.linspace(tmp['wak'].min(), tmp['wak'].max(),5)
     plot(x, x*m + b, linewidth=0.1)    
-    ylabel(epochs['sws'] + " corr. (r)")
+    ylabel(short_epochs['sws'] + " corr. (r)")
     if i == 1: 
-        xlabel(epochs['wak'] + " corr. (r)")
+        xlabel(short_epochs['wak'] + " corr. (r)")
         gca().set_xticks([-0.5, 0., 0.5])
         gca().set_yticks([-0.5, 0., 0.5])
 
@@ -740,68 +741,37 @@ gs_bottom = gridspec.GridSpecFromSubplotSpec(
 )
 
 
-# gs_bottom_right = gridspec.GridSpecFromSubplotSpec(
-#     2, 1, subplot_spec=gs_bottom[0,1], hspace=0.9, 
-# )
 
 
 
 gs_bottom1 = gridspec.GridSpecFromSubplotSpec(
-    1, 4, subplot_spec=gs_bottom[0,0], wspace=0.4, hspace = 0.5, width_ratios=[0.001, 0.1, 0.5, 0.5]
+    2, 4, subplot_spec=gs_bottom[0,0], wspace=0.4, hspace = 0.5, width_ratios=[0.1, 0.06, 0.5, 0.25]
 )
 
 
-
-# gs_ang_diff = gridspec.GridSpecFromSubplotSpec(
-#     3, 1, subplot_spec=gs_fisher[:,0], height_ratios=[0.4, 0.5, 0.4]
-# )
-
-
-subplot(gs_bottom1[0, 1])
-gca().invert_yaxis()
-simpleaxis(gca())
-
-# [axhline(b, linewidth=0.25, color = 'grey') for b in angbins[1:-1]]    
-count = []
 for i, g in enumerate(['adn', 'lmn']):
+
+
+    subplot(gs_bottom1[i, 1])
+    gca().invert_yaxis()
+    simpleaxis(gca())
+
+    # [axhline(b, linewidth=0.25, color = 'grey') for b in angbins[1:-1]]    
+    # count = []
+    # for i, g in enumerate(['adn', 'lmn']):
     tmp = allr[g].dropna()
     angdiff = tmp['ang'].sort_values().values    
     plot(np.arange(len(angdiff)), angdiff, '-', color = colors[g], linewidth=2)
-    title("HD neuron\npair")
-    ylabel("Ang. diff. (deg.)")#, rotation=0, labelpad=0, y=0.2)
+    if i == 0:
+        title("HD neuron\npair")
+        ylabel("Ang. diff. (deg.)", y=0.0)
     yticks([0, np.pi], ["0", "180"])
     ylim(np.pi, 0)
-    count.append(len(angdiff))
-count = np.array(count)
-xticks(count-1, count, rotation=90)
+    # count.append(len(angdiff))
+    # count = np.array(count)
+    xticks([len(angdiff)-1], [len(angdiff)])
 
-
-# gs_fisher = gridspec.GridSpecFromSubplotSpec(
-#     2, 2, subplot_spec=gs_bottom1[1, :], hspace = 1, wspace=1.0, width_ratios=[0.1, 0.2]
-# )
-
-
-# for i, b in enumerate([0, 2]):   
-#     subplot(gs_bottom1[i,0])
-#     simpleaxis(gca())
-
-#     for j, g in enumerate(['adn', 'lmn']):    
-#         step(zgroup.index.values, zgroup[g+"-"+str(b)]*100, np.mean(np.diff(zbins)), 
-#             label=names[g], color=colors[g])
-
-#         ylabel("%")#, labelpad=-10)
-#         # ylim(0, 25)
-#         yticks([0, 25])
-        
-#     if i == 1:
-#         xlabel("$|Z_{Wake} - Z_{Sleep}|$")
-#     # if i == 0: 
-#     #     legend(
-#     #         handlelength=0.5,
-#     #         loc="center",
-#     #         bbox_to_anchor=(0.5, 0.8, 0.5, 0.5),
-#     #         framealpha=0,
-#     #     )        
+    text(-4, 0.5, g.upper(), transform=gca().transAxes)
 
 # #####################################
 # # Cross-corrs
@@ -810,33 +780,42 @@ xticks(count-1, count, rotation=90)
 
 
 gs_cc = gridspec.GridSpecFromSubplotSpec(
-    1, 3, subplot_spec=gs_bottom1[0, 2], wspace = 0.5, width_ratios=[0.5, 0.5, 0.1]
+    2, 3, subplot_spec=gs_bottom1[:, 2], hspace = 0.4, wspace = 0.5, width_ratios=[0.5, 0.5, 0.1]
 )
 
 
-vmin = np.minimum(*[np.min(allcc[g]['sws'].values) for g in ['adn', 'lmn']])
-vmax = np.maximum(*[np.max(allcc[g]['sws'].values) for g in ['adn', 'lmn']])
+vmin = np.min([np.min(allcc[g][e].values) for g in ['adn', 'lmn'] for e in ['wak', 'sws']])
+vmax = np.max([np.max(allcc[g][e].values) for g in ['adn', 'lmn'] for e in ['wak', 'sws']])
 
 
 for k, g in enumerate(['adn', 'lmn']):
-    subplot(gs_cc[0,k])
-    simpleaxis(gca())
-    Z = allcc[g]['sws'].loc[-1:1]
-    im = imshow(Z.values.T, 
-        aspect='auto', vmin=vmin, vmax=vmax,
-        cmap='bwr'
-        )
+    for u, e in enumerate(['wak', 'sws']):
+        subplot(gs_cc[k,u])
+        simpleaxis(gca())
+        if u == 0:
+            Z = allcc[g][e].loc[-40:40]
+        else:
+            Z = allcc[g][e].loc[-1:1]
+        im = imshow(Z.values.T, 
+            aspect='auto', vmin=vmin, vmax=vmax,
+            cmap='bwr'
+            )
 
-    if k == 0:        
-        text(1.0, 1.4, "Norm. x corr.", transform=gca().transAxes)
-        xlabel("Time lag (s)", x = 1.5)
+        if k == 0 and u == 0:        
+            text(1.0, 1.9, "Norm. x corr.", transform=gca().transAxes)
+        if k == 1 and u == 0:
+            xlabel("Time lag (s)", x = 1.1)
+            xticks([0, len(Z)//2, len(Z)], [-40, 0, 40])
+        if k == 1 and u == 1:
+            xticks([0, len(Z)//2, len(Z)], [-1, 0, 1])
+        if k == 0:
+            xticks([0, len(Z)//2, len(Z)], ["", "", ""])
+            title(short_epochs[e])
+        # title(names[g], y=0.85)
+        yticks([])
 
-    xticks([0, len(Z)//2, len(Z)], [-1, 0, 1])
-    title(names[g], y=0.85)
-    yticks([])
 
-
-axip = gca().inset_axes([1.1, 0, 0.15, 0.8])
+axip = gca().inset_axes([1.15, 0.25, 0.15, 1.0])
 colorbar(im, cax=axip)
 axip.set_title("Z", y=0.9)
 axip.set_yticks([-2, 0, 2], ["-2", "0", "2"])
@@ -861,7 +840,7 @@ angdiff = data['angdiff']
 
 
 gs_cc = gridspec.GridSpecFromSubplotSpec(
-    1, 3, subplot_spec=gs_bottom1[0, 3], wspace = 0.5, width_ratios=[0.5, 0.5, 0.1]
+    2, 2, subplot_spec=gs_bottom1[:, 3], hspace=0.4, wspace = 0.5, width_ratios=[0.5, 0.1]
 )
 
 # for i, b in enumerate([0, 2]):
@@ -869,11 +848,11 @@ gs_cc = gridspec.GridSpecFromSubplotSpec(
 vmin = np.minimum(*[np.min(glm_cc[g]['sws'].values) for g in ['adn', 'lmn']])
 vmax = np.maximum(*[np.max(glm_cc[g]['sws'].values) for g in ['adn', 'lmn']])
 
-
+axis = []
 
 for k, g in enumerate(['adn', 'lmn']):
-    subplot(gs_cc[0,k])
-    simpleaxis(gca())
+    subplot(gs_cc[k,0])
+    ax = simpleaxis(gca())
     
     tmp = glm_cc[g]['sws'][angdiff[g].sort_values().index].apply(zscore)
     tmp = tmp.apply(gaussian_filter, axis=0, sigma=3)
@@ -884,22 +863,26 @@ for k, g in enumerate(['adn', 'lmn']):
         )
 
     yticks([])
-    xticks([0, len(tmp)//2, len(tmp)], [-0.5, 0, 0.5])    
+    if k == 1:
+        xticks([0, len(tmp)//2, len(tmp)], [-0.5, 0, 0.5])    
+    else:
+        xticks([0, len(tmp)//2, len(tmp)], ["", "", ""])
     
-    title(names[g], y=0.85)
+    # title(names[g], y=0.85)
 
-    if k == 0:
+    if k == 1:
         # ylabel(r"$\beta_t$", rotation=0, labelpad=2)
-        xlabel("Time lag (s)", x=1.5)
+        xlabel("Time lag (s)")
 
+    axis.append(gca())
 
-axip = gca().inset_axes([1.1, 0, 0.15, 0.8])
+axip = axis[1].inset_axes([1.15, 0.25, 0.15, 1.0])
 colorbar(im, cax=axip)
 axip.set_title(r"$\beta_t$", y=0.9)
 
 
 
-axip = gca().inset_axes([-1.5, 1.15, 3, 1])
+axip = axis[0].inset_axes([-0.5, 1.15, 3, 3])
 noaxis(axip)
 axip.patch.set_alpha(0.0)
 axip.annotate('Pop.', xy=(0.8,0.5), xytext=(0.0, 0.7), color = COLOR,
@@ -933,7 +916,7 @@ axip.set_ylim(0, 2)
 #####################################
 
 gs_cc2 = gridspec.GridSpecFromSubplotSpec(
-    2, 2, subplot_spec=gs_bottom[0, 1], wspace = 0.8, hspace = 0.1
+    1, 3, subplot_spec=gs_bottom[0, 1], wspace = 0.5, hspace = 0.1, width_ratios=[0.5, 1, 1]
 )
 
 
@@ -943,13 +926,9 @@ index = data['zorder'].index.values
 zcc = data['zcc']
 
 
-k = 1
-subplot(gs_cc2[0,0])
-simpleaxis(gca())
-
 
 for i, k in enumerate(['wak', 'sws']):
-    subplot(gs_cc2[i,0])
+    subplot(gs_cc2[0,i+1])
     simpleaxis(gca())
 
     m = zcc[k][index].mean(1).loc[-0.02:0.02]
@@ -960,37 +939,38 @@ for i, k in enumerate(['wak', 'sws']):
         alpha=0.2, color=cmap(i), linewidth=0)
     axvline(0, linewidth=0.4, color=COLOR)
 
-    text(0.7, 0.7, epochs[k], transform=gca().transAxes)
-    ylabel("Z", rotation=0, labelpad=2)
+    title(short_epochs[k])
 
-    if i == 0: 
-        title("Corr.\nLMN/ADN")
-        gca().spines['bottom'].set_visible(False)
-        xticks([])
-        yticks([0, 3])
-    if i == 1: 
-        xlabel("Time lag (ms)")
-        xticks([-0.02, 0, 0.02], [-20, 0, 20])
+    xticks([-0.02, 0, 0.02], [-20, 0, 20])
 
-
-
-subplot(gs_cc2[:,1])
-simpleaxis(gca())
-
-tmp = data['angdiff'][index]
-h, b = np.histogram(tmp, np.linspace(-np.pi, np.pi, 22), range = (-np.pi, np.pi))
-h = h/h.sum()*100
-
-# stairs(h, b, fill=True, color=cmap(8), alpha=1, edgecolor=COLOR)
-
-bar(b[0:-1]+np.diff(b)/2, h, np.diff(b).mean(), color=cmap(8))
+    if i == 0:
+        ylabel("Norm. corr. (Z)")    
+        text(0.8, 1.3, "Norm. x corr\nLMN-ADN", transform=gca().transAxes)
+        # gca().spines['bottom'].set_visible(False)
+        # xticks([])
+        # yticks([0, 3])    
+        xlabel("Time lag (ms)", x=1.0)
+        
 
 
-xlim(-np.pi, np.pi)
-xticks([-np.pi, 0, np.pi], [-180, 0, 180])
-xlabel("Ang. diff. (deg)")
-ylabel("%")
-title("$Z_{LMN/ADN} > 3$", pad=4)
+
+# subplot(gs_cc2[:,1])
+# simpleaxis(gca())
+
+# tmp = data['angdiff'][index]
+# h, b = np.histogram(tmp, np.linspace(-np.pi, np.pi, 22), range = (-np.pi, np.pi))
+# h = h/h.sum()*100
+
+# # stairs(h, b, fill=True, color=cmap(8), alpha=1, edgecolor=COLOR)
+
+# bar(b[0:-1]+np.diff(b)/2, h, np.diff(b).mean(), color=cmap(8))
+
+
+# xlim(-np.pi, np.pi)
+# xticks([-np.pi, 0, np.pi], [-180, 0, 180])
+# xlabel("Ang. diff. (deg)")
+# ylabel("%")
+# title("$Z_{LMN/ADN} > 3$", pad=4)
 
 # #####################################
 # # GLM LMN -> ADN
@@ -1020,7 +1000,7 @@ plot([1], [2], 'o', color=colors['adn'], markersize=2)
 plot(np.zeros(n), np.arange(n), 'o', color=colors['lmn'], markersize=2)
 
 xlim(-0.1, 2.5)
-title("LMN -> ADN", loc='left')
+title(r"$LMN \rightarrow ADN$", loc='left')
 ylim(-0.5, n-0.5)
 # text(0, n, "LMN", horizontalalignment='center', verticalalignment='center')
 # text(1, n, "ADN", horizontalalignment='center', verticalalignment='center')
@@ -1032,7 +1012,7 @@ subplot(gs_scores[0, 1])
 simpleaxis(gca())   
 
 plot([1,2],[0,0], linestyle='--', color='red', linewidth=0.75)
-xticks([1, 2], [epochs['wak'], epochs['sws']])
+xticks([1, 2], [short_epochs['wak'], short_epochs['sws']])
 yticks([0, 0.4], [0, 0.4])
 ylabel("pseudo-R2")
 title("GLM Scores")
