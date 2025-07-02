@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-06-14 16:45:11
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-05-09 13:53:42
+# @Last Modified time: 2025-07-02 16:20:31
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -11,6 +11,7 @@ from pycircstat.descriptive import mean as circmean
 import _pickle as cPickle
 from matplotlib.gridspec import GridSpec
 from itertools import combinations
+sys.path.append(os.path.expanduser("~/LMNphysio/pyna"))
 from functions import *
 
 ############################################################################################### 
@@ -36,8 +37,8 @@ datasets = np.hstack([
 datasets = np.unique(datasets)
 
 
-# for s in datasets:
-for s in ['LMN-PSB/A3019/A3019-220701A']:
+for s in datasets:
+# for s in ['LMN-PSB/A3019/A3019-220701A']:
     print(s)
     ############################################################################################### 
     # LOADING DATA
@@ -85,10 +86,10 @@ for s in ['LMN-PSB/A3019/A3019-220701A']:
         #################################################################################################        
         total = spikes.count(0.01, sws_ep).sum(1)/0.01
         total2 = total.smooth(2*0.01, size_factor=20)
-        
-        down_ep = total2.threshold(np.percentile(total2, 20), method='below').time_support
-        down_ep = down_ep.merge_close_intervals(0.025)
-        down_ep = down_ep.drop_short_intervals(0.050)
+        thr = 50
+        down_ep = total2.threshold(np.percentile(total2, thr), method='below').time_support
+        down_ep = down_ep.merge_close_intervals(0.100)
+        down_ep = down_ep.drop_short_intervals(0.020)
         down_ep = down_ep.drop_long_intervals(2)
 
         up_ep = sws_ep.set_diff(down_ep)
@@ -111,8 +112,11 @@ subplot(212, sharex =ax)
 plot(total2.restrict(sws_ep))
 plot(total2.restrict(down_ep), '.', color = 'blue')
 # plot(total2.restrict(top_ep), '.', color = 'red')
+axhline(np.percentile(total2, thr))
 for s, e in down_ep.values:
     axvspan(s, e, color='green', alpha=0.2)
+
+xlim(5800, 5803)
 
 show()
 

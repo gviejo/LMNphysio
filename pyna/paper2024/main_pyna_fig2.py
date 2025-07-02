@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-07-02 12:49:13
+# @Last Modified time: 2025-07-02 16:43:20
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -168,11 +168,11 @@ peaks = data['peaks']
 spikes = data['spikes']
 up_ep = data['up_ep']
 down_ep = data['down_ep']
-lmn = data['lmn']
-psb = data['psb']
+lmn = list(data['lmn'])
+psb = list(data['psb'])
 
 exs = {'wak':nap.IntervalSet(start = 9975, end = 9987, time_units='s'),
-    'sws':nap.IntervalSet(start = 5800.71, end = 5803.2, time_units = 's')
+    'sws':nap.IntervalSet(start = 5800.0, end = 5802.5, time_units = 's')
     }
 
 
@@ -237,11 +237,32 @@ for i, (st, idx) in enumerate(zip(['psb', 'lmn'], [psb, lmn])):
         else:
             yticks([])
         xticks([])
+        xlim(*exs[e].values)
         if j == 0:
             text(-0.65, 0.5, names[st], transform=gca().transAxes)
 
         if i == 0:
             title(epochs[e])
+
+        if j == 1:            
+            for v in exs[e].intersect(down_ep).values:
+                axvspan(v[0], v[1], color='lightgrey', alpha=0.5, linewidth=0)
+
+            if i == 0:
+                annotate("Down\nstate", 
+                    xy=(v[1], len(psb)-1), 
+                    xytext = (v[1]+0.5, len(psb)-3),
+                    arrowprops=dict(
+                        arrowstyle="-",
+                        linewidth=0.1,
+                        color=COLOR,
+                        shrinkB=0,
+                        shrinkA=0.1
+                        ),
+                    ha="left",
+                    va="top",
+                    )
+            # [axvspan(v[0], v[1], color='lightgrey', alpha=0.5) for v in exs[e].intersect(up_ep).values]
 
 tuning_curves = nap.compute_1d_tuning_curves(spikes[psb], angle, 24, minmax=(0, 2*np.pi), ep = angle.time_support.loc[[0]])
 tuning_curves = smoothAngularTuningCurves(tuning_curves)
@@ -646,7 +667,7 @@ ax.add_patch(arrow)
 st = 'lmn'
 
 gs2 = gridspec.GridSpecFromSubplotSpec(2, 4, gs_bottom[0,1], 
-    hspace=0.6, wspace=0.8,
+    hspace=0.6, wspace=0.75,
     width_ratios=[0.5, 0.4, 0.5, 0.4]
     )
 
@@ -738,6 +759,14 @@ for i, (s, ex, name) in enumerate(exs):
 
         for s, e in a_ex.values:
             plot(da.get(s, e), 'o', markersize= 0.5, markerfacecolor=COLOR, markeredgecolor=None, markeredgewidth=0)
+        plot(da.get(s, e), 'o', markersize= 0.5, markerfacecolor=COLOR, markeredgecolor=None, markeredgewidth=0, label="Decoded HD")
+        legend(
+                handlelength=1,                
+                loc="center",
+                bbox_to_anchor=(0.5, -0.8, 0.5, 0.5),
+                framealpha=0,
+                markerscale=4
+            )
 
 
     s, e = opto_ep.intersect(ex).values[0]
@@ -755,17 +784,18 @@ for i, (s, ex, name) in enumerate(exs):
         for s, e in iset.values:
             plot(tmp.get(s, e), linewidth=0.5, color=COLOR)
         plot(tmp.get(s, e), linewidth=0.5, color=COLOR, label="Actual HD")
+        legend(
+                handlelength=1,
+                loc="center",
+                bbox_to_anchor=(0.5, -0.8, 0.5, 0.5),
+                framealpha=0,
+            )             
     # Colorbar
-    axip = gca().inset_axes([1.05, 0.0, 0.05, 0.75])
+    axip = gca().inset_axes([1.03, 0.0, 0.03, 0.75])
     noaxis(axip)
     cbar = colorbar(im, cax=axip)
     axip.set_title("P", y=0.75)
-    legend(
-            handlelength=1,
-            loc="center",
-            bbox_to_anchor=(0.8, -0.6, 0.5, 0.5),
-            framealpha=0,
-        )            
+       
     
     # axip.set_yticks([0.25, 0.75])
 
@@ -1207,7 +1237,7 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
 
 
 
-outergs.update(top=0.95, bottom=0.05, right=0.98, left=0.05)
+outergs.update(top=0.95, bottom=0.06, right=0.98, left=0.05)
 
 
 savefig(

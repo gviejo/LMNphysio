@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-06-14 17:28:47
+# @Last Modified time: 2025-07-02 16:48:38
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -245,7 +245,7 @@ for j, e in enumerate(['wak', 'sws']):
 
     title(Epochs[j])
     if j == 0: 
-        ylabel('ISI (s)', rotation =0, y=0.4, labelpad = 15)
+        ylabel('ISI (s)')#, rotation =0, y=0.4, labelpad = 15)
 
 for i, st in enumerate(['adn', 'lmn']):
 
