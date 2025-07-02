@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-07 10:52:17
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-06-16 10:17:21
+# @Last Modified time: 2025-07-02 17:48:50
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -206,3 +206,44 @@ datatosave = {'isis':isis, 'frs':frs, 'pr2':pr2}
 dropbox_path = os.path.expanduser("~/Dropbox/LMNphysio/data")
 cPickle.dump(datatosave, open(os.path.join(dropbox_path, 'All_ISI.pickle'), 'wb'))
 
+
+
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.mixture import GaussianMixture
+
+# Example data (could be any 1D np.ndarray)
+data = np.concatenate([
+    np.random.normal(0, 1, 500),
+    # np.random.normal(5, 1, 500)
+])
+
+X = data.reshape(-1, 1)
+
+# Fit GMMs
+gmms = []
+for n_components in [1, 2]:
+    gmm = GaussianMixture(n_components=n_components, random_state=0)
+    gmm.fit(X)
+    gmms.append(gmm)
+
+# Plot histogram
+plt.figure(figsize=(10, 5))
+counts, bins, _ = plt.hist(data, bins=50, density=True, alpha=0.5, color='gray', label='Data histogram')
+
+# Evaluate PDFs over a smooth range
+x_plot = np.linspace(data.min(), data.max(), 1000).reshape(-1, 1)
+
+colors = ['red', 'blue']
+for i, gmm in enumerate(gmms):
+    logprob = gmm.score_samples(x_plot)
+    pdf = np.exp(logprob)
+    label = f'{gmm.n_components} Gaussian{"s" if gmm.n_components > 1 else ""}'
+    plt.plot(x_plot, pdf, color=colors[i], label=label, linewidth=2)
+
+plt.legend()
+plt.xlabel('Value')
+plt.ylabel('Density')
+plt.title('GMM fit with 1 vs 2 components')
+plt.grid(True)
+plt.show()

@@ -2,17 +2,14 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-08-10 17:16:25
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-07-01 18:19:24
+# @Last Modified time: 2025-07-02 17:17:43
 import scipy.io
 import sys, os
 import numpy as np
 import pandas as pd
 import pynapple as nap
-try:
-    from functions import *
-except:
-    sys.path.append("../")
-    from functions import *
+sys.path.append(os.path.expanduser("~/LMNphysio/pyna"))
+from functions import *
 
 from itertools import combinations, product
 from matplotlib.pyplot import *
@@ -188,7 +185,9 @@ datatosave = { 'wak':angle_wak,
               'ex_sws':exs[os.path.basename(path)]['sws'],
               'ex_rem':exs[os.path.basename(path)]['rem'],
               'ex_wak':exs[os.path.basename(path)]['wak'],
-              'waveforms':waveforms
+              'waveforms':waveforms,
+              'wake_ep':wake_ep,
+              'sws_ep':sws_ep
           }
 
 import _pickle as cPickle

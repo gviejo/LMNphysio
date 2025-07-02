@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-07-02 16:48:38
+# @Last Modified time: 2025-07-02 17:59:15
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -192,6 +192,8 @@ peaks = data['peaks']
 spikes = data['spikes']
 lmn = data['lmn']
 adn = data['adn']
+wake_ep = data['wake_ep']
+sws_ep = data['sws_ep']
 
 
 exs = {'wak':nap.IntervalSet(start = 7587976595.668784, end = 7604189853.273991, time_units='us'),
@@ -440,7 +442,7 @@ for i, st in enumerate(['adn', 'lmn']):
     xlim(0, 1.8)
     if i == 0:
         xticks([0, 1], ['',''])
-        legend(handlelength = 1.1, frameon=False, bbox_to_anchor=(0.2, 1.2, 0.5, 0.5))
+        legend(handlelength = 1.1, frameon=False, bbox_to_anchor=(1.0, 1.2, 0.5, 0.5))
     if i == 1:
         xticks([0, 1])
         xlabel("%")
@@ -455,12 +457,58 @@ for i, st in enumerate(['adn', 'lmn']):
 #########################################
 
 data = cPickle.load(open(os.path.join(dropbox_path, 'All_ISI.pickle'), 'rb'))
-# isis = data['isis']
+
 pr2 = data['pr2']
 
 
-gs3 = gridspec.GridSpecFromSubplotSpec(3,2, gs_top[0,2], 
-    wspace = 0.6, hspace = 0.1, height_ratios=[0.1, 0.3, 0.1])
+
+
+gs3 = gridspec.GridSpecFromSubplotSpec(2,2, gs_top[0,2], 
+    wspace = 0.6, hspace = 0.9, height_ratios=[0.5, 0.5])
+
+
+
+bins = np.geomspace(0.001, 10.0, 50)
+
+for i, st in enumerate(['adn']):
+    subplot(gs3[0,:])
+    simpleaxis(gca())
+    for j, ep in enumerate([sws_ep]):
+
+        td = spikes[ex_neurons[i]].time_diff(epochs=ep)
+
+        counts, edges = np.histogram(td.values, bins)
+        bin_widths = np.diff(edges)
+        pmf = counts/counts.sum()
+
+        # bar(edges[:-1], pdf, width=bin_widths, align='edge', edgecolor='k')
+        # step(bins[0:-1], pmf, where='post', linewidth=1.0)
+
+        fill_between(bins[0:-1], pmf, step='post', alpha=0.5, color='grey', edgecolor='None')
+        plot(bins[0:-1], pmf, drawstyle='steps-post', color='k', linewidth=0)  # outline
+
+    # Plotting the fit
+    # x_plot = np.linspace(bins.min(), bins.max(), 100).reshape(-1, 1)
+    x_plot = bins.reshape(-1, 1)
+    from sklearn.mixture import GaussianMixture
+    gmms = []
+    for n_components in [1, 2]:
+        gmm = GaussianMixture(n_components=n_components, random_state=0)
+        gmm.fit(np.log(td.values)[:,None])
+        gmms.append(gmm)
+    colors2 = ['red', 'blue']
+    for k, gmm in enumerate(gmms):
+        logprob = gmm.score_samples(x_plot)
+        pdf = np.exp(logprob)
+        label = f'{gmm.n_components} Gaussian{"s" if gmm.n_components > 1 else ""}'
+        plt.semilogx(x_plot, pdf, color=colors2[k], label=label, linewidth=2)
+
+
+
+    xscale("log")
+    title("Ex. " + names[st])
+    xticks([0.001, 0.1, 10], ['0.001', '0.1', '10'])
+    xlabel("ISI (s)")
 
 
 for j, e in enumerate(['wak', 'sws']):
@@ -469,7 +517,7 @@ for j, e in enumerate(['wak', 'sws']):
 
     simpleaxis(gca())    
 
-    title(epochs[e])
+    title(epochs[e], y=0.9)
 
     tmp = [pr2[st][e] for st in ['adn', 'lmn']]
     
@@ -484,7 +532,7 @@ for j, e in enumerate(['wak', 'sws']):
     plot([1, 2], m, 'o', markersize=0.5, color=COLOR)
 
     xticks([1, 2], ['ADN', 'LMN'], rotation=45)
-    ylim(-0.01, 0.4)
+    ylim(-0.01, 0.3)
 
     # # COmputing tests    
     # for i in range(2):
@@ -501,9 +549,9 @@ for j, e in enumerate(['wak', 'sws']):
     text(xr+0.1, np.mean(m)-0.01, s=map_significance[signi], va="center", ha="left")
 
     if j == 1:
-        yticks([0.0, 0.2, 0.4], ['', '', ''])
+        yticks([0.0, 0.3], ['', ''])
     else:
-        yticks([0.0, 0.2, 0.4])
+        yticks([0.0, 0.3])
         ylabel(r"Bimodality ($pR^{2}$)")
             
 
@@ -521,12 +569,7 @@ gs_bottom = gridspec.GridSpecFromSubplotSpec(
 
 
 
-
-
-
-
-
-outergs.update(top=0.93, bottom=0.09, right=0.98, left=0.06)
+outergs.update(top=0.96, bottom=0.09, right=0.98, left=0.06)
 
 
 savefig(
