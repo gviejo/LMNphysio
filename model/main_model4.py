@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2025-06-19 15:28:18
-# @Last Modified by:   gviejo
-# @Last Modified time: 2025-06-29 23:20:41
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2025-07-02 14:18:24
 """
 N LMN -> N ADN 
 Non linearity + CAN Current + inhibition in ADN + PSB Feedback
@@ -62,7 +62,7 @@ noise_cal_=0.2
 w_lmn_adn_=1
 w_adn_trn_=1
 w_trn_adn_=1
-w_psb_lmn_=1
+w_psb_lmn_=0.25
 
 thr_adn=1.0
 thr_cal=0.5
@@ -77,7 +77,7 @@ D_lmn = 1-w_psb_lmn_
 N_t=6000
 
 
-alpha = 2.0 # Wakefulness -> Sleep
+alpha = 1.0 # Wakefulness -> Sleep
 beta = 1.0 # OPTO PSB Feedback
 
 

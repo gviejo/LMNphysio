@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2025-06-19 15:28:18
-# @Last Modified by:   gviejo
-# @Last Modified time: 2025-06-29 21:51:30
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2025-07-02 13:58:52
 """
 N LMN -> N ADN 
 Non linearity + CAN Current + inhibition in ADN
@@ -55,8 +55,8 @@ N_lmn = 12
 N_adn = 36
 
 noise_lmn_=1.0
-noise_adn_=0.1
-noise_cal_=0.2
+noise_adn_=0.0
+noise_cal_=0.0
 
 w_lmn_adn_=1
 w_adn_trn_=1
@@ -86,8 +86,8 @@ x_lmn = np.zeros((N_t, N_lmn))
 #############################
 # ADN
 #############################
-# w_lmn_adn = make_circular_weights(N_lmn, N_adn, sigma=sigma_adn_lmn)*w_lmn_adn_
-w_lmn_adn = make_direct_weights(N_lmn, N_adn)*w_lmn_adn_
+w_lmn_adn = make_circular_weights(N_lmn, N_adn, sigma=sigma_adn_lmn)*w_lmn_adn_
+# w_lmn_adn = make_direct_weights(N_lmn, N_adn)*w_lmn_adn_
 noise_adn =  np.random.randn(N_t, N_adn)*noise_adn_
 noise_cal =  np.random.randn(N_t, N_adn)*noise_cal_
 r_adn = np.zeros((N_t, N_adn))
@@ -120,7 +120,7 @@ for i in range(1, N_t):
 	r_lmn[i] = np.maximum(0, x_lmn[i])
 
 	# ADN
-	I_ext[i] = np.dot(w_lmn_adn, r_lmn[i]) - r_trn[i-1] * w_trn_adn + sigmoide(-x_cal[i], thr=-thr_shu)*0
+	I_ext[i] = np.dot(w_lmn_adn, r_lmn[i]) - r_trn[i-1] * w_trn_adn + sigmoide(-x_cal[i], thr=-thr_shu)
 
 
 	# Calcium
