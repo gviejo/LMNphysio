@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   gviejo
-# @Last Modified time: 2025-06-02 22:31:29
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2025-07-02 12:49:13
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -171,8 +171,8 @@ down_ep = data['down_ep']
 lmn = data['lmn']
 psb = data['psb']
 
-exs = {'wak':nap.IntervalSet(start = 9968.5, end = 9987, time_units='s'),
-    'sws':nap.IntervalSet(start = 5800.71, end = 5805.2, time_units = 's')
+exs = {'wak':nap.IntervalSet(start = 9975, end = 9987, time_units='s'),
+    'sws':nap.IntervalSet(start = 5800.71, end = 5803.2, time_units = 's')
     }
 
 
@@ -188,56 +188,147 @@ fig = figure(figsize=figsize(1))
 outergs = GridSpec(2, 1, hspace = 0.3, height_ratios=[0.1, 0.2])
 
 
-names = {'adn':"ADN", 'lmn':"LMN"}
-epochs = {'wak':'Wake', 'sws':'Sleep'}
+names = {'psb':"PSB", 'lmn':"LMN"}
+epochs = {'wak':'Wakefulness', 'sws':'Non-REM sleep'}
 
 gs_top = gridspec.GridSpecFromSubplotSpec(
-    1, 3, subplot_spec=outergs[0, 0], width_ratios=[0.5, 0.4, 0.2], wspace=0.5
+    1, 3, subplot_spec=outergs[0, 0], width_ratios=[0.6, 0.4, 0.2], wspace=0.4
 )
 
 
-#####################################
-# Histo
-#####################################
-gs_top_left = gridspec.GridSpecFromSubplotSpec(
-    2, 1, subplot_spec=gs_top[0, 0], hspace=0.5#, height_ratios=[0.5, 0.2, 0.2] 
-)
+# #####################################
+# # Histo
+# #####################################
+# gs_top_left = gridspec.GridSpecFromSubplotSpec(
+#     2, 1, subplot_spec=gs_top[0, 0], hspace=0.5#, height_ratios=[0.5, 0.2, 0.2] 
+# )
 
 
-subplot(gs_top_left[0,0])
-noaxis(gca())
-img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/LMN-PSB-opto.png")
-imshow(img, aspect="equal")
-xticks([])
-yticks([])
+# subplot(gs_top_left[0,0])
+# noaxis(gca())
+# img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/LMN-PSB-opto.png")
+# imshow(img, aspect="equal")
+# xticks([])
+# yticks([])
 
 #########################
 # Examples LMN PSB raster
 #########################
 gs_raster_ex = gridspec.GridSpecFromSubplotSpec(
-    2, 2, subplot_spec=gs_top_left[1, 0]#, height_ratios=[0.5, 0.2, 0.2] 
+    3, 5, subplot_spec=gs_top[0, 0], width_ratios=[0.12, 0.5, 0.2, 0.5, 0.0], wspace=0.1
 )
 
 ms = [0.7, 0.9]
 for i, (st, idx) in enumerate(zip(['psb', 'lmn'], [psb, lmn])):
     for j, e in enumerate(['wak', 'sws']):
-        subplot(gs_raster_ex[i,j])
+        subplot(gs_raster_ex[i, [1, 3][j]])
         simpleaxis(gca())
-        gca().spines["left"].set_visible(False)
-        gca().spines["bottom"].set_visible(False)        
-        plot(spikes[idx].to_tsd(np.argsort(idx)).restrict(exs[e]), '|', color=colors[st], markersize=ms[i], mew=0.25)
+        gca().spines['left'].set_bounds(0, len(idx)-1)
+        gca().spines["bottom"].set_visible(False)
+        plot(spikes[idx].to_tsd(np.argsort(idx)).restrict(exs[e]), 
+            '|', 
+            color=colors[st], 
+            markersize=ms[i], mew=0.5)
 
         if j == 0:
             yticks([len(idx)-1], [len(idx)])
-            ylabel(st.upper(), rotation=0, y=0.2, labelpad=10)
+            if i == 0:
+                ylabel("Neurons", y=0)
         else:
             yticks([])
         xticks([])
-
+        if j == 0:
+            text(-0.65, 0.5, names[st], transform=gca().transAxes)
 
         if i == 0:
             title(epochs[e])
 
+tuning_curves = nap.compute_1d_tuning_curves(spikes[psb], angle, 24, minmax=(0, 2*np.pi), ep = angle.time_support.loc[[0]])
+tuning_curves = smoothAngularTuningCurves(tuning_curves)
+
+
+# Decoding
+for i, e in enumerate(['wak', 'sws']):
+    subplot(gs_raster_ex[2,[1, 3][i]])
+    simpleaxis(gca())
+    # if i == 1: gca().spines["left"].set_visible(False)
+
+    exex = nap.IntervalSet(exs[e].start[0] - 10, exs[e].end[0] + 10)
+    
+    if i == 0:
+        da, P = nap.decode_1d(tuning_curves, spikes[psb], exex, 0.1)
+    elif i == 1:
+        da, P = nap.decode_1d(tuning_curves, spikes[psb].count(0.005, exex).smooth(0.01, size_factor=10), exex, 0.005)
+    
+    da = smoothAngle(da, 1)
+
+    d = gaussian_filter(P.values, 3)
+    tmp2 = nap.TsdFrame(t=P.index.values, d=d, time_support=exs[e])
+
+    # tmp2 = P.restrict(exs[e])
+
+    im = imshow(tmp2.values.T, aspect='auto', 
+        origin='lower',
+        cmap='coolwarm', 
+        extent=(exs[e].start[0], exs[e].end[0], 0, 2*np.pi)
+        )
+
+    if e == "wak":
+        tmp = smoothAngle(angle, 3).restrict(exs['wak'])
+        iset=np.abs(np.gradient(tmp)).threshold(1.0, method='below').time_support
+        for s, e in iset.values:
+            plot(tmp.get(s, e), linewidth=0.5, color=COLOR)
+
+        plot(tmp.get(s, e), linewidth=0.75, color=COLOR, label="Actual HD")
+        legend(
+                handlelength=1,
+                loc="center",
+                bbox_to_anchor=(0.1, -0.5, 0.5, 0.5),
+                framealpha=0,
+            )
+    elif e == "sws":
+        H = np.sum(P*np.log(P.values), 1)
+        H = H-H.min()
+        H = H/H.max()
+        a_ex = H.threshold(0.12).time_support.intersect(exs[e])
+
+        for s, e in a_ex.values:
+            plot(da.get(s, e), 'o', markersize= 0.5, markerfacecolor=COLOR, markeredgecolor=None, markeredgewidth=0)
+        plot(da.get(s, e), 'o', markersize= 0.5, markerfacecolor=COLOR, markeredgecolor=None, markeredgewidth=0, label="Decoded HD")
+        legend(
+                handlelength=1,                
+                loc="center",
+                bbox_to_anchor=(0.0, -0.5, 0.5, 0.5),
+                framealpha=0,
+                markerscale=4
+            )
+
+
+    if i == 0:
+        yticks([0, 2*np.pi], [0, 360])
+        ylabel("Direction (°)", labelpad=3)
+    else:
+        yticks([])
+
+    if i == 0:
+        gca().spines["bottom"].set_bounds(exs['wak'].end[0] - 3, exs['wak'].end[0])
+        xticks([exs['wak'].end[0] - 3, exs['wak'].end[0]], ["", ""])
+        text(exs['wak'].end[0]-1.5, -2.2, s="3 sec.", va="center", ha="center")
+    if i == 1:
+        gca().spines["bottom"].set_bounds(exs['sws'].end[0] - 0.5, exs['sws'].end[0])
+        xticks([exs['sws'].end[0] - 0.5, exs['sws'].end[0]], ["", ""])
+        text(exs['sws'].end[0] - 0.23, -2.2, s="0.5 sec.", va="center", ha="center")
+
+    
+    axip = gca().inset_axes([1.03, 0, 0.04, 0.6])
+    cbar = colorbar(im, cax=axip)
+    axip.set_title("P", fontsize=fontsize-1, y=0.8)
+    # if i == 0:
+    #     axip.set_yticks([0, 0.4], [0, 0.4])
+    if i == 1:
+        axip.set_yticks([0.03, 0.05])
+    elif i== 0:
+        axip.set_yticks([0, 0.1])
 
 
 #####################################
@@ -370,7 +461,7 @@ fill_between(angles, counts, 0, step="mid", facecolor=COLOR, edgecolor=COLOR, li
 xlim(-np.pi, np.pi)
 xticks([-np.pi, 0, np.pi], ["-180", "0", "180"])
 xlabel("Ang. offset")
-ylabel("%")
+ylabel("Prop. (%)")
 title("PSB -> LMN")
 
 ####################################
@@ -393,13 +484,13 @@ plot(np.ones(len(pearson))*2, pearson['decimated'], 'o', color=colors['lmn'], ma
 
 xlim(0.5, 3)
 gca().spines['bottom'].set_bounds(1, 2)
-ymin = pearson[['decimated','down']].min().min()
-ylim(ymin-0.1, 1.1)
-gca().spines['left'].set_bounds(ymin-0.1, 1.1)
+ymin = np.minimum(pearson[['decimated','down']].min().min(), 0)
+ylim(ymin-0.1, 1.0)
+gca().spines['left'].set_bounds(ymin-0.1, 1.0)
 yticks([0, 0.5,1], [0, 0.5, 1])
 ylabel("Pop. coherence (r)", y=-0.2, labelpad=2)
 xticks([1, 2], ['Down', 'Up'])
-title("Sessions")
+# title("Sessions")
 
 
 ############
@@ -597,7 +688,7 @@ for i, (s, ex, name) in enumerate(exs):
     gca().spines['left'].set_bounds(0, len(spikes)-1)
     gca().spines['bottom'].set_bounds(s, e)
     title(name)
-    ylabel("LMN")
+    ylabel("Neurons")
     
 
     #
@@ -652,6 +743,7 @@ for i, (s, ex, name) in enumerate(exs):
     s, e = opto_ep.intersect(ex).values[0]
     gca().spines['bottom'].set_bounds(s, e)
     xticks([s, e], ['', ''])
+    ylabel("Direction (°)")
 
 
     if i == 0: xlabel("10 s", labelpad=-1)
@@ -662,7 +754,7 @@ for i, (s, ex, name) in enumerate(exs):
         iset=np.abs(np.gradient(tmp)).threshold(1.0, method='below').time_support
         for s, e in iset.values:
             plot(tmp.get(s, e), linewidth=0.5, color=COLOR)
-        plot(tmp.get(s, e), linewidth=0.5, color=COLOR, label="True HD")
+        plot(tmp.get(s, e), linewidth=0.5, color=COLOR, label="Actual HD")
     # Colorbar
     axip = gca().inset_axes([1.05, 0.0, 0.05, 0.75])
     noaxis(axip)
@@ -744,7 +836,7 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
     title(titles[i])
     xticks([ranges[f][1], ranges[f][2]])
     ylim(0, 2)    
-    ylabel("Rate\n(norm.)")
+    ylabel("Norm. rate\n(a.u.)")
 
     subplot(gs_corr2[1,0])
     simpleaxis(gca())
@@ -760,8 +852,8 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
     hist(delta.values, bins=bins, histtype="stepfilled", facecolor="#404040", edgecolor="#404040")
     axvline(0, color=COLOR, linestyle='--', linewidth=0.5)
 
-    ylabel("%", labelpad=1)
-    xlabel("% mod. rate", labelpad=1)
+    ylabel("Prop (%)", labelpad=1)
+    xlabel("Rate mod.", labelpad=1)
     ylim(0, 30)
 
     zw, p = scipy.stats.ttest_1samp(np.array(delta.values).astype(float), popmean=0)
@@ -781,7 +873,7 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
         #
         ax1 = subplot(gs_corr3[0,0])
         simpleaxis(gca())
-        title("Sessions")        
+        # title("Sessions")        
         gca().spines['bottom'].set_bounds(1, 2)
 
         corr3 = []
@@ -946,7 +1038,7 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
         
         subplot(gs_corr3[0,0])
         simpleaxis(gca())
-        title("Sessions")
+        # title("Sessions")
 
         corr3 = []
         base3 = []    
@@ -969,7 +1061,7 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
         ylim(ymin-0.1, 1.1)
         gca().spines['left'].set_bounds(ymin-0.1, 1.1)
 
-        ylabel("Pearson r")
+        ylabel("Pop. coherence (r)", y=-0.2)
         xticks([1, 2], ['Chrimson', 'TdTomato'], fontsize=fontsize-1)
 
         # if i == 1: 
@@ -999,7 +1091,7 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
         plot([1, 2], m, 'o', markersize=0.5, color=COLOR)
 
         xticks([1,2],['',''])
-        ylabel(r"Mean$\Delta$")
+        # ylabel(r"Mean$\Delta$")
 
         # COmputing tests
         for i in range(2):
@@ -1115,7 +1207,7 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
 
 
 
-outergs.update(top=0.95, bottom=0.05, right=0.98, left=0.01)
+outergs.update(top=0.95, bottom=0.05, right=0.98, left=0.05)
 
 
 savefig(

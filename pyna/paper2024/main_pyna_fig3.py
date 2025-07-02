@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-06-28 18:04:18
+# @Last Modified time: 2025-07-02 12:05:36
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -360,8 +360,8 @@ for i, f in enumerate(['ipsi', 'bilateral']):
     yticks([0, len(spikes)-1], [1, len(spikes)])
     gca().spines['left'].set_bounds(0, len(spikes)-1)
     gca().spines['bottom'].set_bounds(s, e)    
-    ylabel(names[st], labelpad=5)
-
+    ylabel("Neurons")
+    title("Non-REM sleep")
 
     #
     exex = nap.IntervalSet(ex.start[0] - 10, ex.end[0] + 10)
@@ -411,7 +411,7 @@ for i, f in enumerate(['ipsi', 'bilateral']):
     xticks([s, e], ['', ''])
     
     xlabel("1 s", labelpad=-1)
-    ylabel("Decoded\nangle (deg.)", labelpad=4)
+    ylabel("Direction (°)")#, labelpad=4)
 
     # Colorbar
     axip = gca().inset_axes([1.03, 0.0, 0.05, 0.75])
@@ -453,7 +453,7 @@ for i, f in enumerate(['ipsi', 'bilateral']):
     title(titles[i], fontweight='bold')
     xticks([ranges[1], ranges[2]])
     ylim(0, 2)    
-    ylabel("Rate\n(norm.)")
+    ylabel("Norm. rate\n(a.u.)")
 
     subplot(gs_fr[1,0])
     simpleaxis(gca())
@@ -466,11 +466,11 @@ for i, f in enumerate(['ipsi', 'bilateral']):
     num_bins = 30
     bins = np.linspace(-1, 1, num_bins + 1)
     
-    hist(delta.values, bins=bins, histtype="stepfilled", facecolor="lightgrey", edgecolor="grey")
+    hist(delta.values, bins=bins, histtype="stepfilled", facecolor=COLOR, edgecolor=COLOR)
     axvline(0, color=COLOR, linestyle='--', linewidth=0.5)
 
-    ylabel("%", labelpad=1)
-    xlabel("% mod. rate", labelpad=1)
+    ylabel("Prop (%)", labelpad=1)
+    xlabel("Rate mod.", labelpad=1)
     ylim(0, 30)
 
     zw, p = scipy.stats.ttest_1samp(np.array(delta.values).astype(float), popmean=0)
