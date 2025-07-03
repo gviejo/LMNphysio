@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2025-06-19 15:28:18
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-07-02 14:18:24
+# @Last Modified by:   gviejo
+# @Last Modified time: 2025-07-02 22:11:05
 """
 N LMN -> N ADN 
 Non linearity + CAN Current + inhibition in ADN + PSB Feedback
@@ -55,21 +55,21 @@ tau = 0.1
 N_lmn = 12
 N_adn = 48
 
-noise_lmn_=1.0
+noise_lmn_=0.5
 noise_adn_=0.1
-noise_cal_=0.2
+noise_cal_=0.1
 
 w_lmn_adn_=1
 w_adn_trn_=1
 w_trn_adn_=1
-w_psb_lmn_=0.25
+w_psb_lmn_=0.1
 
 thr_adn=1.0
 thr_cal=0.5
 thr_shu=1.0
 
-sigma_adn_lmn = 1
-sigma_psb_lmn = 8
+sigma_adn_lmn = 10
+sigma_psb_lmn = 10
 
 
 D_lmn = 1-w_psb_lmn_
@@ -77,7 +77,7 @@ D_lmn = 1-w_psb_lmn_
 N_t=6000
 
 
-alpha = 1.0 # Wakefulness -> Sleep
+alpha = 2.0 # Wakefulness -> Sleep
 beta = 1.0 # OPTO PSB Feedback
 
 
@@ -103,7 +103,7 @@ for i in range(N_t):
 # inp_lmn = gaussian_filter1d(inp_lmn, sigma=5, axis=0)
 
 noise_lmn = np.random.randn(N_t, N_lmn)*noise_lmn_
-noise_lmn[0:duration] *= 0.0
+# noise_lmn[0:duration] *= 0.0
 r_lmn = np.zeros((N_t, N_lmn))
 x_lmn = np.zeros((N_t, N_lmn))
 
@@ -143,11 +143,9 @@ w_psb_lmn = make_circular_weights(N_adn, N_lmn, sigma=sigma_psb_lmn)*w_psb_lmn_
 for i in range(1, N_t):
 
     if i == slices[0].stop:
-        alpha = 0.0
-        D_lmn = 1-w_psb_lmn_
+        alpha = 0.0        
     if i == slices[1].stop:
-        beta = 0.0
-        D_lmn = 1-w_psb_lmn_
+        beta = 0.0        
 
 
     I_lmn = np.dot(w_psb_lmn, r_adn[i-1]) + inp_lmn[i] * alpha

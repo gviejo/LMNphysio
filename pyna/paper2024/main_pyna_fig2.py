@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-07-02 16:43:20
+# @Last Modified by:   gviejo
+# @Last Modified time: 2025-07-02 21:19:25
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -192,7 +192,7 @@ names = {'psb':"PSB", 'lmn':"LMN"}
 epochs = {'wak':'Wakefulness', 'sws':'Non-REM sleep'}
 
 gs_top = gridspec.GridSpecFromSubplotSpec(
-    1, 3, subplot_spec=outergs[0, 0], width_ratios=[0.6, 0.4, 0.2], wspace=0.4
+    1, 3, subplot_spec=outergs[0, 0], width_ratios=[0.6, 0.4, 0.15], wspace=0.4
 )
 
 
@@ -483,7 +483,7 @@ xlim(-np.pi, np.pi)
 xticks([-np.pi, 0, np.pi], ["-180", "0", "180"])
 xlabel("Ang. offset")
 ylabel("Prop. (%)")
-title("PSB -> LMN")
+title(r"$PSB \rightarrow LMN$")
 
 ####################################
 # CORR LMN_PSB

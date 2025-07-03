@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-07-02 17:59:15
+# @Last Modified by:   gviejo
+# @Last Modified time: 2025-07-02 21:14:53
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -470,45 +470,82 @@ gs3 = gridspec.GridSpecFromSubplotSpec(2,2, gs_top[0,2],
 
 bins = np.geomspace(0.001, 10.0, 50)
 
-for i, st in enumerate(['adn']):
-    subplot(gs3[0,:])
-    simpleaxis(gca())
-    for j, ep in enumerate([sws_ep]):
+# for i, st in enumerate(['adn']):
+st = 'adn'
+subplot(gs3[0,:])
+simpleaxis(gca())
+    # for j, ep in enumerate([sws_ep]):
 
-        td = spikes[ex_neurons[i]].time_diff(epochs=ep)
+td = spikes[ex_neurons[0]].time_diff(epochs=sws_ep)
 
-        counts, edges = np.histogram(td.values, bins)
-        bin_widths = np.diff(edges)
-        pmf = counts/counts.sum()
+counts, edges = np.histogram(td.values, bins)
+bin_widths = np.diff(edges)
+pmf = (counts/counts.sum())*100
 
-        # bar(edges[:-1], pdf, width=bin_widths, align='edge', edgecolor='k')
-        # step(bins[0:-1], pmf, where='post', linewidth=1.0)
+fill_between(bins[0:-1], pmf, step='post', alpha=0.5, color='grey', edgecolor='None')
+plot(bins[0:-1], pmf, drawstyle='steps-post', color='k', linewidth=0)  # outline
 
-        fill_between(bins[0:-1], pmf, step='post', alpha=0.5, color='grey', edgecolor='None')
-        plot(bins[0:-1], pmf, drawstyle='steps-post', color='k', linewidth=0)  # outline
+# Plotting the fit
+# x_plot = np.linspace(np.log(bins.min()), np.log(bins.max()), 100).reshape(-1, 1)
+x_plot = np.log(bins).reshape(-1, 1)
+from sklearn.mixture import GaussianMixture
+gmms = []
+for n_components in [1, 2]:
+    gmm = GaussianMixture(n_components=n_components, random_state=0)
+    gmm.fit(np.log(td.values)[:,None])
+    gmms.append(gmm)
 
-    # Plotting the fit
-    # x_plot = np.linspace(bins.min(), bins.max(), 100).reshape(-1, 1)
-    x_plot = bins.reshape(-1, 1)
-    from sklearn.mixture import GaussianMixture
-    gmms = []
-    for n_components in [1, 2]:
-        gmm = GaussianMixture(n_components=n_components, random_state=0)
-        gmm.fit(np.log(td.values)[:,None])
-        gmms.append(gmm)
-    colors2 = ['red', 'blue']
-    for k, gmm in enumerate(gmms):
-        logprob = gmm.score_samples(x_plot)
-        pdf = np.exp(logprob)
-        label = f'{gmm.n_components} Gaussian{"s" if gmm.n_components > 1 else ""}'
-        plt.semilogx(x_plot, pdf, color=colors2[k], label=label, linewidth=2)
+colors2 = ['#1b9e77', '#d95f02']
+
+for k, gmm in enumerate(gmms):
+    logprob = gmm.score_samples(x_plot)
+    pdf = np.exp(logprob)
+    pdf = (pdf/pdf.sum())*100
+    plot(bins, pdf, linewidth=1, color=colors2[k], alpha=0.5)
+
+# legend()
+    if k == 0:
+        annotate(f"$Ll_1={np.round(np.sum(logprob),1)}$", 
+            xy=(bins[25], pdf[25]), 
+            xytext = (bins[34], pdf[25]-0.8),
+            arrowprops=dict(
+                arrowstyle="-",
+                linewidth=0.1,
+                color=COLOR,
+                shrinkB=0,
+                shrinkA=0.1
+                ),
+            ha="left",
+            va="center",
+            fontsize=fontsize-2
+            )
+    if k == 1:
+        annotate(f"$Ll_2={np.round(np.sum(logprob),1)}$", 
+            xy=(bins[16], pdf[16]), 
+            xytext = (bins[31], pdf[16]-0.4),
+            arrowprops=dict(
+                arrowstyle="-",
+                linewidth=0.1,
+                color=COLOR,
+                shrinkB=0,
+                shrinkA=0.1
+                ),
+            ha="left",
+            va="center",
+            fontsize=fontsize-2
+            )
 
 
+gca().spines['bottom'].set_bounds(bins[0], bins[-1])
+xscale("log")
+title("Ex. " + names[st] + "\n Gaussian Mixture", y=0.8)
+xticks([0.001, 0.1, 10], ['0.001', '0.1', '10'])
+xlabel("ISI (s)")
+ylabel("Prop. (%)")
 
-    xscale("log")
-    title("Ex. " + names[st])
-    xticks([0.001, 0.1, 10], ['0.001', '0.1', '10'])
-    xlabel("ISI (s)")
+#################
+# PR2
+#################
 
 
 for j, e in enumerate(['wak', 'sws']):
@@ -554,7 +591,7 @@ for j, e in enumerate(['wak', 'sws']):
         yticks([0.0, 0.3])
         ylabel(r"Bimodality ($pR^{2}$)")
             
-
+    gca().spines['bottom'].set_bounds(1, 2)
 
 # ##########################################
 # BOTTOM
