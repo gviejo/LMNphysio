@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2025-06-19 15:28:18
-# @Last Modified by:   gviejo
-# @Last Modified time: 2025-07-02 22:11:05
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2025-07-04 16:45:04
 """
 N LMN -> N ADN 
 Non linearity + CAN Current + inhibition in ADN + PSB Feedback
@@ -25,59 +25,59 @@ from numba import jit, njit
 
 
 def make_direct_weights(N_in, N_out):
-	w = np.eye(N_in)
-	w = np.repeat(w, N_out//N_in, axis=0)
-	return w
+    w = np.eye(N_in)
+    w = np.repeat(w, N_out//N_in, axis=0)
+    return w
 
 def make_circular_weights(N_in, N_out, sigma=10):
-    x = np.arange(-N_in//2, N_in//2)
+    x = np.arange(-N_out//2, N_out//2)
     y = np.exp(-(x * x) / sigma)
     
     # Manual tiling replacement: concatenate y with itself
     y_tiled = np.concatenate((y, y))
     
     # Slice the middle portion
-    y = y_tiled[N_in//2:-N_in//2]
+    y = y_tiled[N_out//2:-N_out//2]
     
     w = np.zeros((N_out, N_in))
-    for i in range(N_out):
-        w[i] = np.roll(y, i*N_in//N_out)
+    for i in range(N_in):
+        w[:,i] = np.roll(y, i*N_out//N_in)
     
     return w
 
 @njit
-def sigmoide(x, beta=50, thr=1):
+def sigmoide(x, beta=10, thr=1):
     return 1/(1+np.exp(-(x-thr)*beta))
 
 
 
 tau = 0.1
-N_lmn = 12
-N_adn = 48
+N_lmn = 36
+N_adn = 360
 
 noise_lmn_=0.5
-noise_adn_=0.1
-noise_cal_=0.1
+noise_adn_=0.4
+noise_trn_=0.4
 
 w_lmn_adn_=1
 w_adn_trn_=1
-w_trn_adn_=1
+w_trn_adn_=0.9
 w_psb_lmn_=0.1
 
 thr_adn=1.0
-thr_cal=0.5
+thr_cal=1.0
 thr_shu=1.0
 
-sigma_adn_lmn = 10
+sigma_adn_lmn = 100
 sigma_psb_lmn = 10
 
 
-D_lmn = 1-w_psb_lmn_
+D_lmn = 0.9
 
 N_t=6000
 
 
-alpha = 2.0 # Wakefulness -> Sleep
+alpha = 5.0 # Wakefulness -> Sleep
 beta = 1.0 # OPTO PSB Feedback
 
 
@@ -114,7 +114,7 @@ x_lmn = np.zeros((N_t, N_lmn))
 w_lmn_adn = make_circular_weights(N_lmn, N_adn, sigma=sigma_adn_lmn)*w_lmn_adn_
 # w_lmn_adn = make_direct_weights(N_lmn, N_adn)*w_lmn_adn_
 noise_adn =  np.random.randn(N_t, N_adn)*noise_adn_
-noise_cal =  np.random.randn(N_t, N_adn)*noise_cal_
+noise_trn =  np.random.randn(N_t)*noise_trn_
 r_adn = np.zeros((N_t, N_adn))
 x_adn = np.zeros((N_t, N_adn))
 x_cal = np.zeros((N_t, N_adn))
@@ -166,8 +166,7 @@ for i in range(1, N_t):
     # Calcium
     x_cal[i] = x_cal[i-1] + tau * (
         - x_cal[i-1]
-        + sigmoide(x_adn[i-1], thr=thr_cal)
-        + noise_cal[i]
+        + sigmoide(x_adn[i-1], thr=thr_cal)        
         )
 
     
@@ -183,6 +182,7 @@ for i in range(1, N_t):
     x_trn[i] = x_trn[i-1] + tau * (
         -x_trn[i-1]
         + np.sum(r_adn[i])*w_adn_trn
+        + noise_trn[i]
         )
 
     # r_trn[i] = np.maximum(0, np.tanh(x_trn[i]))
@@ -214,13 +214,13 @@ for k, r in zip(['lmn', 'adn'],[r_lmn, r_adn]):
         popcoh[k][i] = tmp[np.triu_indices(tmp.shape[0], 1)]
 
 
-
+colors = {"adn": "#EA9E8D", "lmn": "#8BA6A9", "psb": "#CACC90"}
 figure()
 gs = GridSpec(2,2)
 for i, st in enumerate(['lmn', 'adn']):
     for j, k in enumerate([1,2]):
         subplot(gs[j,i])
-        plot(popcoh[st][0], popcoh[st][k], 'o')
+        plot(popcoh[st][0], popcoh[st][k], 'o', color=colors[st])
         r, p = pearsonr(popcoh[st][0], popcoh[st][k])
         m, b = np.polyfit(popcoh[st][0], popcoh[st][k], 1)
         x = np.linspace(popcoh[st][0].min(), popcoh[st][0].max(),5)
@@ -244,7 +244,6 @@ ylabel("r_lmn")
 ax = subplot(n_rows,1,2, sharex=ax)
 plot(x_adn, '-')
 axhline(thr_adn, linestyle='--')
-axhline(thr_cal)
 ylabel("x_adn")
 subplot(n_rows,1,3,sharex=ax)
 plot(x_cal, '-')
@@ -252,6 +251,7 @@ axhline(thr_shu)
 ylabel("X_cal")
 subplot(n_rows,1,4, sharex=ax)
 plot(r_adn, '-')
+axhline(thr_cal)
 ylabel("r_adn")
 subplot(n_rows,1,5, sharex=ax)
 pcolormesh(r_adn.T, cmap='jet')

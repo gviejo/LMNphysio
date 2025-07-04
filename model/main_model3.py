@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2025-06-19 15:28:18
-# @Last Modified by:   gviejo
-# @Last Modified time: 2025-06-29 21:49:43
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2025-07-04 16:09:57
 """
 N LMN -> N ADN 
 Non linearity + CAN Current + inhibition in ADN + PSB Feedback
@@ -27,18 +27,18 @@ def make_direct_weights(N_in, N_out):
 	return w
 
 def make_circular_weights(N_in, N_out, sigma=10):
-    x = np.arange(-N_in//2, N_in//2)
+    x = np.arange(-N_out//2, N_out//2)
     y = np.exp(-(x * x) / sigma)
     
     # Manual tiling replacement: concatenate y with itself
     y_tiled = np.concatenate((y, y))
     
     # Slice the middle portion
-    y = y_tiled[N_in//2:-N_in//2]
+    y = y_tiled[N_out//2:-N_out//2]
     
     w = np.zeros((N_out, N_in))
-    for i in range(N_out):
-        w[i] = np.roll(y, i*N_in//N_out)
+    for i in range(N_in):
+        w[:,i] = np.roll(y, i*N_out//N_in)
     
     return w
 
@@ -50,27 +50,29 @@ def sigmoide(x, beta=20, thr=1):
 # def run_network(w_lmn_lmn, noise_lmn_, 
 # 				w_lmn_adn_, noise_adn_, 
 # 				w_adn_trn_, w_trn_adn_, thr_adn, N_t=4000):
+
+
 tau = 0.1
-N_lmn = 12
-N_adn = 48
+N_lmn = 36
+N_adn = 360
 
-noise_lmn_=1.0
-noise_adn_=0.1
-noise_cal_=0.2
+noise_lmn_=0.5
+noise_adn_=0.5
+noise_trn_=0.5
 
-w_lmn_adn_=1
-w_adn_trn_=1
-w_trn_adn_=1
-w_psb_lmn_=1
+w_lmn_adn_=1.0
+w_adn_trn_=1.0
+w_trn_adn_=0.99
+w_psb_lmn_=0.1
 
 thr_adn=1.0
 thr_cal=0.5
 thr_shu=1.0
 
-sigma_adn_lmn = 1
-sigma_psb_lmn = 8
+sigma_adn_lmn = 100
+sigma_psb_lmn = 10
 
-D_lmn = 1-w_psb_lmn_
+D_lmn = 1.0-w_psb_lmn_
 
 
 N_t=2000
@@ -89,10 +91,11 @@ x_lmn = np.zeros((N_t, N_lmn))
 #############################
 # ADN
 #############################
-# w_lmn_adn = make_circular_weights(N_lmn, N_adn, sigma=sigma_adn_lmn)*w_lmn_adn_
-w_lmn_adn = make_direct_weights(N_lmn, N_adn)*w_lmn_adn_
+w_lmn_adn = make_circular_weights(N_lmn, N_adn, sigma=sigma_adn_lmn)*w_lmn_adn_
+# w_lmn_adn = np.tanh(w_lmn_adn)
+# w_lmn_adn = make_direct_weights(N_lmn, N_adn)*w_lmn_adn_
 noise_adn =  np.random.randn(N_t, N_adn)*noise_adn_
-noise_cal =  np.random.randn(N_t, N_adn)*noise_cal_
+noise_trn =  np.random.randn(N_t)*noise_trn_
 r_adn = np.zeros((N_t, N_adn))
 x_adn = np.zeros((N_t, N_adn))
 x_cal = np.zeros((N_t, N_adn))
@@ -112,7 +115,6 @@ w_trn_adn = w_trn_adn_
 # PSB FEEDback
 ############################
 w_psb_lmn = make_circular_weights(N_adn, N_lmn, sigma=sigma_psb_lmn)*w_psb_lmn_
-
 
 ###########################
 # MAIN LOOP
@@ -139,7 +141,6 @@ for i in range(1, N_t):
 	x_cal[i] = x_cal[i-1] + tau * (
 		- x_cal[i-1]
 		+ sigmoide(r_adn[i-1], thr=thr_cal)
-		+ noise_cal[i]
 		)
 
 	
@@ -155,6 +156,7 @@ for i in range(1, N_t):
 	x_trn[i] = x_trn[i-1] + tau * (
 		-x_trn[i-1]
 		+ np.sum(r_adn[i])*w_adn_trn
+		+ noise_trn[i]
 		)
 
 	# r_trn[i] = np.maximum(0, np.tanh(x_trn[i]))
@@ -175,7 +177,7 @@ imap2 = KernelPCA(n_components=2, kernel='cosine').fit_transform(tmp)
 # imap = UMAP().fit_transform(r_adn)
 
 
-figure()
+figure(figsize=(30,20))
 n_rows = 6
 ax = subplot(n_rows,1,1)
 # plot(r_lmn, '-')

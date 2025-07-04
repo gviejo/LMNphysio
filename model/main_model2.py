@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2025-06-19 15:28:18
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-07-02 13:58:52
+# @Last Modified time: 2025-07-04 15:16:05
 """
 N LMN -> N ADN 
 Non linearity + CAN Current + inhibition in ADN
@@ -27,20 +27,20 @@ def make_direct_weights(N_in, N_out):
 	return w
 
 def make_circular_weights(N_in, N_out, sigma=10):
-    x = np.arange(-N_in//2, N_in//2)
+    x = np.arange(-N_out//2, N_out//2)
     y = np.exp(-(x * x) / sigma)
     
     # Manual tiling replacement: concatenate y with itself
     y_tiled = np.concatenate((y, y))
     
     # Slice the middle portion
-    y = y_tiled[N_in//2:-N_in//2]
+    y = y_tiled[N_out//2:-N_out//2]
     
     w = np.zeros((N_out, N_in))
-    for i in range(N_out):
-        w[i] = np.roll(y, i*N_in//N_out)
+    for i in range(N_in):
+        w[:,i] = np.roll(y, i*N_out//N_in)
     
-    return w	
+    return w
 
 @njit
 def sigmoide(x, beta=50, thr=1):
@@ -51,12 +51,12 @@ def sigmoide(x, beta=50, thr=1):
 # 				w_lmn_adn_, noise_adn_, 
 # 				w_adn_trn_, w_trn_adn_, thr_adn, N_t=4000):
 tau = 0.1
-N_lmn = 12
-N_adn = 36
+N_lmn = 36
+N_adn = 360
 
-noise_lmn_=1.0
-noise_adn_=0.0
-noise_cal_=0.0
+noise_lmn_=0.5
+noise_adn_=0.1
+noise_cal_=0.1
 
 w_lmn_adn_=1
 w_adn_trn_=1
@@ -66,9 +66,9 @@ thr_adn=1.0
 thr_cal=0.5
 thr_shu=1.0
 
-sigma_adn_lmn = 1
+sigma_adn_lmn = 100
 
-D_lmn = 1.1
+D_lmn = 0.9
 
 N_t=2000
 
@@ -87,6 +87,7 @@ x_lmn = np.zeros((N_t, N_lmn))
 # ADN
 #############################
 w_lmn_adn = make_circular_weights(N_lmn, N_adn, sigma=sigma_adn_lmn)*w_lmn_adn_
+# w_lmn_adn = np.tanh(w_lmn_adn)
 # w_lmn_adn = make_direct_weights(N_lmn, N_adn)*w_lmn_adn_
 noise_adn =  np.random.randn(N_t, N_adn)*noise_adn_
 noise_cal =  np.random.randn(N_t, N_adn)*noise_cal_
@@ -127,7 +128,7 @@ for i in range(1, N_t):
 	x_cal[i] = x_cal[i-1] + tau * (
 		- x_cal[i-1]
 		+ sigmoide(r_adn[i-1], thr=thr_cal)
-		# + noise_cal[i]
+		+ noise_cal[i]
 		)
 
 	
@@ -168,7 +169,6 @@ ylabel("r_lmn")
 ax = subplot(n_rows,1,2, sharex=ax)
 plot(x_adn, '-')
 axhline(thr_adn, linestyle='--')
-axhline(thr_cal)
 ylabel("x_adn")
 subplot(n_rows,1,3,sharex=ax)
 plot(x_cal, '-')
@@ -176,6 +176,7 @@ axhline(thr_shu)
 ylabel("X_cal")
 subplot(n_rows,1,4, sharex=ax)
 plot(r_adn, '-')
+axhline(thr_cal)
 ylabel("r_adn")
 subplot(n_rows,1,5, sharex=ax)
 pcolormesh(r_adn.T, cmap='jet')
