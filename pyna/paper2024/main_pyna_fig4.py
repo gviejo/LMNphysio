@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   gviejo
-# @Last Modified time: 2025-07-02 21:14:53
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2025-07-08 15:42:41
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -596,13 +596,124 @@ for j, e in enumerate(['wak', 'sws']):
 # ##########################################
 # BOTTOM
 # ##########################################
-
 # MODEL
 
 gs_bottom = gridspec.GridSpecFromSubplotSpec(
-    2, 1, subplot_spec=outergs[1,0], hspace=0.4
+    1, 3, subplot_spec=outergs[1,0], hspace=0.4
     )
 
+def ellipse_points(t, center, width, height, angle=0):
+    x0, y0 = center
+    a, b = width / 2, height / 2
+    theta = np.deg2rad(angle)
+    x = a * np.cos(t)
+    y = b * np.sin(t)
+    # Apply rotation
+    x_rot = x * np.cos(theta) - y * np.sin(theta)
+    y_rot = x * np.sin(theta) + y * np.cos(theta)
+    # Translate to center
+    x_final = x0 + x_rot
+    y_final = y0 + y_rot
+    return x_final, y_final
+
+# Diagram
+ax = subplot(gs_bottom[0,0])
+from matplotlib.patches import Ellipse
+# First oval LMN
+height = 0.05
+width = 0.2
+y_lmn = 0.3
+oval1 = Ellipse((0.5, y_lmn), width=width, height=height, angle=0,
+                edgecolor=colors['lmn'], facecolor='none', linewidth=1)
+ax.add_patch(oval1)
+x1, y1 = ellipse_points([-np.pi/2], (0.5, y_lmn), width, height)
+
+ax.text(0.5-width, y_lmn, "LMN", 
+    ha='center', va='center', fontsize=fontsize-1,
+    bbox=dict(facecolor=colors['lmn'], edgecolor='none', boxstyle='round,pad=0.2')
+    )
+
+# Second oval ADN
+width = 0.4
+y_adn = 0.7
+oval2 = Ellipse((0.5, y_adn), width=width, height=height, angle=0,
+                edgecolor=colors['adn'], facecolor='none', linewidth=1)
+ax.add_patch(oval2)
+a = -np.pi/2
+offset = (2*np.pi)/36
+tmp = np.linspace(a-offset*3, a+offset*3, 5)
+x2, y2 = ellipse_points(tmp, (0.5, y_adn), width, height)
+ax.text(0.5-width+0.1, y_adn, "ADN", 
+    ha='center', va='center', fontsize=fontsize-1,
+    bbox=dict(facecolor=colors['adn'], edgecolor='none', boxstyle='round,pad=0.2')
+    )
+
+
+alphas = [0.5, 0.75, 1, 0.75, 0.5]
+lws = [0.5, 0.75, 1, 0.75, 0.5]
+for i in range(len(x2)):
+    # plot([x1[0], x2[i]], [y1[0], y2[i]], linewidth=lws[i], color='grey', alpha=alphas[i])
+    arrow = FancyArrowPatch(
+        [x1[0], y1[0]], [x2[i], y2[i]],
+        arrowstyle="->",
+        color=COLOR,
+        linewidth=lws[i],
+        # alpha=alphas[i],
+        mutation_scale=5
+        )
+    ax.add_patch(arrow)
+
+plot(x1, y1, 'o', color=colors['lmn'], markersize=2)
+plot(x2, y2, 'o', color=colors['adn'], markersize=2)
+
+
+# Inset axes non linearity
+axi = ax.inset_axes([0.2, y_lmn+(y_adn-y_lmn)/2, 0.15, 0.1])
+simpleaxis(axi)
+x = np.linspace(-20, 20, 100)
+axi.plot(x, (1/(1+np.exp(-x))), linewidth=1, color=COLOR)
+axi.set_xticks([])
+axi.set_yticks([])
+axi.set_xlabel(r"$I_{LMN}$")
+axi.set_ylabel(r"$x_{ADN}$")
+
+# Set limits and aspect
+ax.set_xlim(0, 1)
+ax.set_ylim(0, 1)
+ax.set_aspect('equal')
+
+# Define start and end points
+start = (0.7, y_adn)
+end = (0.6, y_lmn)
+
+# Create a curved arrow using a quadratic Bezier curve (connectionstyle)
+arrow = FancyArrowPatch(
+    start, end,
+    connectionstyle="arc3,rad=-0.6",  # curvature (positive: left curve, negative: right)
+    arrowstyle="->",
+    color=COLOR,
+    linewidth=0.5,
+    mutation_scale=5
+)
+
+ax.add_patch(arrow)
+xm = (start[0] + end[0]) / 2
+ym = (start[1] + end[1]) / 2
+ax.text(xm+0.15, ym, "PSB Feedback", 
+    ha='center', va='center', fontsize=fontsize-1,
+    bbox=dict(facecolor=colors['psb'], edgecolor='none', boxstyle='round,pad=0.2')
+    )
+
+
+
+
+
+# Activity
+subplot(gs_bottom[0,1])
+
+
+# Coherence
+subplot(gs_bottom[0,2])
 
 
 
@@ -610,7 +721,7 @@ outergs.update(top=0.96, bottom=0.09, right=0.98, left=0.06)
 
 
 savefig(
-    os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/fig4.pdf",
+    os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/fig4.png",
     dpi=200,
     facecolor="white",
 )
