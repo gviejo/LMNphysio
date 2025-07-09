@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-07-08 15:42:41
+# @Last Modified by:   gviejo
+# @Last Modified time: 2025-07-08 22:49:50
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -618,11 +618,12 @@ def ellipse_points(t, center, width, height, angle=0):
 
 # Diagram
 ax = subplot(gs_bottom[0,0])
+noaxis(ax)
 from matplotlib.patches import Ellipse
 # First oval LMN
 height = 0.05
 width = 0.2
-y_lmn = 0.3
+y_lmn = 0.4
 oval1 = Ellipse((0.5, y_lmn), width=width, height=height, angle=0,
                 edgecolor=colors['lmn'], facecolor='none', linewidth=1)
 ax.add_patch(oval1)
@@ -668,7 +669,7 @@ plot(x2, y2, 'o', color=colors['adn'], markersize=2)
 
 
 # Inset axes non linearity
-axi = ax.inset_axes([0.2, y_lmn+(y_adn-y_lmn)/2, 0.15, 0.1])
+axi = ax.inset_axes([0.2, y_lmn+(y_adn-y_lmn)/2-0.04, 0.15, 0.1])
 simpleaxis(axi)
 x = np.linspace(-20, 20, 100)
 axi.plot(x, (1/(1+np.exp(-x))), linewidth=1, color=COLOR)
@@ -683,7 +684,7 @@ ax.set_ylim(0, 1)
 ax.set_aspect('equal')
 
 # Define start and end points
-start = (0.7, y_adn)
+start = (0.7, y_adn-0.05)
 end = (0.6, y_lmn)
 
 # Create a curved arrow using a quadratic Bezier curve (connectionstyle)
@@ -704,9 +705,31 @@ ax.text(xm+0.15, ym, "PSB Feedback",
     bbox=dict(facecolor=colors['psb'], edgecolor='none', boxstyle='round,pad=0.2')
     )
 
+# Inh
+ax.plot(0.8, y_adn, 'o', color=COLOR, markersize=3)
+ax.text(0.8+0.1, y_adn, "Inh.", 
+    ha='center', va='center', fontsize=fontsize-1,
+    bbox=dict(facecolor="lightgrey", edgecolor='none', boxstyle='round,pad=0.2')
+    )
+arrow = FancyArrowPatch(
+    (0.8, y_adn), (0.7, y_adn),
+    connectionstyle="arc3,rad=-0.6",  # curvature (positive: left curve, negative: right)
+    arrowstyle="-[",
+    color=COLOR,
+    linewidth=0.5,
+    mutation_scale=1
+)
+ax.add_patch(arrow)
 
-
-
+arrow = FancyArrowPatch(
+    (0.7, y_adn), (0.8, y_adn),
+    connectionstyle="arc3,rad=-0.6",  # curvature (positive: left curve, negative: right)
+    arrowstyle="->",
+    color=COLOR,
+    linewidth=0.5,
+    mutation_scale=5
+)
+ax.add_patch(arrow)
 
 # Activity
 subplot(gs_bottom[0,1])
@@ -721,7 +744,7 @@ outergs.update(top=0.96, bottom=0.09, right=0.98, left=0.06)
 
 
 savefig(
-    os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/fig4.png",
+    os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/fig4.pdf",
     dpi=200,
     facecolor="white",
 )
