@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   gviejo
-# @Last Modified time: 2025-07-08 22:49:50
+# @Last Modified time: 2025-07-10 22:56:55
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -618,25 +618,25 @@ def ellipse_points(t, center, width, height, angle=0):
 
 # Diagram
 ax = subplot(gs_bottom[0,0])
-noaxis(ax)
+# noaxis(ax)
 from matplotlib.patches import Ellipse
 # First oval LMN
-height = 0.05
-width = 0.2
-y_lmn = 0.4
+height = 0.04
+width = 0.1
+y_lmn = 0.1
+
 oval1 = Ellipse((0.5, y_lmn), width=width, height=height, angle=0,
                 edgecolor=colors['lmn'], facecolor='none', linewidth=1)
 ax.add_patch(oval1)
 x1, y1 = ellipse_points([-np.pi/2], (0.5, y_lmn), width, height)
-
-ax.text(0.5-width, y_lmn, "LMN", 
-    ha='center', va='center', fontsize=fontsize-1,
+ax.text(0.5-width/2-0.03, y_lmn, "LMN", 
+    ha='right', va='center', fontsize=fontsize-1,
     bbox=dict(facecolor=colors['lmn'], edgecolor='none', boxstyle='round,pad=0.2')
     )
 
 # Second oval ADN
-width = 0.4
-y_adn = 0.7
+width = 0.3
+y_adn = 0.5
 oval2 = Ellipse((0.5, y_adn), width=width, height=height, angle=0,
                 edgecolor=colors['adn'], facecolor='none', linewidth=1)
 ax.add_patch(oval2)
@@ -644,8 +644,8 @@ a = -np.pi/2
 offset = (2*np.pi)/36
 tmp = np.linspace(a-offset*3, a+offset*3, 5)
 x2, y2 = ellipse_points(tmp, (0.5, y_adn), width, height)
-ax.text(0.5-width+0.1, y_adn, "ADN", 
-    ha='center', va='center', fontsize=fontsize-1,
+ax.text(0.5-width/2-0.03, y_adn, "ADN", 
+    ha='right', va='center', fontsize=fontsize-1,
     bbox=dict(facecolor=colors['adn'], edgecolor='none', boxstyle='round,pad=0.2')
     )
 
@@ -683,36 +683,37 @@ ax.set_xlim(0, 1)
 ax.set_ylim(0, 1)
 ax.set_aspect('equal')
 
-# Define start and end points
-start = (0.7, y_adn-0.05)
-end = (0.6, y_lmn)
 
 # Create a curved arrow using a quadratic Bezier curve (connectionstyle)
+# PSB Feedback
+y_psb = 0.75
+ax.text(0.5, y_psb, "PSB Feedback", 
+    ha='center', va='center', fontsize=fontsize-1,
+    bbox=dict(facecolor=colors['psb'], edgecolor='none', boxstyle='round,pad=0.2')
+    )
+
+# Define start and end points
+start = (0.6, y_psb)
+end = (0.6, y_lmn)
 arrow = FancyArrowPatch(
     start, end,
-    connectionstyle="arc3,rad=-0.6",  # curvature (positive: left curve, negative: right)
+    connectionstyle="arc3,rad=-0.9",  # curvature (positive: left curve, negative: right)
     arrowstyle="->",
     color=COLOR,
     linewidth=0.5,
     mutation_scale=5
 )
-
 ax.add_patch(arrow)
-xm = (start[0] + end[0]) / 2
-ym = (start[1] + end[1]) / 2
-ax.text(xm+0.15, ym, "PSB Feedback", 
-    ha='center', va='center', fontsize=fontsize-1,
-    bbox=dict(facecolor=colors['psb'], edgecolor='none', boxstyle='round,pad=0.2')
-    )
 
 # Inh
-ax.plot(0.8, y_adn, 'o', color=COLOR, markersize=3)
-ax.text(0.8+0.1, y_adn, "Inh.", 
+x_inh = 0.75
+ax.plot(x_inh, y_adn, 'o', color=COLOR, markersize=3)
+ax.text(x_inh+0.08, y_adn, "Inh.", 
     ha='center', va='center', fontsize=fontsize-1,
     bbox=dict(facecolor="lightgrey", edgecolor='none', boxstyle='round,pad=0.2')
     )
 arrow = FancyArrowPatch(
-    (0.8, y_adn), (0.7, y_adn),
+    (x_inh, y_adn), (x_inh-0.1, y_adn),
     connectionstyle="arc3,rad=-0.6",  # curvature (positive: left curve, negative: right)
     arrowstyle="-[",
     color=COLOR,
@@ -722,7 +723,7 @@ arrow = FancyArrowPatch(
 ax.add_patch(arrow)
 
 arrow = FancyArrowPatch(
-    (0.7, y_adn), (0.8, y_adn),
+    (x_inh-0.1, y_adn), (x_inh, y_adn),
     connectionstyle="arc3,rad=-0.6",  # curvature (positive: left curve, negative: right)
     arrowstyle="->",
     color=COLOR,
@@ -730,6 +731,22 @@ arrow = FancyArrowPatch(
     mutation_scale=5
 )
 ax.add_patch(arrow)
+
+
+box_height = 0.1
+box_width = 0.9
+x_left = 0.025
+# Draw boxes
+for i, y in enumerate([y_lmn, y_adn, 0.75]):
+    outerrect = patches.FancyBboxPatch((x_left, y - box_height/2),
+                                   box_width, box_height,
+                                   boxstyle="round,pad=0.01",
+                                   edgecolor=COLOR,
+                                   facecolor="None", linewidth=0.5, linestyle='--')
+    ax.add_patch(outerrect)
+    ax.text(x_left, y, 
+        ['Mammilary\nBody', 'Anterior\nThalamus', 'Cortex'][i], ha='left', va='center', fontsize=4)
+
 
 # Activity
 subplot(gs_bottom[0,1])
