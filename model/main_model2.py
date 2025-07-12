@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2025-06-19 15:28:18
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-07-04 15:16:05
+# @Last Modified by:   gviejo
+# @Last Modified time: 2025-07-11 21:56:17
 """
 N LMN -> N ADN 
 Non linearity + CAN Current + inhibition in ADN
@@ -43,7 +43,7 @@ def make_circular_weights(N_in, N_out, sigma=10):
     return w
 
 @njit
-def sigmoide(x, beta=50, thr=1):
+def sigmoide(x, beta=10, thr=1):
 	return 1/(1+np.exp(-(x-thr)*beta))
 
 # # @njit
@@ -54,21 +54,21 @@ tau = 0.1
 N_lmn = 36
 N_adn = 360
 
-noise_lmn_=0.5
-noise_adn_=0.1
-noise_cal_=0.1
+noise_lmn_=1.0
+noise_adn_=1.0
+noise_cal_=1.0
 
-w_lmn_adn_=1
-w_adn_trn_=1
-w_trn_adn_=1
+w_lmn_adn_=1.5
+w_adn_trn_=1.0
+w_trn_adn_=0.5
 
 thr_adn=1.0
-thr_cal=0.5
+thr_cal=1.0
 thr_shu=1.0
 
 sigma_adn_lmn = 100
 
-D_lmn = 0.9
+D_lmn = 0.8
 
 N_t=2000
 
@@ -87,8 +87,6 @@ x_lmn = np.zeros((N_t, N_lmn))
 # ADN
 #############################
 w_lmn_adn = make_circular_weights(N_lmn, N_adn, sigma=sigma_adn_lmn)*w_lmn_adn_
-# w_lmn_adn = np.tanh(w_lmn_adn)
-# w_lmn_adn = make_direct_weights(N_lmn, N_adn)*w_lmn_adn_
 noise_adn =  np.random.randn(N_t, N_adn)*noise_adn_
 noise_cal =  np.random.randn(N_t, N_adn)*noise_cal_
 r_adn = np.zeros((N_t, N_adn))
@@ -124,12 +122,12 @@ for i in range(1, N_t):
 	I_ext[i] = np.dot(w_lmn_adn, r_lmn[i]) - r_trn[i-1] * w_trn_adn + sigmoide(-x_cal[i], thr=-thr_shu)
 
 
-	# Calcium
-	x_cal[i] = x_cal[i-1] + tau * (
-		- x_cal[i-1]
-		+ sigmoide(r_adn[i-1], thr=thr_cal)
-		+ noise_cal[i]
-		)
+	# # Calcium
+	# x_cal[i] = x_cal[i-1] + tau * (
+	# 	- x_cal[i-1]
+	# 	+ sigmoide(r_adn[i-1], thr=thr_cal)
+	# 	+ noise_cal[i]
+	# 	)
 
 	
 	x_adn[i] = x_adn[i-1] + tau * (

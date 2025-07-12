@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2025-06-19 15:28:18
 # @Last Modified by:   gviejo
-# @Last Modified time: 2025-07-06 22:36:15
+# @Last Modified time: 2025-07-11 21:57:54
 """
 N LMN -> N ADN 
 Non linearity + CAN Current + inhibition in ADN + PSB Feedback
@@ -61,8 +61,8 @@ noise_trn_=1.0
 
 w_lmn_adn_=1.5
 w_adn_trn_=1.0
-w_trn_adn_=0.1
-w_psb_lmn_=0.02
+w_trn_adn_=0.5
+w_psb_lmn_=0.1
 
 thr_adn=1.0
 thr_cal=1.0
@@ -118,7 +118,6 @@ x_lmn = np.zeros((N_t, N_lmn))
 # ADN
 #############################
 w_lmn_adn = make_circular_weights(N_lmn, N_adn, sigma=sigma_adn_lmn)*w_lmn_adn_
-# w_lmn_adn = make_direct_weights(N_lmn, N_adn)*w_lmn_adn_
 noise_adn =  np.random.randn(N_t, N_adn)*noise_adn_
 noise_trn =  np.random.randn(N_t)*noise_trn_
 r_adn = np.zeros((N_t, N_adn))
