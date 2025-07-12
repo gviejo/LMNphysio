@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   gviejo
-# @Last Modified time: 2025-07-10 22:56:55
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2025-07-12 17:27:00
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -64,7 +64,7 @@ def figsize(scale):
     golden_mean = (np.sqrt(5.0) - 1.0) / 2  # Aesthetic ratio (you could change this)
     # fig_width = fig_width_pt*inches_per_pt*scale    # width in inches
     fig_width = 6
-    fig_height = fig_width * golden_mean * 1.1  # height in inches
+    fig_height = fig_width * golden_mean * 0.9  # height in inches
     fig_size = [fig_width, fig_height]
     return fig_size
 
@@ -159,7 +159,7 @@ markers = ["d", "o", "v"]
 
 fig = figure(figsize=figsize(1))
 
-outergs = GridSpec(2, 1, hspace = 0.4, height_ratios=[0.4,0.6])
+outergs = GridSpec(2, 1, hspace = 0.4, height_ratios=[0.5,0.5])
 
 
 names = {'adn':"ADN", 'lmn':"LMN"}
@@ -599,7 +599,7 @@ for j, e in enumerate(['wak', 'sws']):
 # MODEL
 
 gs_bottom = gridspec.GridSpecFromSubplotSpec(
-    1, 3, subplot_spec=outergs[1,0], hspace=0.4
+    1, 2, subplot_spec=outergs[1,0], width_ratios = [0.3, 0.8]
     )
 
 def ellipse_points(t, center, width, height, angle=0):
@@ -618,7 +618,7 @@ def ellipse_points(t, center, width, height, angle=0):
 
 # Diagram
 ax = subplot(gs_bottom[0,0])
-# noaxis(ax)
+noaxis(ax)
 from matplotlib.patches import Ellipse
 # First oval LMN
 height = 0.04
@@ -638,7 +638,7 @@ ax.text(0.5-width/2-0.03, y_lmn, "LMN",
 width = 0.3
 y_adn = 0.5
 oval2 = Ellipse((0.5, y_adn), width=width, height=height, angle=0,
-                edgecolor=colors['adn'], facecolor='none', linewidth=1)
+                edgecolor=colors['adn'], facecolor='none', linewidth=1, zorder=2)
 ax.add_patch(oval2)
 a = -np.pi/2
 offset = (2*np.pi)/36
@@ -660,7 +660,8 @@ for i in range(len(x2)):
         color=COLOR,
         linewidth=lws[i],
         # alpha=alphas[i],
-        mutation_scale=5
+        mutation_scale=5,
+        zorder=2
         )
     ax.add_patch(arrow)
 
@@ -669,7 +670,7 @@ plot(x2, y2, 'o', color=colors['adn'], markersize=2)
 
 
 # Inset axes non linearity
-axi = ax.inset_axes([0.2, y_lmn+(y_adn-y_lmn)/2-0.04, 0.15, 0.1])
+axi = ax.inset_axes([0.2, y_lmn+(y_adn-y_lmn)/2-0.04, 0.2, 0.1])
 simpleaxis(axi)
 x = np.linspace(-20, 20, 100)
 axi.plot(x, (1/(1+np.exp(-x))), linewidth=1, color=COLOR)
@@ -679,14 +680,24 @@ axi.set_xlabel(r"$I_{LMN}$")
 axi.set_ylabel(r"$x_{ADN}$")
 
 # Set limits and aspect
-ax.set_xlim(0, 1)
-ax.set_ylim(0, 1)
-ax.set_aspect('equal')
+ax.set_xlim(-0.1, 1)
+ax.set_ylim(0, 0.86)
+# ax.set_aspect('equal')
 
-
-# Create a curved arrow using a quadratic Bezier curve (connectionstyle)
-# PSB Feedback
+# ADN -> PSB
 y_psb = 0.75
+
+arrow = FancyArrowPatch(
+    [0.5, y_adn], [0.5, y_psb],
+    arrowstyle="-",
+    color=COLOR,
+    linewidth=lws[i],
+    # alpha=alphas[i],
+    mutation_scale=5
+    )
+ax.add_patch(arrow)
+
+# PSB Feedback
 ax.text(0.5, y_psb, "PSB Feedback", 
     ha='center', va='center', fontsize=fontsize-1,
     bbox=dict(facecolor=colors['psb'], edgecolor='none', boxstyle='round,pad=0.2')
@@ -694,10 +705,10 @@ ax.text(0.5, y_psb, "PSB Feedback",
 
 # Define start and end points
 start = (0.6, y_psb)
-end = (0.6, y_lmn)
+end = (0.55, y_lmn)
 arrow = FancyArrowPatch(
     start, end,
-    connectionstyle="arc3,rad=-0.9",  # curvature (positive: left curve, negative: right)
+    connectionstyle="arc3,rad=-0.4",  # curvature (positive: left curve, negative: right)
     arrowstyle="->",
     color=COLOR,
     linewidth=0.5,
@@ -708,7 +719,7 @@ ax.add_patch(arrow)
 # Inh
 x_inh = 0.75
 ax.plot(x_inh, y_adn, 'o', color=COLOR, markersize=3)
-ax.text(x_inh+0.08, y_adn, "Inh.", 
+ax.text(x_inh+0.085, y_adn, "Inh.", 
     ha='center', va='center', fontsize=fontsize-1,
     bbox=dict(facecolor="lightgrey", edgecolor='none', boxstyle='round,pad=0.2')
     )
@@ -718,7 +729,8 @@ arrow = FancyArrowPatch(
     arrowstyle="-[",
     color=COLOR,
     linewidth=0.5,
-    mutation_scale=1
+    mutation_scale=1,
+    zorder=2
 )
 ax.add_patch(arrow)
 
@@ -728,36 +740,76 @@ arrow = FancyArrowPatch(
     arrowstyle="->",
     color=COLOR,
     linewidth=0.5,
-    mutation_scale=5
+    mutation_scale=5,
+    zorder=2
 )
 ax.add_patch(arrow)
 
 
 box_height = 0.1
-box_width = 0.9
-x_left = 0.025
+box_widths = [0.6, 1.0, 0.7]
+x_lefts = [0.01, -0.08, 0.02]
+facecolors = ["None", "white", "None"]
 # Draw boxes
 for i, y in enumerate([y_lmn, y_adn, 0.75]):
-    outerrect = patches.FancyBboxPatch((x_left, y - box_height/2),
-                                   box_width, box_height,
+    outerrect = patches.FancyBboxPatch((x_lefts[i], y - box_height/2),
+                                   box_widths[i], box_height,
                                    boxstyle="round,pad=0.01",
                                    edgecolor=COLOR,
-                                   facecolor="None", linewidth=0.5, linestyle='--')
+                                   facecolor=facecolors[i], linewidth=0.5, linestyle='--')
     ax.add_patch(outerrect)
-    ax.text(x_left, y, 
-        ['Mammilary\nBody', 'Anterior\nThalamus', 'Cortex'][i], ha='left', va='center', fontsize=4)
+    ax.text(x_lefts[i]+0.11, y, 
+        ['Mammilary\nBody', 'Anterior\nThalamus', 'Cortex'][i], ha='center', va='center', fontsize=4)
+
+
 
 
 # Activity
-subplot(gs_bottom[0,1])
+
+filepath = os.path.join(os.path.expanduser("~") + "/Dropbox/LMNphysio/model/model.pickle")
+data = cPickle.load(open(filepath, 'rb'))
+popcoh = data['popcoh']
 
 
-# Coherence
-subplot(gs_bottom[0,2])
+gs_bottom2 = gridspec.GridSpecFromSubplotSpec(
+    2, 1, subplot_spec=gs_bottom[0,1]
+    )
+
+
+gs_activity = gridspec.GridSpecFromSubplotSpec(
+    2, 1, subplot_spec=gs_bottom2[0,0]
+    )
+
+cmaps = ["Reds", "Blues"]
+
+for i, st in enumerate(['adn', 'lmn']):
+    subplot(gs_activity[i,0])
+    simpleaxis(gca())
+    imshow(data[st].T, aspect='auto', cmap=cmaps[i])
 
 
 
-outergs.update(top=0.96, bottom=0.09, right=0.98, left=0.06)
+# Population Coherence
+gs_popcoh = gridspec.GridSpecFromSubplotSpec(
+    1, 2, subplot_spec=gs_bottom2[1,0]
+    )
+
+# Real data
+subplot(gs_popcoh[0,0])
+
+
+# Model
+from scipy.stats import pearsonr
+subplot(gs_popcoh[0,1])
+for i, st in enumerate(['lmn', 'adn']):    
+    r = [pearsonr(popcoh[st][0], popcoh[st][k])[0] for j, k in enumerate([1,2])]
+
+    plot([0, 1], r, 'o-', color=colors[st])
+
+ylim(-0.1, 1)
+
+
+outergs.update(top=0.94, bottom=0.09, right=0.98, left=0.06)
 
 
 savefig(

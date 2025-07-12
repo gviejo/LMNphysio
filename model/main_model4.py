@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2025-06-19 15:28:18
-# @Last Modified by:   gviejo
-# @Last Modified time: 2025-07-11 21:57:54
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2025-07-12 16:14:59
 """
 N LMN -> N ADN 
 Non linearity + CAN Current + inhibition in ADN + PSB Feedback
@@ -20,7 +20,7 @@ from scipy.stats import pearsonr
 
 from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 from numba import jit, njit
-
+import os
 
 
 
@@ -61,8 +61,8 @@ noise_trn_=1.0
 
 w_lmn_adn_=1.5
 w_adn_trn_=1.0
-w_trn_adn_=0.5
-w_psb_lmn_=0.1
+w_trn_adn_=0.1
+w_psb_lmn_=0.02
 
 thr_adn=1.0
 thr_cal=1.0
@@ -225,6 +225,7 @@ for k, r in zip(['lmn', 'adn'],[r_lmn, r_adn]):
         popcoh[k][i] = tmp[np.triu_indices(tmp.shape[0], 1)]
 
 
+
 colors = {"adn": "#EA9E8D", "lmn": "#8BA6A9", "psb": "#CACC90"}
 figure()
 gs = GridSpec(2,2)
@@ -243,6 +244,21 @@ for i, st in enumerate(['lmn', 'adn']):
         if j == 1:
             ylabel("No PSB feedback")
         title(st + " " + f"r={np.round(r,2)}")
+
+
+
+datatosave = {
+    "lmn" : r_lmn,
+    "adn" : r_adn,
+    "trn" : r_trn,
+    "popcoh" : popcoh,
+    "slices" : slices
+}
+import _pickle as cPickle
+
+filepath = os.path.join(os.path.expanduser("~") + "/Dropbox/LMNphysio/model/model.pickle")
+
+cPickle.dump(datatosave, open(filepath, 'wb'))
 
 
 
