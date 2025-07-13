@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-07-12 17:27:00
+# @Last Modified time: 2025-07-13 17:48:06
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -64,7 +64,7 @@ def figsize(scale):
     golden_mean = (np.sqrt(5.0) - 1.0) / 2  # Aesthetic ratio (you could change this)
     # fig_width = fig_width_pt*inches_per_pt*scale    # width in inches
     fig_width = 6
-    fig_height = fig_width * golden_mean * 0.9  # height in inches
+    fig_height = fig_width * golden_mean * 0.95  # height in inches
     fig_size = [fig_width, fig_height]
     return fig_size
 
@@ -103,7 +103,8 @@ fontsize = 6.0
 COLOR = (0.25, 0.25, 0.25)
 cycle = rcParams['axes.prop_cycle'].by_key()['color'][5:]
 
-rcParams["font.family"] = 'Liberation Sans'
+# rcParams["font.family"] = 'Liberation Sans'
+rcParams["font.family"] = 'DejaVu Sans'
 rcParams["font.size"] = fontsize
 rcParams["text.color"] = COLOR
 rcParams["axes.labelcolor"] = COLOR
@@ -159,7 +160,7 @@ markers = ["d", "o", "v"]
 
 fig = figure(figsize=figsize(1))
 
-outergs = GridSpec(2, 1, hspace = 0.4, height_ratios=[0.5,0.5])
+outergs = GridSpec(2, 1, hspace = 0.6, height_ratios=[0.5,0.5])
 
 
 names = {'adn':"ADN", 'lmn':"LMN"}
@@ -415,8 +416,8 @@ for i, st in enumerate(['adn', 'lmn']):
 
 
 # Colorbar
-axip = gca().inset_axes([1.2, 2.3, 0.1, 0.6])
-noaxis(axip)
+axip = gca().inset_axes([1.2, 2.3, 0.1, 0.5])
+# noaxis(axip)
 cbar = colorbar(im, cax=axip)
 axip.set_title("%", y=0.8)
 
@@ -442,7 +443,7 @@ for i, st in enumerate(['adn', 'lmn']):
     xlim(0, 1.8)
     if i == 0:
         xticks([0, 1], ['',''])
-        legend(handlelength = 1.1, frameon=False, bbox_to_anchor=(1.0, 1.2, 0.5, 0.5))
+        legend(handlelength = 1.1, frameon=False, bbox_to_anchor=(1.2, 1.4, 0.5, 0.5))
     if i == 1:
         xticks([0, 1])
         xlabel("%")
@@ -599,7 +600,7 @@ for j, e in enumerate(['wak', 'sws']):
 # MODEL
 
 gs_bottom = gridspec.GridSpecFromSubplotSpec(
-    1, 2, subplot_spec=outergs[1,0], width_ratios = [0.3, 0.8]
+    1, 2, subplot_spec=outergs[1,0], width_ratios = [0.4, 0.8]
     )
 
 def ellipse_points(t, center, width, height, angle=0):
@@ -670,7 +671,7 @@ plot(x2, y2, 'o', color=colors['adn'], markersize=2)
 
 
 # Inset axes non linearity
-axi = ax.inset_axes([0.2, y_lmn+(y_adn-y_lmn)/2-0.04, 0.2, 0.1])
+axi = ax.inset_axes([0.2, y_lmn+(y_adn-y_lmn)/2-0.01, 0.2, 0.1])
 simpleaxis(axi)
 x = np.linspace(-20, 20, 100)
 axi.plot(x, (1/(1+np.exp(-x))), linewidth=1, color=COLOR)
@@ -747,8 +748,8 @@ ax.add_patch(arrow)
 
 
 box_height = 0.1
-box_widths = [0.6, 1.0, 0.7]
-x_lefts = [0.01, -0.08, 0.02]
+box_widths = [0.61, 1.0, 0.7]
+x_lefts = [0.0, -0.08, 0.02]
 facecolors = ["None", "white", "None"]
 # Draw boxes
 for i, y in enumerate([y_lmn, y_adn, 0.75]):
@@ -758,55 +759,173 @@ for i, y in enumerate([y_lmn, y_adn, 0.75]):
                                    edgecolor=COLOR,
                                    facecolor=facecolors[i], linewidth=0.5, linestyle='--')
     ax.add_patch(outerrect)
-    ax.text(x_lefts[i]+0.11, y, 
+    ax.text(x_lefts[i]+0.12, y, 
         ['Mammilary\nBody', 'Anterior\nThalamus', 'Cortex'][i], ha='center', va='center', fontsize=4)
 
 
 
-
+######################################
 # Activity
+######################################
 
 filepath = os.path.join(os.path.expanduser("~") + "/Dropbox/LMNphysio/model/model.pickle")
 data = cPickle.load(open(filepath, 'rb'))
 popcoh = data['popcoh']
+slices = data['slices']
+import matplotlib.colors as mcolors
+cmaps = {}
+for name, hex_color in colors.items():
+    # Custom colormap from white to the color
+    cmaps[name] = mcolors.LinearSegmentedColormap.from_list(name, ['white', hex_color])
 
 
 gs_bottom2 = gridspec.GridSpecFromSubplotSpec(
-    2, 1, subplot_spec=gs_bottom[0,1]
+    1, 3, subplot_spec=gs_bottom[0,1], wspace=0.5, width_ratios=[0.6, 0.01, 0.4]
     )
 
 
 gs_activity = gridspec.GridSpecFromSubplotSpec(
-    2, 1, subplot_spec=gs_bottom2[0,0]
+    2, 3, subplot_spec=gs_bottom2[0,0], wspace=0.5
     )
 
-cmaps = ["Reds", "Blues"]
+
+durations = [2000, 1000, 300]
+
+titles = ["'Wake'", "'Sleep'", "'Opto.'\n No PSB feedback"]
 
 for i, st in enumerate(['adn', 'lmn']):
-    subplot(gs_activity[i,0])
-    simpleaxis(gca())
-    imshow(data[st].T, aspect='auto', cmap=cmaps[i])
+    for j, sl in enumerate(slices):
+        subplot(gs_activity[i,j])
+        simpleaxis(gca())
+
+        start = int(sl.start + (sl.stop - sl.start)/2)
+
+        tmp = data[st][start:start+durations[j]].T
+        tmp = tmp/tmp.max()
+
+        im=imshow(tmp, aspect='auto', cmap=cmaps[st])
+
+        if j == 0:
+            ylabel(st.upper())
+            yticks([0, data[st].shape[1]])
+            
+        else:
+            yticks([0, data[st].shape[1]], ["", ""])
+        if i == 1:            
+            xticks([0, durations[j]], [0, durations[j]])
+        else:
+            xticks([0, durations[j]], ["", ""])
+            title(titles[j])
 
 
+        if i == 1 and j == 1:
+            xlabel("Simulation steps")
 
+        if j == 2:
+            # Colorbar
+            axip = gca().inset_axes([1.3, 0.0, 0.1, 0.6])
+            # noaxis(axip)
+            cbar = colorbar(im, cax=axip)
+            axip.set_title("Rate", y=1.0)
+            axip.set_yticks([0, 1])
+
+
+######################################
 # Population Coherence
+######################################
 gs_popcoh = gridspec.GridSpecFromSubplotSpec(
-    1, 2, subplot_spec=gs_bottom2[1,0]
+    2, 2, subplot_spec=gs_bottom2[0,2], wspace=0.05
     )
 
 # Real data
-subplot(gs_popcoh[0,0])
+
+corrs = pd.DataFrame(index=['adn-sws', 'lmn-sws', 'adn-opto', 'lmn-opto'], columns=['mean', 'std'])
+
+data = cPickle.load(open(os.path.join(dropbox_path, 'All_correlation_LMN.pickle'), 'rb'))
+allrlmn = data['allr']
+r_lmn = data['pearsonr']
+data = cPickle.load(open(os.path.join(dropbox_path, 'All_correlation_ADN.pickle'), 'rb'))
+allradn = data['allr']
+r_adn = data['pearsonr']
+allr_sess = {'adn':r_adn, 'lmn':r_lmn}
+for k, r in allr_sess.items():
+    corrs.loc[k+"-sws", 'mean'] = allr_sess[k]['sws'].mean()
+    corrs.loc[k+"-sws", 'std'] = allr_sess[k]['sws'].std()
+
+data = cPickle.load(open(os.path.expanduser(f"~/Dropbox/LMNphysio/data/OPTO_SLEEP.pickle"), 'rb'))
+
+corrs.loc["lmn-opto","mean"] = data['corr']['lmn']['opto']['ipsi']['opto'].mean()
+corrs.loc["lmn-opto","std"] = data['corr']['lmn']['opto']['ipsi']['opto'].std()
+
+corrs.loc["adn-opto","mean"] = data['corr']['adn']['opto']['bilateral']['opto'].mean()
+corrs.loc["adn-opto","std"] = data['corr']['adn']['opto']['bilateral']['opto'].std()
+
+
+xx = [[0, 1], [0, 1]]
+
+
+for i, st in enumerate(['adn', 'lmn']):
+
+    subplot(gs_popcoh[i,0])
+    simpleaxis(gca())
+    gca().spines['bottom'].set_bounds(0, 1)
+    gca().spines['left'].set_bounds(-0.25, 1)
+
+    m = corrs.loc[[f"{st}-sws", f"{st}-opto"], "mean"]
+    s = corrs.loc[[f"{st}-sws", f"{st}-opto"], "std"]
+    plot(xx[i], m, '-', color=colors[st])
+    errorbar(xx[i], m, yerr=s, fmt='o', 
+            elinewidth=0.5,              # Error bar line width
+            capsize=1,                 # Length of the cap
+            capthick=0.5,              # Cap line thickness
+            alpha=1,                 # Transparency
+            markersize=2,               # Size of the marker
+            color=colors[st])
+
+    ylim(-0.25, 1.05)
+    xlim(-0.5, 1.5)
+
+    plot([0, 1], [0, 0], linestyle="--", color=COLOR, linewidth=0.1)
+
+    if i == 0:
+        ylabel("Pop. coherence (r)", y=0, labelpad=5)
+        title("Observed")
+        xticks([])
+
+    if i == 1:
+        xticks([0, 1], ["Sleep", "Opto."])
+    else:
+        xticks([0, 1], ["", ""])
 
 
 # Model
 from scipy.stats import pearsonr
-subplot(gs_popcoh[0,1])
-for i, st in enumerate(['lmn', 'adn']):    
+
+for i, st in enumerate(['adn', 'lmn']):  
+    ax = subplot(gs_popcoh[i,1]) 
+    simpleaxis(ax)   
+    ax.spines["left"].set_visible(False)
+    gca().spines['bottom'].set_bounds(0, 1)
+    gca().spines['left'].set_bounds(-0.25, 1)
+    yticks([])
     r = [pearsonr(popcoh[st][0], popcoh[st][k])[0] for j, k in enumerate([1,2])]
 
-    plot([0, 1], r, 'o-', color=colors[st])
+    plot(xx[i], r, 'o-', color=colors[st], markersize=2)
 
-ylim(-0.1, 1)
+    ylim(-0.25, 1.05)
+    xlim(-0.5, 1.5)
+
+    plot([0, 1], [0, 0], linestyle="--", color=COLOR, linewidth=0.1)
+
+    if i == 0:
+        title("Model")
+        xticks([])
+
+    if i == 1:
+        xticks([0, 1], ["Sleep", "Opto."])
+    else:
+        xticks([0, 1], ["", ""])
+
 
 
 outergs.update(top=0.94, bottom=0.09, right=0.98, left=0.06)
