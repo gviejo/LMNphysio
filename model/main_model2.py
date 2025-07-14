@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2025-06-19 15:28:18
-# @Last Modified by:   gviejo
-# @Last Modified time: 2025-07-11 21:56:17
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2025-07-13 21:20:17
 """
 N LMN -> N ADN 
 Non linearity + CAN Current + inhibition in ADN
@@ -43,7 +43,7 @@ def make_circular_weights(N_in, N_out, sigma=10):
     return w
 
 @njit
-def sigmoide(x, beta=10, thr=1):
+def sigmoide(x, beta=20, thr=1):
 	return 1/(1+np.exp(-(x-thr)*beta))
 
 # # @njit
@@ -60,7 +60,7 @@ noise_cal_=1.0
 
 w_lmn_adn_=1.5
 w_adn_trn_=1.0
-w_trn_adn_=0.5
+w_trn_adn_=0.1
 
 thr_adn=1.0
 thr_cal=1.0
@@ -70,7 +70,7 @@ sigma_adn_lmn = 100
 
 D_lmn = 0.8
 
-N_t=2000
+N_t=1000
 
 
 
@@ -187,8 +187,8 @@ subplot(n_rows,1,7,sharex=ax)
 plot(I_ext)
 ylabel("I ADN")
 
-figure()
-scatter(imap[:,0], imap[:,1])
+# figure()
+# scatter(imap[:,0], imap[:,1])
 
 
 show()

@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-07-13 17:48:06
+# @Last Modified time: 2025-07-13 21:08:45
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -619,6 +619,7 @@ def ellipse_points(t, center, width, height, angle=0):
 
 # Diagram
 ax = subplot(gs_bottom[0,0])
+title("Model")
 noaxis(ax)
 from matplotlib.patches import Ellipse
 # First oval LMN
@@ -689,12 +690,13 @@ ax.set_ylim(0, 0.86)
 y_psb = 0.75
 
 arrow = FancyArrowPatch(
-    [0.5, y_adn], [0.5, y_psb],
+    [0.5, y_adn-0.01], [0.5, y_psb],
     arrowstyle="-",
     color=COLOR,
     linewidth=lws[i],
     # alpha=alphas[i],
-    mutation_scale=5
+    mutation_scale=5,
+    zorder=2
     )
 ax.add_patch(arrow)
 

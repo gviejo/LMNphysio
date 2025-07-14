@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2025-06-19 15:28:18
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-07-12 16:14:59
+# @Last Modified time: 2025-07-13 21:13:40
 """
 N LMN -> N ADN 
 Non linearity + CAN Current + inhibition in ADN + PSB Feedback
@@ -68,7 +68,7 @@ thr_adn=1.0
 thr_cal=1.0
 thr_shu=1.0
 
-sigma_adn_lmn = 100
+sigma_adn_lmn = 200
 sigma_psb_lmn = 10
 
 
