@@ -1,18 +1,10 @@
 # -*- coding: utf-8 -*-
 # @Author: gviejo
 # @Date:   2025-07-13 21:28:56
-# @Last Modified by:   gviejo
-# @Last Modified time: 2025-07-13 22:14:00
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2025-07-14 09:51:33
 
 import numpy as np
-from matplotlib.pyplot import *
-from scipy.ndimage import gaussian_filter, gaussian_filter1d
-from sklearn.manifold import Isomap
-from sklearn.decomposition import KernelPCA
-from sklearn.preprocessing import StandardScaler
-from scipy.stats import pearsonr
-
-from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 from numba import jit, njit
 import os
 
@@ -40,117 +32,121 @@ def make_circular_weights(N_in, N_out, sigma=10):
     return w
 
 @njit
-def sigmoide(x, beta=10, thr=1):
+def sigmoide(x, beta=5, thr=1):
     return 1/(1+np.exp(-(x-thr)*beta))
 
 
 
-def run_model(
-	N_t=1000,,
-	tau = 0.1,
-	N_lmn = 36,
-	N_adn = 360,
-	noise_lmn_=1.0, # Set to 0 during wake
-	noise_adn_=1.0, # Set to 0 during wake
-	noise_trn_=1.0, # Set to 0 during wake
-	w_lmn_adn_=1.5,
-	w_adn_trn_=1.0,
-	w_trn_adn_=0.1,
-	w_psb_lmn_=0.02, # OPTO PSB Feedback
-	thr_adn=1.0,
-	thr_cal=1.0,
-	thr_shu=1.0,
-	sigma_adn_lmn = 200,
-	sigma_psb_lmn = 10,
-	D_lmn = 0.8,
-	I_lmn = 1.0 # 0 for sleep
-	):
+class Model:
+    tau = 0.1
+    N_lmn = 36
+    N_adn = 360
+    noise_lmn_ = 1.0  # Set to 0 during wake
+    noise_adn_ = 1.0  # Set to 0 during wake
+    noise_trn_ = 1.0  # Set to 0 during wake
+    w_lmn_adn_ = 1.5
+    w_adn_trn_ = 1.0
+    w_trn_adn_ = 0.05
+    w_psb_lmn_ = 0.02  # OPTO PSB Feedback
+    thr_adn = 1.0
+    thr_cal = 1.0
+    thr_shu = 1.0
+    sigma_adn_lmn = 200
+    sigma_psb_lmn = 10
+    D_lmn = 0.8
+    I_lmn = 1.0  # 0 for sleep
 
-	#############################
-	# LMN
-	#############################
-	inp_lmn = np.zeros((N_t, N_lmn))
-	x = np.arange(-N_lmn//2, N_lmn//2)
-	y = np.exp(-(x * x) / 100)
-	for i in range(N_t):
-	    inp_lmn[i] = y
-	    if i%50 == 0:
-	        y = np.roll(y, 1)
+    def __init__(self, N_t=2000, **kwargs):
+        self.N_t = N_t
 
-	noise_lmn = np.random.randn(N_t, N_lmn)*noise_lmn_
-	r_lmn = np.zeros((N_t, N_lmn))
-	x_lmn = np.zeros((N_t, N_lmn))
+        # --- Override class defaults with kwargs if provided ---
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+            else:
+                raise ValueError(f"Unknown parameter: {key}")
 
+        #############################
+        # LMN
+        #############################
+        self.inp_lmn = np.zeros((self.N_t, self.N_lmn))
+        x = np.arange(-self.N_lmn // 2, self.N_lmn // 2)
+        y = np.exp(-(x * x) / 100)
 
-	#############################
-	# ADN
-	#############################
-	w_lmn_adn = make_circular_weights(N_lmn, N_adn, sigma=sigma_adn_lmn)*w_lmn_adn_
-	noise_adn =  np.random.randn(N_t, N_adn)*noise_adn_
-	noise_trn =  np.random.randn(N_t)*noise_trn_
-	r_adn = np.zeros((N_t, N_adn))
-	x_adn = np.zeros((N_t, N_adn))
-	# x_cal = np.zeros((N_t, N_adn))
-	I_ext = np.zeros((N_t, N_adn))
+        for i in range(self.N_t):
+            self.inp_lmn[i] = y
+            if i % 50 == 0:
+                y = np.roll(y, 1)
 
+        self.noise_lmn = np.random.randn(self.N_t, self.N_lmn) * self.noise_lmn_
+        self.r_lmn = np.zeros((self.N_t, self.N_lmn))
+        self.x_lmn = np.zeros((self.N_t, self.N_lmn))
 
-	#############################
-	# TRN
-	#############################
-	r_trn = np.zeros((N_t))
-	x_trn = np.zeros((N_t))
-	w_adn_trn = w_adn_trn_
-	w_trn_adn = w_trn_adn_
+        #############################
+        # ADN
+        #############################
+        self.w_lmn_adn = make_circular_weights(self.N_lmn, self.N_adn, sigma=self.sigma_adn_lmn) * self.w_lmn_adn_
+        self.noise_adn = np.random.randn(self.N_t, self.N_adn) * self.noise_adn_
+        self.noise_trn = np.random.randn(self.N_t) * self.noise_trn_
+        self.r_adn = np.zeros((self.N_t, self.N_adn))
+        self.x_adn = np.zeros((self.N_t, self.N_adn))
+        self.I_ext = np.zeros((self.N_t, self.N_adn))
+        # self.x_cal = np.zeros((self.N_t, self.N_adn))  # Uncomment if needed
 
+        #############################
+        # TRN
+        #############################
+        self.r_trn = np.zeros(self.N_t)
+        self.x_trn = np.zeros(self.N_t)
+        self.w_adn_trn = self.w_adn_trn_
+        self.w_trn_adn = self.w_trn_adn_
 
-	############################
-	# PSB FEEDback
-	############################
-	w_psb_lmn = make_circular_weights(N_adn, N_lmn, sigma=sigma_psb_lmn)*w_psb_lmn_
-
-
-	###########################
-	# MAIN LOOP
-	###########################
-
-	for i in range(1, N_t):
-    
-	    I_lmn = np.dot(w_psb_lmn, r_adn[i-1]) + inp_lmn[i]
-
-	    # LMN
-	    x_lmn[i] = x_lmn[i-1] + tau * (
-	        -x_lmn[i-1] 
-	        + noise_lmn[i]
-	        + I_lmn
-	        + D_lmn
-	        )
-	    r_lmn[i] = np.maximum(0, x_lmn[i])
-
-	    # ADN
-	    I_ext[i] = np.dot(w_lmn_adn, r_lmn[i]) - r_trn[i-1] * w_trn_adn #+ sigmoide(-x_cal[i], thr=-thr_shu)
+        #############################
+        # PSB Feedback
+        #############################
+        self.w_psb_lmn = make_circular_weights(self.N_adn, self.N_lmn, sigma=self.sigma_psb_lmn) * self.w_psb_lmn_
 
 
-	    # Calcium
-	    # x_cal[i] = x_cal[i-1] + tau * (
-	    #     - x_cal[i-1]
-	    #     + sigmoide(r_adn[i-1], thr=thr_cal)        
-	    #     )
+    def run(self):
+        ###########################
+        # MAIN LOOP
+        ###########################
 
-	    
-	    x_adn[i] = x_adn[i-1] + tau * (
-	        - x_adn[i-1]
-	        + I_ext[i]
-	        + noise_adn[i]        
-	        )
+        for i in range(1, self.N_t):            
 
-	    r_adn[i] = sigmoide(x_adn[i], thr=thr_adn)
+            # LMN
+            self.x_lmn[i] = self.x_lmn[i - 1] + self.tau * (
+                -self.x_lmn[i - 1]
+                + self.noise_lmn[i]
+                + np.dot(self.w_psb_lmn, self.r_adn[i - 1]) # PSB Feedback
+                + self.inp_lmn[i] * self.I_lmn # Wakefulness drive
+                + self.D_lmn
+            )
+            self.r_lmn[i] = np.maximum(0, self.x_lmn[i])
 
-	    # TRN
-	    x_trn[i] = x_trn[i-1] + tau * (
-	        -x_trn[i-1]
-	        + np.sum(r_adn[i])*w_adn_trn
-	        + noise_trn[i]
-	        )
+            # ADN
+            self.I_ext[i] = np.dot(self.w_lmn_adn, self.r_lmn[i]) - self.r_trn[i - 1] * self.w_trn_adn
+            # + sigmoide(-self.x_cal[i], thr=-self.thr_shu)  # Uncomment if using calcium feedback
 
-	    # r_trn[i] = np.maximum(0, np.tanh(x_trn[i]))
-	    r_trn[i] = np.maximum(0, x_trn[i])
+            # self.x_cal[i] = self.x_cal[i - 1] + self.tau * (
+            #     -self.x_cal[i - 1]
+            #     + sigmoide(self.r_adn[i - 1], thr=self.thr_cal)
+            # )
+
+            self.x_adn[i] = self.x_adn[i - 1] + self.tau * (
+                -self.x_adn[i - 1]
+                + self.I_ext[i]
+                + self.noise_adn[i]
+            )
+            self.r_adn[i] = sigmoide(self.x_adn[i], thr=self.thr_adn)
+
+            # TRN
+            self.x_trn[i] = self.x_trn[i - 1] + self.tau * (
+                -self.x_trn[i - 1]
+                + np.sum(self.r_adn[i]) * self.w_adn_trn
+                + self.noise_trn[i]
+            )
+            self.r_trn[i] = np.maximum(0, self.x_trn[i])
+            # self.r_trn[i] = np.maximum(0, np.tanh(self.x_trn[i]))  # Optional alternative
+
+        

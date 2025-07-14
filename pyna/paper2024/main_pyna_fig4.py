@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-07-13 21:08:45
+# @Last Modified time: 2025-07-14 09:46:11
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -875,6 +875,7 @@ for i, st in enumerate(['adn', 'lmn']):
 
     m = corrs.loc[[f"{st}-sws", f"{st}-opto"], "mean"]
     s = corrs.loc[[f"{st}-sws", f"{st}-opto"], "std"]
+    print(st, m)
     plot(xx[i], m, '-', color=colors[st])
     errorbar(xx[i], m, yerr=s, fmt='o', 
             elinewidth=0.5,              # Error bar line width
