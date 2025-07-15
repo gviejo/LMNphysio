@@ -2,7 +2,7 @@
 # @Author: gviejo
 # @Date:   2025-07-13 21:28:56
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-07-14 09:51:33
+# @Last Modified time: 2025-07-15 18:41:05
 
 import numpy as np
 from numba import jit, njit
@@ -32,7 +32,7 @@ def make_circular_weights(N_in, N_out, sigma=10):
     return w
 
 @njit
-def sigmoide(x, beta=5, thr=1):
+def sigmoide(x, beta=10, thr=1):
     return 1/(1+np.exp(-(x-thr)*beta))
 
 
@@ -44,14 +44,16 @@ class Model:
     noise_lmn_ = 1.0  # Set to 0 during wake
     noise_adn_ = 1.0  # Set to 0 during wake
     noise_trn_ = 1.0  # Set to 0 during wake
-    w_lmn_adn_ = 1.5
+    w_lmn_adn_ = 1.0
     w_adn_trn_ = 1.0
     w_trn_adn_ = 0.05
-    w_psb_lmn_ = 0.02  # OPTO PSB Feedback
+    beta_adn = 10.0
+
+    w_psb_lmn_ = 0.04  # OPTO PSB Feedback
     thr_adn = 1.0
-    thr_cal = 1.0
-    thr_shu = 1.0
-    sigma_adn_lmn = 200
+    # thr_cal = 1.0
+    # thr_shu = 1.0
+    sigma_adn_lmn = 100
     sigma_psb_lmn = 10
     D_lmn = 0.8
     I_lmn = 1.0  # 0 for sleep
@@ -138,7 +140,7 @@ class Model:
                 + self.I_ext[i]
                 + self.noise_adn[i]
             )
-            self.r_adn[i] = sigmoide(self.x_adn[i], thr=self.thr_adn)
+            self.r_adn[i] = sigmoide(self.x_adn[i], thr=self.thr_adn, beta=self.beta_adn)
 
             # TRN
             self.x_trn[i] = self.x_trn[i - 1] + self.tau * (

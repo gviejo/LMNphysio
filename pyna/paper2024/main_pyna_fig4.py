@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-07-14 09:46:11
+# @Last Modified time: 2025-07-15 18:07:21
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -600,7 +600,7 @@ for j, e in enumerate(['wak', 'sws']):
 # MODEL
 
 gs_bottom = gridspec.GridSpecFromSubplotSpec(
-    1, 2, subplot_spec=outergs[1,0], width_ratios = [0.4, 0.8]
+    1, 2, subplot_spec=outergs[1,0], width_ratios = [0.4, 0.8], wspace=0.1
     )
 
 def ellipse_points(t, center, width, height, angle=0):
@@ -773,7 +773,7 @@ for i, y in enumerate([y_lmn, y_adn, 0.75]):
 filepath = os.path.join(os.path.expanduser("~") + "/Dropbox/LMNphysio/model/model.pickle")
 data = cPickle.load(open(filepath, 'rb'))
 popcoh = data['popcoh']
-slices = data['slices']
+
 import matplotlib.colors as mcolors
 cmaps = {}
 for name, hex_color in colors.items():
@@ -782,7 +782,7 @@ for name, hex_color in colors.items():
 
 
 gs_bottom2 = gridspec.GridSpecFromSubplotSpec(
-    1, 3, subplot_spec=gs_bottom[0,1], wspace=0.5, width_ratios=[0.6, 0.01, 0.4]
+    1, 3, subplot_spec=gs_bottom[0,1], wspace=0.4, width_ratios=[0.6, 0.01, 0.4]
     )
 
 
@@ -791,28 +791,29 @@ gs_activity = gridspec.GridSpecFromSubplotSpec(
     )
 
 
-durations = [2000, 1000, 300]
+durations = [2000, 500, 100]
 
 titles = ["'Wake'", "'Sleep'", "'Opto.'\n No PSB feedback"]
 
 for i, st in enumerate(['adn', 'lmn']):
-    for j, sl in enumerate(slices):
+    for j, e in enumerate(['wak', 'sws', 'opto']):
         subplot(gs_activity[i,j])
         simpleaxis(gca())
 
-        start = int(sl.start + (sl.stop - sl.start)/2)
+        # start = int(sl.start + (sl.stop - sl.start)/2)
 
-        tmp = data[st][start:start+durations[j]].T
+        # tmp = data[st][start:start+durations[j]].T
+        tmp = data[st][e][0:durations[j]]
         tmp = tmp/tmp.max()
 
-        im=imshow(tmp, aspect='auto', cmap=cmaps[st])
+        im=imshow(tmp.T, origin='lower', aspect='auto', cmap=cmaps[st])
 
         if j == 0:
             ylabel(st.upper())
-            yticks([0, data[st].shape[1]])
-            
+            yticks([0, tmp.shape[1]])            
         else:
-            yticks([0, data[st].shape[1]], ["", ""])
+            yticks([0, tmp.shape[1]], ["", ""])
+
         if i == 1:            
             xticks([0, durations[j]], [0, durations[j]])
         else:
@@ -911,7 +912,7 @@ for i, st in enumerate(['adn', 'lmn']):
     gca().spines['bottom'].set_bounds(0, 1)
     gca().spines['left'].set_bounds(-0.25, 1)
     yticks([])
-    r = [pearsonr(popcoh[st][0], popcoh[st][k])[0] for j, k in enumerate([1,2])]
+    r = [pearsonr(popcoh[st]['wak'], popcoh[st][k])[0] for j, k in enumerate(['sws','opto'])]
 
     plot(xx[i], r, 'o-', color=colors[st], markersize=2)
 
