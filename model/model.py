@@ -2,7 +2,7 @@
 # @Author: gviejo
 # @Date:   2025-07-13 21:28:56
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-07-15 18:41:05
+# @Last Modified time: 2025-07-17 10:24:06
 
 import numpy as np
 from numba import jit, njit
@@ -43,19 +43,21 @@ class Model:
     N_adn = 360
     noise_lmn_ = 1.0  # Set to 0 during wake
     noise_adn_ = 1.0  # Set to 0 during wake
-    noise_trn_ = 1.0  # Set to 0 during wake
-    w_lmn_adn_ = 1.0
+    noise_trn_ = 0.1  # Set to 0 during wake
+    w_lmn_adn_ = 0.9
     w_adn_trn_ = 1.0
-    w_trn_adn_ = 0.05
-    beta_adn = 10.0
-
-    w_psb_lmn_ = 0.04  # OPTO PSB Feedback
+    w_trn_adn_ = 0.04
+    beta_adn = 5.0
     thr_adn = 1.0
+
     # thr_cal = 1.0
     # thr_shu = 1.0
+
+    w_psb_lmn_ = 0.03  # OPTO PSB Feedback
+    
     sigma_adn_lmn = 100
     sigma_psb_lmn = 10
-    D_lmn = 0.8
+    D_lmn = 1.0
     I_lmn = 1.0  # 0 for sleep
 
     def __init__(self, N_t=2000, **kwargs):

@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2025-06-19 15:28:18
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-07-15 18:22:33
+# @Last Modified time: 2025-07-17 10:02:32
 """
 N LMN -> N ADN 
 Non linearity + CAN Current + inhibition in ADN + PSB Feedback
@@ -25,7 +25,7 @@ import pandas as pd
 from model import Model
 
 
-m_wake = Model(I_lmn = 1.0) # Wake
+m_wake = Model(I_lmn = 1.0, D_lmn=0.1) # Wake
 m_wake.run()
 m_sws = Model(I_lmn = 0.0) # Sleep
 m_sws.run()
@@ -69,7 +69,7 @@ for i, st in enumerate(popcoh.keys()):
 
 		xlim(-1, 1)
 		ylim(-1, 1)
-		title(st + f" - r={np.round(r, 2)}")
+		title(st + " " + e +  f" r={np.round(r, 2)}")
 
 
 durations = [2000, 1000, 200]  # For m_wake, m_sws, m_opto
@@ -82,7 +82,8 @@ for i, (m, duration) in enumerate(zip([m_wake, m_sws, m_opto], durations)):
     inner_gs = gs[i].subgridspec(n_rows, 1, hspace=0.4)
 
     ax0 = subplot(inner_gs[0])
-    ax0.plot(m.r_lmn[:duration], '-')
+    # ax0.plot(m.r_lmn[:duration], '-')
+    ax0.pcolormesh(m.r_lmn[:duration].T, cmap='jet', shading='auto')
     ax0.set_ylabel("r_lmn")
     if i == 0:
         ax0.set_title("Wake")

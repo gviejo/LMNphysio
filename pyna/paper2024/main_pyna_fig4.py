@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-07-15 18:07:21
+# @Last Modified time: 2025-07-17 11:33:03
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -295,19 +295,22 @@ for i, st in enumerate(['adn', 'lmn']):
         n = ex_neurons[i]
         spk = spikes[n].restrict(exs[e]).index.values   
         #clr = hsluv.hsluv_to_rgb([tcurves[n].idxmax()*180/np.pi,85,45])
-        plot(spk, np.ones_like(spk)*tcurves[n].idxmax(), '|', color = colors[st], markersize = 3, markeredgewidth = 0.001)
+        plot(spk, np.ones_like(spk)*tcurves[n].idxmax(), '|', color = colors[st], markersize = 3, markeredgewidth = 0.01)
         yticks([])
         xlim(exs[e].loc[0,'start'], exs[e].loc[0,'end'])
         if i == 1 and j == 0:
             # xlabel(str(int(exs[e].tot_length('s')))+' s', horizontalalignment='center')#, x=1.0)
             s, e = exs[e].start[0], exs[e].end[0]
             gca().spines['bottom'].set_bounds(e-5,e)
-            xticks([e-2.5], ["5 s"])
+            xticks([e-5, e], ["", ""])
+            text(e-2.5, -2.2, s="5 sec.", va="center", ha="center")
+
         elif i == 1 and j == 1:
             # xlabel(str(int(exs[e].tot_length('s')))+' s', horizontalalignment='center')#, x=1.0)
             s, e = exs[e].start[0], exs[e].end[0]
             gca().spines['bottom'].set_bounds(e-0.4,e)
-            xticks([e-0.2], ["0.4 s"])
+            xticks([e-0.4, e], ["", ""])
+            text(e-0.2, -2.2, s="0.4 sec.", va="center", ha="center")
         else:
             gca().spines['bottom'].set_visible(False)
 
@@ -316,9 +319,9 @@ for i, st in enumerate(['adn', 'lmn']):
             # ylabel(names[i], rotation=0)
         if i == 1:
             if j == 0:
-                legend(handlelength = 1.1, frameon=False, bbox_to_anchor=(0.3, -0.7, 0.5, 0.5))
+                legend(handlelength = 1.1, frameon=False, bbox_to_anchor=(0.4, -0.9, 0.5, 0.5))
             else:
-                legend(handlelength = 1.5, frameon=False, bbox_to_anchor=(0.8, -0.7, 0.5, 0.5))
+                legend(handlelength = 1.5, frameon=False, bbox_to_anchor=(0.9, -0.9, 0.5, 0.5))
 
 
 
@@ -416,7 +419,7 @@ for i, st in enumerate(['adn', 'lmn']):
 
 
 # Colorbar
-axip = gca().inset_axes([1.2, 2.3, 0.1, 0.5])
+axip = gca().inset_axes([1.2, 2.3, 0.1, 0.7])
 # noaxis(axip)
 cbar = colorbar(im, cax=axip)
 axip.set_title("%", y=0.8)
@@ -791,7 +794,8 @@ gs_activity = gridspec.GridSpecFromSubplotSpec(
     )
 
 
-durations = [2000, 500, 100]
+durations = [2000, 1000, 100]
+offset = 100
 
 titles = ["'Wake'", "'Sleep'", "'Opto.'\n No PSB feedback"]
 
@@ -803,10 +807,11 @@ for i, st in enumerate(['adn', 'lmn']):
         # start = int(sl.start + (sl.stop - sl.start)/2)
 
         # tmp = data[st][start:start+durations[j]].T
-        tmp = data[st][e][0:durations[j]]
+        tmp = data[st][e][offset:offset+durations[j]]
         tmp = tmp/tmp.max()
 
-        im=imshow(tmp.T, origin='lower', aspect='auto', cmap=cmaps[st])
+        # im=imshow(tmp.T, origin='lower', aspect='auto', cmap=cmaps[st])
+        im=imshow(tmp.T, origin='lower', aspect='auto', cmap='bwr', vmin=0, vmax=1)
 
         if j == 0:
             ylabel(st.upper())
@@ -837,7 +842,7 @@ for i, st in enumerate(['adn', 'lmn']):
 # Population Coherence
 ######################################
 gs_popcoh = gridspec.GridSpecFromSubplotSpec(
-    2, 2, subplot_spec=gs_bottom2[0,2], wspace=0.05
+    2, 2, subplot_spec=gs_bottom2[0,2], wspace=0.04
     )
 
 # Real data
@@ -926,7 +931,7 @@ for i, st in enumerate(['adn', 'lmn']):
         xticks([])
 
     if i == 1:
-        xticks([0, 1], ["Sleep", "Opto."])
+        xticks([0, 1], ["\'Sleep\'", "\'Opto.\'"])
     else:
         xticks([0, 1], ["", ""])
 
