@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   gviejo
-# @Last Modified time: 2025-07-02 21:19:25
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2025-07-18 12:05:02
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -105,7 +105,7 @@ fontsize = 6.0
 COLOR = (0.25, 0.25, 0.25)
 cycle = rcParams['axes.prop_cycle'].by_key()['color'][5:]
 
-rcParams["font.family"] = 'Liberation Sans'
+rcParams["font.family"] = 'sans-serif'
 rcParams["font.size"] = fontsize
 rcParams["text.color"] = COLOR
 rcParams["axes.labelcolor"] = COLOR
@@ -291,7 +291,8 @@ for i, e in enumerate(['wak', 'sws']):
     im = imshow(tmp2.values.T, aspect='auto', 
         origin='lower',
         cmap='coolwarm', 
-        extent=(exs[e].start[0], exs[e].end[0], 0, 2*np.pi)
+        extent=(exs[e].start[0], exs[e].end[0], 0, 2*np.pi),
+        # vmin=0
         )
 
     if e == "wak":
@@ -570,96 +571,97 @@ text(xr+0.1, np.mean(m)-0.07, s=map_significance[signi], va="center", ha="left")
 # OPTO
 #####################################
 #####################################
-
-
-#####################################
-# Histo
-#####################################
 gs_bottom = gridspec.GridSpecFromSubplotSpec(
-    1, 2, subplot_spec=outergs[1, 0], width_ratios=[0.2, 0.9], wspace=0.1
+    1, 2, subplot_spec=outergs[1, 0], width_ratios=[0.1, 0.9], wspace=0.2
 )
 
-subplot(gs_bottom[0,0])
 
-# noaxis(gca())
-# img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/papezhdcircuit.png")
-# imshow(img, aspect="equal")
+#####################################
+# OPTO DIAGRAM
+#####################################
+gs1 = gridspec.GridSpecFromSubplotSpec(2, 1, gs_bottom[0,0], 
+    height_ratios=[0.2, 0.6]
+    )
 
-box_width, box_height = 0.75, 0.4
-y_positions = [1, 2, 3]
-x_position = 0
+ax = subplot(gs1[0,0])
+noaxis(ax)
+ax.set_xlim(0, 1)
+ax.set_ylim(0, 0.7)
 
-box_colors = [colors[st] for st in ['lmn', 'adn', 'psb']]
-ax = gca()
-ax.set_xlim(-box_width-0.5, box_width+0.5)
-ax.set_ylim(-4.5, y_positions[-1]+box_height/2+0.1)
-# ax.set_aspect('equal')
-ax.axis('off')
 
-# Draw boxes
-for i, y in enumerate(y_positions):
-    rect = patches.FancyBboxPatch((x_position - box_width/2, y - box_height/2),
-                                   box_width, box_height,
-                                   boxstyle="round,pad=0.1",
-                                   edgecolor=None,
-                                   facecolor=box_colors[i], linewidth=0)
-    ax.add_patch(rect)
-    ax.text(x_position, y, 
-        ['LMN', 'ADN', 'PSB'][i], ha='center', va='center')
+y_lmn = 0.1
+y_pos = 0.5
 
-# Draw reversed vertical arrows using FancyArrow (Box 3 → 2 → 1)
-for i in range(2):
-    start_y = y_positions[i]
-    arrow = FancyArrow(x_position, start_y + 3*box_height/4,
-                       0, 0.45,
-                       width=0.06,
-                       head_length=0.1,
-                       head_width=0.15,
-                       length_includes_head=True,
-                       color="gray")
-    ax.add_patch(arrow)
+# Positions for neurons
+inhibitory_pos = (0.5, y_pos)  # Circle (inhibitory)
+excitatory_pos = (0.85, y_pos)  # Triangle (excitatory)
 
-# Right-angle arrow from Box 1 → Box 3 using FancyArrowPatch
-x = x_position + box_width/2 - 0.1
+# Draw inhibitory neuron (circle)
+ax.plot(*inhibitory_pos, 'o', markersize=3, markerfacecolor="white", markeredgecolor="crimson")
+# ax.text(inhibitory_pos[0], inhibitory_pos[1], 'I', ha='center', va='center', 
+#         fontsize=14, fontweight='bold')
+
+
+# Draw excitatory neuron (triangle)
+ax.plot(*excitatory_pos, '^', markersize=3,
+        markerfacecolor='white', 
+        markeredgecolor=COLOR, 
+    )
+
 arrow = FancyArrowPatch(
-    posA=(x+0.1, y_positions[-1]),     # Right of top box
-    posB=(x+0.1, y_positions[0]),     # Right of bottom box
-    connectionstyle="bar,fraction=-0.2",       # Top down with bend
-    arrowstyle="->,head_length=1,head_width=1",
-    color="gray",
-    linewidth=2,
+    inhibitory_pos, (excitatory_pos[0]-0.05, excitatory_pos[1]),
+    arrowstyle="-[",
+    color=COLOR,
+    linewidth=0.3,
+    mutation_scale=1,
+    zorder=2
+    )
+
+ax.add_patch(arrow)
+# ax.add_patch(arrow2)
+
+box_height = 0.16
+box_widths = [0.61, 0.7]
+
+facecolors = ["None", "None"]
+# Draw boxes
+for i, (st, y) in enumerate([('pos', y_pos)]):
+    outerrect = patches.FancyBboxPatch((0.05, y - box_height/2),
+                                   0.9, box_height,
+                                   boxstyle="round,pad=0.01",
+                                   edgecolor=colors['psb'],
+                                   facecolor=facecolors[i], linewidth=1, linestyle='--')
+    ax.add_patch(outerrect)
+    # ax.text(x_lefts[i]+0.12, y, 
+    #     ['Mammilary\nBody', 'Anterior\nThalamus', 'Cortex'][i], ha='center', va='center', fontsize=4)
+
+ax.text(0.22, y_pos, "PSB", 
+        ha='center', va='center', fontsize=fontsize,
+        # bbox=dict(facecolor=colors['lmn'], edgecolor='none', boxstyle='round,pad=0.2')
+        )
+
+
+ax.text(0.5, y_lmn, "LMN", 
+        ha='center', va='center', fontsize=fontsize,
+        bbox=dict(facecolor=colors['lmn'], edgecolor='none', boxstyle='round,pad=0.2')
+        )
+
+
+start = (0.7, y_pos-0.05)
+end = (0.55, y_lmn+0.05)
+arrow = FancyArrowPatch(
+    start, end,
+    connectionstyle="arc3,rad=-0.3",  # curvature (positive: left curve, negative: right)
+    arrowstyle="-|>",
+    color=COLOR,
+    linewidth=0.5,
+    mutation_scale=5
 )
 ax.add_patch(arrow)
 
+ax.plot(0.68, y_lmn+(y_pos-y_lmn)/2, 'x', color=COLOR, markersize=4)
 
-# gs_histo = gridspec.GridSpecFromSubplotSpec(
-#     3, 1, subplot_spec=gs_bottom[0, 0], hspace=0.0
-# )
-
-
-# subplot(gs_histo[0,0])
-# noaxis(gca())
-# img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/LMN-PSB-opto.png")
-# imshow(img, aspect="equal")
-# xticks([])
-# yticks([])
-
-
-# subplot(gs_histo[1,0])
-# noaxis(gca())
-# img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/A8066_S7_3_2xMerged.png")
-# imshow(img, aspect="equal")
-# xticks([])
-# yticks([])
-
-
-# subplot(gs_histo[2,0])
-# noaxis(gca())
-# img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/A8066_S7_3_4xMerged.png")
-# imshow(img, aspect="equal")
-# xticks([])
-# yticks([])
-
+ax.set_title("VGAT-Cre\nAAV8-syn-FLEX-ChrimsonR", fontsize=fontsize-1)
 
 #####################################
 # Examples LMN IPSILATERAL
@@ -667,8 +669,8 @@ ax.add_patch(arrow)
 st = 'lmn'
 
 gs2 = gridspec.GridSpecFromSubplotSpec(2, 4, gs_bottom[0,1], 
-    hspace=0.6, wspace=0.75,
-    width_ratios=[0.5, 0.4, 0.5, 0.4]
+    hspace=0.75, wspace=0.9,
+    width_ratios=[0.5, 0.4, 0.7, 0.3]
     )
 
 
@@ -772,7 +774,7 @@ for i, (s, ex, name) in enumerate(exs):
     s, e = opto_ep.intersect(ex).values[0]
     gca().spines['bottom'].set_bounds(s, e)
     xticks([s, e], ['', ''])
-    ylabel("Direction (°)")
+    ylabel("Direction\n(°)", labelpad=-1)
 
 
     if i == 0: xlabel("10 s", labelpad=-1)
@@ -897,7 +899,8 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
         ################
         # CHRIMSON VS TDTOMATO
         ################
-        gs_corr3 = gridspec.GridSpecFromSubplotSpec(2,2, gs2[i,2:], hspace=0.6, wspace=0.05)
+        gs_corr3 = gridspec.GridSpecFromSubplotSpec(2,2, gs2[i,2:], 
+            hspace=0.6, wspace=0.05)
         
 
         #
@@ -925,8 +928,9 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
         
         ymin = corr3[0].min()
         xlim(0.5, 3)
-        ylim(ymin-0.1, 1.1)
-        gca().spines['left'].set_bounds(ymin-0.1, 1.1)
+        # ylim(ymin-0.1, 1.1)
+        ylim(-0.4, 1.1)
+        gca().spines['left'].set_bounds(-0.4, 1.0)
 
         ylabel("Pop. coherence (r)", y=0, labelpad=3)
         xticks([1, 2], ['Chrimson', 'TdTomato'], fontsize=fontsize-1)
@@ -1008,9 +1012,10 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
 
         
         ymin = corr3['opto'].min()
-        ylim(ymin-0.1, 1.1)
+        # ylim(ymin-0.1, 1.1)
+        ylim(-0.4, 1.1)
         xlim(0.5, 3)
-        # gca().spines['left'].set_bounds(ymin-0.1, 1.1)
+        gca().spines['left'].set_bounds(-0.4, 1.0)
 
         # ylabel("Pearson r")
         xticks([1, 2], ['Chrimson', 'Control'], fontsize=fontsize-1)
@@ -1064,7 +1069,8 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
         ################
         # PEARSON Correlation
         ################
-        gs_corr3 = gridspec.GridSpecFromSubplotSpec(2,1, gs2[i,2], hspace=0.9, wspace=0.2)
+        gs_corr3 = gridspec.GridSpecFromSubplotSpec(2,1, gs2[i,2], 
+            hspace=0.9, wspace=0.2)
         
         subplot(gs_corr3[0,0])
         simpleaxis(gca())
@@ -1087,9 +1093,12 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
         
         xlim(0.5, 3)
         gca().spines['bottom'].set_bounds(1, 2)
-        ymin = corr3[0].min()
-        ylim(ymin-0.1, 1.1)
-        gca().spines['left'].set_bounds(ymin-0.1, 1.1)
+        # ymin = corr3[0].min()
+        # ylim(ymin-0.1, 1.1)
+        # gca().spines['left'].set_bounds(ymin-0.1, 1.1)
+        ylim(-0.4, 1.1)
+        gca().spines['left'].set_bounds(-0.4, 1.0)
+
 
         ylabel("Pop. coherence (r)", y=-0.2)
         xticks([1, 2], ['Chrimson', 'TdTomato'], fontsize=fontsize-1)
@@ -1140,7 +1149,7 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
         ########################
         # TUNING CURVES WAKE OPTO
         #######################
-        gs2_tc = gridspec.GridSpecFromSubplotSpec(2, 1, gs2[0,-1], hspace = 1.0, wspace=0.5)
+        gs2_tc = gridspec.GridSpecFromSubplotSpec(2, 1, gs2[0,-1], hspace = 1.0, wspace=1.0)
         
         subplot(gs2_tc[0,0])
         simpleaxis(gca())
@@ -1171,8 +1180,8 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
         for j, k in enumerate(['opto', 'pre']):
             plot(tcs2[k].mean(1), linewidth = 0.7, color = colors3[j], linestyle=lstyle[j])
 
-        xlabel("Centered HD (deg.)")
-        ylabel("Rate (norm.)")
+        xlabel("HD (deg.)")
+        ylabel("Rate\n(norm.)")
         title("LMN-HD")
         xticks([-np.pi, 0, np.pi], [-180, 0, 180])
         yticks([0, 1], [0, 1])
@@ -1229,6 +1238,7 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
             m = tmp[i].mean()
             text(i+0.9, m-0.07, s=map_significance[signi], 
                 va="center", ha="right", fontsize=fontsize-1,
+                rotation=90,
                 bbox=dict(facecolor='white', edgecolor='none',boxstyle='round,pad=0.01')
                 )
 

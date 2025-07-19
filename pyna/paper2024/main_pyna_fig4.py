@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-07-17 11:33:03
+# @Last Modified time: 2025-07-18 09:40:40
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -104,7 +104,7 @@ COLOR = (0.25, 0.25, 0.25)
 cycle = rcParams['axes.prop_cycle'].by_key()['color'][5:]
 
 # rcParams["font.family"] = 'Liberation Sans'
-rcParams["font.family"] = 'DejaVu Sans'
+rcParams["font.family"] = 'sans-serif'
 rcParams["font.size"] = fontsize
 rcParams["text.color"] = COLOR
 rcParams["axes.labelcolor"] = COLOR
@@ -260,7 +260,7 @@ for i, st in enumerate(['adn', 'lmn']):
 
     # gca().invert_xaxis()
     # gca().yaxis.tick_right()
-    # gca().spines['left'].set_visible(False)
+    gca().spines['left'].set_bounds(0, 2*np.pi)
     # gca().spines['top'].set_visible(False)
     yticks([0, 2*np.pi], [0, 360])
     ylabel(names[st], rotation=0)
@@ -280,7 +280,7 @@ for i, st in enumerate(['adn', 'lmn']):
         xticks([])
         if e == 'wak':
             tmp = angle.restrict(exs[e])
-            tmp = tmp.as_series().rolling(window=40,win_type='gaussian',center=True,min_periods=1).mean(std=2.0)
+            tmp = tmp.as_series().rolling(window=40, win_type='gaussian', center=True, min_periods=1).mean(std=2.0)
             plot(tmp, linewidth = 1, color = COLOR, label = 'H.D.')
         if e == 'sws':
             tmp2 = decoded
@@ -295,7 +295,7 @@ for i, st in enumerate(['adn', 'lmn']):
         n = ex_neurons[i]
         spk = spikes[n].restrict(exs[e]).index.values   
         #clr = hsluv.hsluv_to_rgb([tcurves[n].idxmax()*180/np.pi,85,45])
-        plot(spk, np.ones_like(spk)*tcurves[n].idxmax(), '|', color = colors[st], markersize = 3, markeredgewidth = 0.01)
+        plot(spk, np.ones_like(spk)*tcurves[n].idxmax(), '|', color = colors[st], markersize = 3, markeredgewidth = 0.4)
         yticks([])
         xlim(exs[e].loc[0,'start'], exs[e].loc[0,'end'])
         if i == 1 and j == 0:

@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-07-02 12:05:36
+# @Last Modified time: 2025-07-17 18:23:54
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -103,7 +103,7 @@ fontsize = 6.0
 COLOR = (0.25, 0.25, 0.25)
 cycle = rcParams['axes.prop_cycle'].by_key()['color'][5:]
 
-rcParams["font.family"] = 'Liberation Sans'
+rcParams["font.family"] = 'sans-serif'
 rcParams["font.size"] = fontsize
 rcParams["text.color"] = COLOR
 rcParams["axes.labelcolor"] = COLOR

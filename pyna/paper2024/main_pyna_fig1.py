@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   gviejo
-# @Last Modified time: 2025-07-01 21:36:31
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2025-07-17 14:43:42
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -92,7 +92,9 @@ fontsize = 6
 
 COLOR = (0.25, 0.25, 0.25)
 
-rcParams["font.family"] = 'Liberation Sans'
+# rcParams["font.family"] = 'Liberation Sans'
+rcParams["font.family"] = 'sans-serif'
+# rcParams["font.family"] = 'DejaVu Sans'
 rcParams["font.size"] = fontsize
 rcParams["text.color"] = COLOR
 rcParams["axes.labelcolor"] = COLOR
@@ -232,7 +234,7 @@ markers = ["d", "o", "v"]
 
 fig = figure(figsize=figsize(1))
 
-outergs = GridSpec(4, 1, hspace = 0.45, height_ratios=[0.4, 0.6, 0.001, 0.25])
+outergs = GridSpec(4, 1, hspace = 0.5, height_ratios=[0.4, 0.6, 0.0, 0.25])
 
 
 names = {'adn':"ADN", 'lmn':"LMN"}
@@ -276,7 +278,7 @@ ax.axis('off')
 # Draw boxes
 for i, y in enumerate(y_positions):
     outerrect = patches.FancyBboxPatch((x_position - 1, y - box_height),
-                                   box_width*2.7, box_height*2,
+                                   box_width*2.8, box_height*1.8,
                                    boxstyle="round,pad=0.05",
                                    edgecolor=COLOR,
                                    facecolor="white", linewidth=0.5, linestyle='--')
@@ -436,7 +438,8 @@ for i, e in enumerate(['wak', 'sws']):
     im = imshow(tmp2.values.T, aspect='auto', 
         origin='lower',
         cmap='coolwarm', 
-        extent=(exs[e].start[0], exs[e].end[0], 0, 2*np.pi)
+        extent=(exs[e].start[0], exs[e].end[0], 0, 2*np.pi),
+        vmin=0
         )
 
     if e == "wak":
@@ -464,7 +467,7 @@ for i, e in enumerate(['wak', 'sws']):
         legend(
                 handlelength=1,                
                 loc="center",
-                bbox_to_anchor=(0.1, -0.5, 0.5, 0.5),
+                bbox_to_anchor=(0.0, -0.55, 0.5, 0.5),
                 framealpha=0,
                 markerscale=4
             )
@@ -517,7 +520,6 @@ lmn_idx = [lmn[9], lmn[7], lmn[3]]
 
 for i, (s, idx) in enumerate(zip(['adn', 'lmn'], [adn_idx, lmn_idx])):
     
-    
     # Waveforms + tuning curves
     gs_neuron = gridspec.GridSpecFromSubplotSpec(
         2, 3, subplot_spec=gs_top2[i, 0], wspace=0.2, hspace=0.2, width_ratios=[1, 1, 0.2]
@@ -542,13 +544,18 @@ for i, (s, idx) in enumerate(zip(['adn', 'lmn'], [adn_idx, lmn_idx])):
         fill_between(tcurves[n].index.values, np.zeros_like(tcurves[n]),tcurves[n].values,color=colors[s])
         xticks([])
         yticks([])
-    
+
+
+    tmp = allr[s].dropna()
+    idx_ = [name+"_"+str(j) for j in idx]
+    p1 = tmp.loc[(idx_[0],idx_[1]),['wak','sws']].values
+    p2 = tmp.loc[tuple(np.sort((idx_[0],idx_[2]))),['wak','sws']].values
     
     # Spike counts
     bin_sizes = [0.1, 0.01]
     for j, e in enumerate(['wak', 'sws']):
         gs_count = gridspec.GridSpecFromSubplotSpec(
-            2, 1, subplot_spec=gs_top2[i,1+j], wspace=0.01, hspace=0.4
+            2, 2, subplot_spec=gs_top2[i,1+j], wspace=0.01, hspace=0.4, width_ratios=[0.6,0.4]
             )
         
         
@@ -563,17 +570,32 @@ for i, (s, idx) in enumerate(zip(['adn', 'lmn'], [adn_idx, lmn_idx])):
                 rates.append(tmp)
             # maxr = np.max(rates[0])
             # rates = [a/maxr for a in rates]
-            fill_between(rates[0].t, 0, rates[0].d, color=colors[s], alpha=0.25)
+            fill_between(rates[0].t, 0, rates[0].d, color=colors[s], alpha=1)
             step(rates[0].t, rates[0].d, linewidth=0.1, color=colors[s], where='mid')
 
-            fill_between(rates[1].t, 0, -rates[1].d, color=colors[s], alpha=0.25)
+            fill_between(rates[1].t, 0, -rates[1].d, color=colors[s], alpha=1)
             step(rates[1].t, -rates[1].d, linewidth=0.1, color=colors[s], where='mid')
 
-
+            axhline(0, linewidth=0.1, color=COLOR)
             xlim(exs[e].start[0], exs[e].end[0])
             yticks([-1, 0, 1], [1, 0, 1])
             # gca().set_yticks([])
             # gca().spines["left"].set_visible(False)
+
+            x_o = 1.05
+            if e == "wak":
+                if k == 0:                    
+                    # gca().text(x_o, 0.5, s="$r_{P_1}^{W}$="+f"{np.round(p1[0], 2)}", va="center", ha="left", transform=gca().transAxes, fontsize=fontsize-1)
+                    gca().text(x_o, 0.5, s="r="+f"{np.round(p1[0], 2)}", va="center", ha="left", transform=gca().transAxes, fontsize=fontsize-1)
+                else:
+                    gca().text(x_o, 0.5, s="r="+f"{np.round(p2[0], 2)}", va="center", ha="left", transform=gca().transAxes, fontsize=fontsize-1)
+            else:
+                if k == 0:
+                    gca().text(x_o, 0.5, s="r="+f"{np.round(p1[1], 2)}", va="center", ha="left", transform=gca().transAxes, fontsize=fontsize-1)
+                else:
+                    gca().text(x_o, 0.5, s="r="+f"{np.round(p2[1], 2)}", va="center", ha="left", transform=gca().transAxes, fontsize=fontsize-1)
+
+
 
             if j == 0 and k == 1:
                 gca().spines["bottom"].set_bounds(exs['wak'].end[0] - 2, exs['wak'].end[0])
@@ -597,6 +619,8 @@ for i, (s, idx) in enumerate(zip(['adn', 'lmn'], [adn_idx, lmn_idx])):
             if i == 0 and k == 0:
                 title(epochs[e])
 
+
+
 #####################################
 # Pairwise correlation
 #####################################
@@ -616,7 +640,7 @@ for i, (g, idx) in enumerate(zip(['adn', 'lmn'], [adn_idx, lmn_idx])):
     plot(tmp['wak'], tmp['sws'], 'o', color = colors[g], alpha = 0.5, markeredgewidth=0, markersize=1)
     m, b = np.polyfit(tmp['wak'].values, tmp['sws'].values, 1)
     x = np.linspace(tmp['wak'].min(), tmp['wak'].max(),5)
-    plot(x, x*m + b, linewidth=0.1)    
+    plot(x, x*m + b, color=COLOR, linewidth=0.5)    
     ylabel(short_epochs['sws'] + " corr. (r)")
     if i == 1: 
         xlabel(short_epochs['wak'] + " corr. (r)")
@@ -645,8 +669,8 @@ for i, (g, idx) in enumerate(zip(['adn', 'lmn'], [adn_idx, lmn_idx])):
     plot(p1[0], p1[1], 'o', mec=COLOR, mfc="white", alpha=1, markersize=2)
     plot(p2[0], p2[1], 'o', mec=COLOR, mfc="white", alpha=1, markersize=2)
 
-    annotate("P1", xy=p1, xytext=p1+0.08, fontsize = 5)
-    annotate("P2", xy=p2, xytext=p2+0.08, fontsize = 5)
+    annotate("P1", xy=p1, xytext=(p1[0]-0.15, p1[1]+0.16), fontsize = 5)
+    annotate("P2", xy=p2, xytext=(p2[0]-0.15, p2[1]+0.16), fontsize = 5)
 
     # print(p1)
     # print(p2)
@@ -745,7 +769,7 @@ gs_bottom = gridspec.GridSpecFromSubplotSpec(
 
 
 gs_bottom1 = gridspec.GridSpecFromSubplotSpec(
-    2, 4, subplot_spec=gs_bottom[0,0], wspace=0.4, hspace = 0.5, width_ratios=[0.1, 0.06, 0.5, 0.25]
+    2, 4, subplot_spec=gs_bottom[0,0], wspace=0.4, hspace = 0.6, width_ratios=[0.1, 0.06, 0.5, 0.25]
 )
 
 
@@ -802,7 +826,7 @@ for k, g in enumerate(['adn', 'lmn']):
             )
 
         if k == 0 and u == 0:        
-            text(1.0, 1.9, "Norm. x corr.", transform=gca().transAxes)
+            text(0.5, 1.9, "Norm. x corr.", transform=gca().transAxes)
         if k == 1 and u == 0:
             xlabel("Time lag (s)", x = 1.1)
             xticks([0, len(Z)//2, len(Z)], [-40, 0, 40])
@@ -815,7 +839,7 @@ for k, g in enumerate(['adn', 'lmn']):
         yticks([])
 
 
-axip = gca().inset_axes([1.15, 0.25, 0.15, 1.0])
+axip = gca().inset_axes([1.15, 0.25, 0.12, 1.2])
 colorbar(im, cax=axip)
 axip.set_title("Z", y=0.9)
 axip.set_yticks([-2, 0, 2], ["-2", "0", "2"])
@@ -840,7 +864,7 @@ angdiff = data['angdiff']
 
 
 gs_cc = gridspec.GridSpecFromSubplotSpec(
-    2, 2, subplot_spec=gs_bottom1[:, 3], hspace=0.4, wspace = 0.5, width_ratios=[0.5, 0.1]
+    2, 2, subplot_spec=gs_bottom1[:, 3], hspace=0.6, wspace = 0.5, width_ratios=[0.5, 0.1]
 )
 
 # for i, b in enumerate([0, 2]):
@@ -876,38 +900,72 @@ for k, g in enumerate(['adn', 'lmn']):
 
     axis.append(gca())
 
-axip = axis[1].inset_axes([1.15, 0.25, 0.15, 1.0])
+axip = axis[1].inset_axes([1.15, 0.25, 0.12, 1.2])
 colorbar(im, cax=axip)
 axip.set_title(r"$\beta_t$", y=0.9)
 
 
 
-axip = axis[0].inset_axes([-0.5, 1.15, 3, 3])
+axip = axis[0].inset_axes([-0.5, 1.0, 2.5, 2.5])
 noaxis(axip)
 axip.patch.set_alpha(0.0)
-axip.annotate('Pop.', xy=(0.8,0.5), xytext=(0.0, 0.7), color = COLOR,
-    arrowprops=dict(facecolor='green',
-        headwidth=1.5,
-        headlength=1,
-        width=0.01,
-        ec='grey'
-        ),
-    fontsize = 6
+
+u1 = (0.1, 0.25)
+u2 = (0.9, 0.25)
+p1 = (0.1, 0.5)
+ss = (u1[0]+(u2[0]-u1[0])/2, u1[1])
+
+# Draw circle with Σ symbol at y=0.3 level
+circle = plt.Circle((u1[0]+(u2[0]-u1[0])/2, u1[1]), 0.1, fill=True, facecolor='white', ec=COLOR, linewidth=0.5)
+axip.add_patch(circle)
+
+
+# Text labels - all at y=0.3 level
+axip.text(u1[0], u1[1], "Unit", fontsize=6, ha='center', va='center')
+axip.text(u2[0], u2[1], "Unit", fontsize=6, ha='center', va='center')
+axip.text(ss[0], ss[1], 'Σ', fontsize=6, ha='center', va='center')
+axip.text(p1[0], p1[1], 'Pop.', fontsize=6, ha='center', va='center')
+
+
+offset_x = 0.09
+offset_y = 0.0
+arrow = FancyArrowPatch(
+    (u1[0] + offset_x, u1[1] + offset_y), (ss[0] - offset_x, ss[1] - offset_y),
+    arrowstyle="->",
+    color=COLOR,
+    linewidth=1,
+    # alpha=alphas[i],
+    mutation_scale=5,
+    zorder=1
     )
-axip.annotate('', xy=(0.8,0.3), xytext=(0.5, 0.3), 
-    arrowprops=dict(facecolor=COLOR,
-        headwidth=1.5,
-        headlength=1,
-        width=0.01,
-        ec='grey'                
-        ),            
-    )        
-axip.text(-0.1, 0.2, "Unit", fontsize = 6)
-axip.text(1, 0.2, "Unit", fontsize = 6)
-# axip.text(0.5, -0.1, r"$\beta_t$", fontsize = 6)
-axip.set_xlim(-0.5, 2)
-axip.set_ylim(0, 2)
-# axip.text(0.6, 0.5, r"$\beta_t^{P}$", fontsize = 6)
+axip.add_patch(arrow)
+
+arrow = FancyArrowPatch(
+    (ss[0] + offset_x, ss[1] + offset_y), (u2[0] - offset_x, u2[1] - offset_y),
+    arrowstyle="->",
+    color=COLOR,
+    linewidth=1,
+    # alpha=alphas[i],
+    mutation_scale=5,
+    zorder=1
+    )
+axip.add_patch(arrow)
+
+arrow = FancyArrowPatch(
+    (p1[0] + offset_x, p1[1] + offset_y), (ss[0], ss[1] + 0.05),
+    arrowstyle="->",
+    color=COLOR,
+    linewidth=1,
+    mutation_scale=5,
+    zorder=1,
+    connectionstyle="angle,angleA=0,angleB=90"  # Creates L-shaped path
+    )
+axip.add_patch(arrow)
+
+
+
+axip.set_xlim(0, 1)
+axip.set_ylim(0, 1)
 
 
 
@@ -945,7 +1003,7 @@ for i, k in enumerate(['wak', 'sws']):
 
     if i == 0:
         ylabel("Norm. corr. (Z)")    
-        text(0.8, 1.3, "Norm. x corr\nLMN-ADN", transform=gca().transAxes)
+        text(0.7, 1.35, "Norm. x corr\nLMN-ADN", transform=gca().transAxes)
         # gca().spines['bottom'].set_visible(False)
         # xticks([])
         # yticks([0, 3])    
@@ -1055,7 +1113,7 @@ text(xr+0.1, np.mean(m)-0.02, s=map_significance[signi], va="center", ha="left")
 
 
 
-outergs.update(top=0.96, bottom=0.075, right=0.98, left=0.02)
+outergs.update(top=0.96, bottom=0.06, right=0.98, left=0.02)
 
 
 savefig(
