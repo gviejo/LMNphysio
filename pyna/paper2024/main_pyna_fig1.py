@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-07-17 14:43:42
+# @Last Modified time: 2025-07-22 11:29:44
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -1012,23 +1012,7 @@ for i, k in enumerate(['wak', 'sws']):
 
 
 
-# subplot(gs_cc2[:,1])
-# simpleaxis(gca())
 
-# tmp = data['angdiff'][index]
-# h, b = np.histogram(tmp, np.linspace(-np.pi, np.pi, 22), range = (-np.pi, np.pi))
-# h = h/h.sum()*100
-
-# # stairs(h, b, fill=True, color=cmap(8), alpha=1, edgecolor=COLOR)
-
-# bar(b[0:-1]+np.diff(b)/2, h, np.diff(b).mean(), color=cmap(8))
-
-
-# xlim(-np.pi, np.pi)
-# xticks([-np.pi, 0, np.pi], [-180, 0, 180])
-# xlabel("Ang. diff. (deg)")
-# ylabel("%")
-# title("$Z_{LMN/ADN} > 3$", pad=4)
 
 # #####################################
 # # GLM LMN -> ADN

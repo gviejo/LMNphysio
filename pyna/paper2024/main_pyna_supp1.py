@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2025-07-19 15:01:09
-# @Last Modified by:   gviejo
-# @Last Modified time: 2025-07-21 22:51:02
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2025-07-22 17:37:28
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -53,7 +53,7 @@ def figsize(scale):
     golden_mean = (np.sqrt(5.0) - 1.0) / 2  # Aesthetic ratio (you could change this)
     # fig_width = fig_width_pt*inches_per_pt*scale    # width in inches
     fig_width = 6
-    fig_height = fig_width * golden_mean * 1.5  # height in inches
+    fig_height = fig_width * golden_mean * 2.0 # height in inches
     fig_size = [fig_width, fig_height]
     return fig_size
 
@@ -123,6 +123,9 @@ rcParams['ytick.minor.pad'] = 0.5
 
 colors = {"adn": "#EA9E8D", "lmn": "#8BA6A9", "psb": "#CACC90"}
 
+
+short_epochs = {'wak':'Wake', 'sws':'non-REM', 'rem':'REM'}
+
 cmap = plt.get_cmap("Set2")
 
 ###############################################################################################
@@ -138,15 +141,15 @@ allinfo = data['allinfo']
 
 fig = figure(figsize=figsize(1))
 
-outergs = GridSpec(2, 1, hspace = 0.3, height_ratios=[0.2, 0.6])
+outergs = GridSpec(3, 1, hspace = 0.3, height_ratios=[0.2, 0.6, 0.3])
 
 
 #########################
 # TUNING CURVES SELECTION
 #########################
 
-gs1 = gridspec.GridSpecFromSubplotSpec(1,3, outergs[0,0], 
-    wspace = 0.5, width_ratios=[0.0, 0.5, 0.5]
+gs1 = gridspec.GridSpecFromSubplotSpec(1,4, outergs[0,0], 
+    wspace = 0.6, width_ratios=[-0.1, 0.5, 0.5, 0.25]
     )
 
 for i, st in enumerate(['adn', 'lmn']):
@@ -166,7 +169,7 @@ for i, st in enumerate(['adn', 'lmn']):
     loglog(allinfo.loc[tokeep, 'rate'], allinfo.loc[tokeep, 'SI'], 'o', color=colors[st], markersize=1)
 
     xlabel("Rate (Hz)")
-    ylabel("Mutual Information\n(bits/spk)", labelpad=5)
+    ylabel("Mutual Information (bits/spk)", labelpad=5)
 
     axvline(1.0, linewidth=0.5, color=COLOR)
     axhline(0.1, linewidth=0.5, color=COLOR)
@@ -181,21 +184,37 @@ for i, st in enumerate(['adn', 'lmn']):
     s = tc.std(1)
     plot(tc.mean(1), linewidth=1, color=colors[st])
     fill_between(m.index.values, m.values-s.values, m.values+s.values, color=colors[st], alpha=0.2)
+    xticks([-np.pi, np.pi], [-180, 180])
+    xlim(-np.pi, np.pi)
 
     ax = subplot(gs1_1[1,1])
-    imshow(tc.values.T, aspect='auto')
+    tmp = tc.values.T
+    im = imshow(tmp, aspect='auto')
+
+    xticks([0, tmp.shape[1]], [-180, 180])
+    yticks([0], [tmp.shape[0]])
+    xlabel("Angle (deg.)", labelpad=-1)
+
+    axip = gca().inset_axes([0, -0.65, 0.5, 0.08])
+    noaxis(axip)
+    cbar = colorbar(im, cax=axip, orientation='horizontal')
+    axip.text(1.05, 0.5, "Rate", transform=axip.transAxes,
+          va='center', ha='left')
+    # axip.set_title("Rate")
+    # axip.set_yticks([0, 3])
+
+
+
 
 
 ################################
 # REM Correlation
 ################################
-gs2 = gridspec.GridSpecFromSubplotSpec(2,3, outergs[1,0], 
-    wspace = 0.1, hspace=0.1, width_ratios=[0.25, 0.5, 0.5]
-    )
+
 
 
 gs_bottom_left = gridspec.GridSpecFromSubplotSpec(
-    2, 1, subplot_spec=gs2[0,0], hspace=0.8, height_ratios=[0.4, 0.4]
+    2, 1, subplot_spec=gs1[0,-1], hspace=0.6, height_ratios=[0.4, 0.4]
 )
 
 
@@ -275,64 +294,245 @@ text(xr+0.1, np.mean(m)-0.07, s=map_significance[signi], va="center", ha="left")
 
 
 
-
 ################################
-# PAIRWISE CORRELATION / SESSION
+# PAIRWISE CORRELATION / ANIMAL
 ################################
+gs2 = gridspec.GridSpecFromSubplotSpec(2,1, outergs[1,0], 
+    height_ratios=[0.3, 0.7], hspace=0.4
+    )
+
+i = 0
+st = 'adn'
 
 
-for i, st in enumerate(['adn', 'lmn']):
+data = cPickle.load(open(os.path.join(dropbox_path, f'All_correlation_{st.upper()}.pickle'), 'rb'))
+allr = data['allr'] 
+sessions = [s.split("/")[-1] for s in data['pearsonr'].index.values]
+animals = np.unique([s.split("-")[0] for s in sessions])
 
-    data = cPickle.load(open(os.path.join(dropbox_path, f'All_correlation_{st.upper()}.pickle'), 'rb'))
-    allr = data['allr'] 
-    sessions = [s.split("/")[-1] for s in data['pearsonr'].index.values]
+gs2_1 = gridspec.GridSpecFromSubplotSpec(2, len(animals), gs2[i,0])
 
-    for k, e in enumerate(['sws', 'rem']):
+for k, e in enumerate(['sws', 'rem']):
 
-        n = int(sqrt(len(sessions)))+1
-        
-        gs2_1 = gridspec.GridSpecFromSubplotSpec(n,n, gs2[i,k+1])
+    for j, a in enumerate(animals):
 
-        ngrid = np.indices((n,n))
-        ngrid = (ngrid[0].flatten(), ngrid[1].flatten())
+        index = [k for k in allr.index.values if a in k[0]]
 
-        for j, s in enumerate(sessions):
+        ax = subplot(gs2_1[k,j])            
+        ax.spines['left'].set_position('center')
+        ax.spines['bottom'].set_position('center')
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)        
+        gca().set_aspect("equal")
+        scatter(allr.loc[index, 'wak'], allr.loc[index, e],
+                0.4,
+                color=colors[st]                    
+            )
+        xlim(-1, 1)
+        ylim(-1,1)
+        if j == 0:
+            ylabel(short_epochs[e], labelpad=15)
 
-            index = [k for k in allr.index.values if s in k[0]]
+        if a == 'A5043' and e == 'rem':
+            xlabel("Wake", labelpad=15)
+            
+        if k == 0:
+            title(a)
 
-            ax = subplot(gs2_1[ngrid[0][j],ngrid[1][j]])
-            ax.spines['left'].set_position('center')
-            ax.spines['bottom'].set_position('center')
-            ax.spines['top'].set_visible(False)
-            ax.spines['right'].set_visible(False)        
-            gca().set_aspect("equal")
-            scatter(allr.loc[index, 'wak'], allr.loc[index, e],
-                    0.4,
-                    color=colors[st]                    
-                )
-            xlim(-1, 1)
-            ylim(-1,1)
-            if ngrid[0][j]==2 and ngrid[1][j] == 0 and k==0:
-                ylabel(st.upper(), labelpad=15)
-                
-            if ngrid[0][j]==0 and ngrid[1][j] == 3 and i == 0:
-                title(e.upper())
-                
+        if i == 0 and k == 0 and j == 0:
+            xticks([-1, 1], ['-1', '1'])
+            yticks([-1, 1], ['-1', '1'])            
+        else:
+            xticks([-1, 1], ['', ''])
+            yticks([-1, 1], ['', ''])
 
-            # else:
-            xticks([])
-            yticks([])
-
-            m, b = np.polyfit(allr.loc[index, 'wak'].values, allr.loc[index, e].values, 1)
-            x = np.linspace(allr.loc[index, 'wak'].values.min(), allr.loc[index, 'wak'].values.max(),5)
-            plot(x, x*m + b, color=COLOR, linewidth=0.5)
+        m, b = np.polyfit(allr.loc[index, 'wak'].values, allr.loc[index, e].values, 1)
+        x = np.linspace(allr.loc[index, 'wak'].values.min(), allr.loc[index, 'wak'].values.max(),5)
+        plot(x, x*m + b, color=COLOR, linewidth=0.5)
 
             
+i = 1
+st = 'lmn'
+
+
+data = cPickle.load(open(os.path.join(dropbox_path, f'All_correlation_{st.upper()}.pickle'), 'rb'))
+allr = data['allr'] 
+sessions = [s.split("/")[-1] for s in data['pearsonr'].index.values]
+animals = np.unique([s.split("-")[0] for s in sessions])
+
+gs2_1 = gridspec.GridSpecFromSubplotSpec(2, 1, gs2[i,0])
+
+
+inds = np.indices((2, 8))
+zipind = np.stack((inds[0].flat, inds[1].flat)).T
+
+for k, e in enumerate(['sws', 'rem']):
+
+    gs2_2 = gridspec.GridSpecFromSubplotSpec(2, 8, gs2_1[k,0],
+        hspace=0.5)
+
+    for j, a in enumerate(animals):
+
+        index = [k for k in allr.index.values if a in k[0]]
+
+        ax = subplot(gs2_2[zipind[j,0], zipind[j,1]])
+        ax.spines['left'].set_position('center')
+        ax.spines['bottom'].set_position('center')
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)        
+        gca().set_aspect("equal")
+        scatter(allr.loc[index, 'wak'], allr.loc[index, e],
+                0.4,
+                color=colors[st]                    
+            )
+        xlim(-1, 1)
+        ylim(-1,1)
+        if j == 0:
+            ylabel(short_epochs[e], labelpad=15, y=0)
             
+        if a == 'A5043' and e == 'rem':
+            xlabel("Wake", labelpad=15)
+            
+        if k == 0:
+            title(a)
+
+        if i == 0 and k == 0 and j == 0:
+            xticks([-1, 1], ['-1', '1'])
+            yticks([-1, 1], ['-1', '1'])            
+        else:
+            xticks([-1, 1], ['', ''])
+            yticks([-1, 1], ['', ''])
+
+        m, b = np.polyfit(allr.loc[index, 'wak'].values, allr.loc[index, e].values, 1)
+        x = np.linspace(allr.loc[index, 'wak'].values.min(), allr.loc[index, 'wak'].values.max(),5)
+        plot(x, x*m + b, color=COLOR, linewidth=0.5)
+         
+
+###############
+# Connected pairs
+###############
+
+gs3 = gridspec.GridSpecFromSubplotSpec(2,1, outergs[2,0],
+    hspace=0.6
+    )
+
+data = cPickle.load(open(os.path.join(dropbox_path, 'CC_LMN-ADN.pickle'), 'rb'))
+
+index = data['zorder'].index.values
+zcc = data['zcc']
+order = data['order']
+allcc = data['allcc']
+
+gs3_1 = gridspec.GridSpecFromSubplotSpec(
+    3, 5, subplot_spec=gs3[0,0], hspace = 0.5, wspace=0.2
+)
+
+inds = np.indices((3, 5))
+
+count = 0
+for i, j in zip(inds[0].flat, inds[1].flat):
+
+    gsex = gridspec.GridSpecFromSubplotSpec(
+        1, 2, subplot_spec=gs3_1[i,j], wspace=0.2
+    )
+
+    pair = order[count]
+
+    subplot(gsex[0,0])
+    simpleaxis(gca())
+    axvline(0, linewidth=0.5, color=COLOR)    
+
+    tmp = allcc['sws'][pair].loc[-0.01:0.01]
+    x = tmp.index.values
+    dt = np.mean(np.diff(x))
+    x = np.hstack((x-dt/2, np.array([x[-1]+dt/2])))
+    # axvspan(0.002, 0.008, alpha=0.2, linewidth=0)
+    stairs(tmp.values, x, fill=True, color=COLOR)
+
+    if i in [0, 1]:
+        xticks([])
+    if i == 2:
+        xticks([-0.01, 0, 0.01], [-10, 0, 10])
+    if i==2 and j == 2:
+        xlabel("Time lag (ms)")
+    if i==1 and j== 0:
+        ylabel("Rate (norm.)", y=0, labelpad=10)
+
+    subplot(gsex[0,1], projection='polar')
+    # simpleaxis(gca())
+    for n, st in zip(pair, ['lmn', 'adn']):
+        tmp =  alltc[n]
+        tmp = tmp/tmp.max()
+        plot(tmp, color=colors[st], linewidth=0.8)
+
+    if i == 0 and j == 0:
+        title("Norm.")
+    xticks([])
+    yticks([])
 
 
 
-outergs.update(top=0.96, bottom=0.02, right=0.95, left=0.08)
+
+    count += 1
+
+
+gs3_2 = gridspec.GridSpecFromSubplotSpec(
+    1, 4, subplot_spec=gs3[1,0], hspace = 0.5, wspace=0.5
+)
+
+subplot(gs3_2[0,0])
+
+simpleaxis(gca())
+
+tmp = data['angdiff'][index]
+h, b = np.histogram(tmp, np.linspace(-np.pi, np.pi, 22), range = (-np.pi, np.pi))
+h = h/h.sum()*100
+
+# stairs(h, b, fill=True, color=cmap(8), alpha=1, edgecolor=COLOR)
+
+bar(b[0:-1]+np.diff(b)/2, h, np.diff(b).mean(), color=cmap(8))
+
+
+xlim(-np.pi, np.pi)
+xticks([-np.pi, 0, np.pi], [-180, 0, 180])
+xlabel("Ang. diff. (deg)")
+ylabel("%")
+
+title(r"$LMN \rightarrow ADN$", pad=3)
+
+subplot(gs3_2[0,1])
+
+simpleaxis(gca())
+
+angdiff = np.abs(data['angdiff'][order])
+z = data['zorder'][order]
+
+plot(angdiff.values, z.values, 'o', markersize=1, color=COLOR)
+
+m, b = np.polyfit(angdiff.values, z.values, 1)
+x = np.linspace(angdiff.values.min(), angdiff.values.max(),5)
+plot(x, x*m + b, linewidth=0.5, color='red')
+xlabel("|Ang. diff.| (deg) ")
+ylabel("Z")
+title("$Z_{LMN/ADN} > 3$", pad=3)
+
+
+subplot(gs3_2[0,2])
+
+simpleaxis(gca())
+
+peak = data['zcc']['sws'][order].loc[0.001:0.008].idxmax()
+
+hist_, bin_edges = np.histogram(peak.values, bins = np.linspace(0, 0.01, 25), range = (0, 0.01))
+
+stairs(hist_, bin_edges, fill=True, color=COLOR, alpha=1)
+
+xticks([0, 0.005, 0.01], [0, 5, 10])
+xlabel("Lag (ms)")
+ylabel("%")
+
+
+outergs.update(top=0.97, bottom=0.04, right=0.97, left=0.08)
 
 
 savefig(
