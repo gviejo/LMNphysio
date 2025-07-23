@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2025-07-19 15:01:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-07-22 17:57:28
+# @Last Modified time: 2025-07-23 18:58:29
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -53,7 +53,7 @@ def figsize(scale):
     golden_mean = (np.sqrt(5.0) - 1.0) / 2  # Aesthetic ratio (you could change this)
     # fig_width = fig_width_pt*inches_per_pt*scale    # width in inches
     fig_width = 6
-    fig_height = fig_width * golden_mean * 2.0 # height in inches
+    fig_height = fig_width * golden_mean * 1.3 # height in inches
     fig_size = [fig_width, fig_height]
     return fig_size
 
@@ -141,7 +141,7 @@ allinfo = data['allinfo']
 
 fig = figure(figsize=figsize(1))
 
-outergs = GridSpec(3, 1, hspace = 0.3, height_ratios=[0.2, 0.6, 0.3])
+outergs = GridSpec(3, 1, hspace = 0.5, height_ratios=[0.2, 0.2, 0.3])
 
 
 #########################
@@ -169,15 +169,15 @@ for i, st in enumerate(['psb']):
     loglog(allinfo.loc[tokeep, 'rate'], allinfo.loc[tokeep, 'SI'], 'o', color=colors[st], markersize=1)
 
     xlabel("Rate (Hz)")
-    ylabel("Mutual Information (bits/spk)", labelpad=5)
+    ylabel("HD Info. (bits/spk)", labelpad=5)
 
     axvline(1.0, linewidth=0.5, color=COLOR)
     axhline(0.1, linewidth=0.5, color=COLOR)
 
     tc = centerTuningCurves_with_peak(alltc[tokeep])
-    tc = tc/tc.max()
+    tc = tc/tc.max()    
 
-    # Tuning curves
+    # Tuning curves HD
     subplot(gs1_1[0,1])
     simpleaxis(gca())
     m = tc.mean(1)
@@ -186,6 +186,7 @@ for i, st in enumerate(['psb']):
     fill_between(m.index.values, m.values-s.values, m.values+s.values, color=colors[st], alpha=0.2)
     xticks([-np.pi, np.pi], [-180, 180])
     xlim(-np.pi, np.pi)
+    title("PSB HD")
 
     ax = subplot(gs1_1[1,1])
     tmp = tc.values.T
@@ -204,26 +205,142 @@ for i, st in enumerate(['psb']):
     # axip.set_yticks([0, 3])
 
 
+
 #############################################################
 # OPTO PSB - PSB
 #############################################################
-gs1 = gridspec.GridSpecFromSubplotSpec(
-    1, 3, subplot_spec=outergs[1, 0], 
-    hspace=0.5, wspace = 0.3,
-    width_ratios=[0.1, 0.4, 0.1]
+
+
+
+gs2 = gridspec.GridSpecFromSubplotSpec(
+    1, 2, subplot_spec=outergs[1, 0], 
 )
 
-# Histology
-subplot(gs1[0, 0])
-noaxis(gca())
-# img = mpimg.imread(dropbox_path+"/PSBopto.png")
-# imshow(img, aspect="equal", cmap="viridis")
-# xticks([])
-# yticks([])
+
+#################################################
+# RASTER EXAMPLE
+#################################################
+
+
+filepath = os.path.join(os.path.expanduser("~"), 'Dropbox/LMNphysio/data/DATA_FIG_PSB_SLEEP_A8054-230718A.pickle')
+
+data = cPickle.load(open(filepath, 'rb'))
+
+hd = data['hd']
+nhd = data['nhd']
+tc = data['tc']
+mod = data['mod']
+peth = data['peth']
+# mod = mod.sort_values()
+neurons = [
+    mod[hd].dropna().sort_values().index.values[0:4],
+    mod[nhd].dropna().sort_values().index.values[-4:][::-1],
+]
+
+colors2 = [colors['psb'], "grey"]
+
+
+for i, idx in enumerate(neurons):
+    gs2_2 = gridspec.GridSpecFromSubplotSpec(
+        1, 4, subplot_spec=gs2[0,i],
+        hspace=0.4,wspace = 0.3        
+    )
+    inds = np.indices((1,4))
+    zipind = np.stack((inds[0].flat, inds[1].flat)).T
+
+    for j, n in enumerate(idx):
+        gs2_3 = gridspec.GridSpecFromSubplotSpec(
+            2, 1, subplot_spec=gs2_2[zipind[j,0], zipind[j,1]],
+            hspace=0.5, wspace = 0.3,
+            height_ratios=[0.2, 0.4]
+        )
+
+        subplot(gs2_3[1,0])
+        simpleaxis(gca())
+        plot(peth[n].to_tsd(), '|', color=colors2[i], markersize=0.5, markeredgewidth=0.1)
+        xticks([0, 1])
+        yticks([])
+        xlabel("Lag (s)")
+        ylim(0, len(peth[n])+16)
+        gca().spines['left'].set_bounds(0, len(peth[n]))
+
+        if j == 0:
+            ylabel("Stim.")
+            yticks([len(peth[n])])
+
+        rect = patches.Rectangle((0, len(peth[n])+1), width=1.0, height=15,
+            linewidth=0, facecolor="lightcoral")
+        gca().add_patch(rect)
+
+
+        subplot(gs2_3[0,0], projection='polar')
+        plot(tc[n], color=colors2[i])
+        xticks([0, np.pi/2, np.pi, 3*np.pi/2], ['', '', '', ''])
+        yticks([])
 
 
 
-gs1_2 = gridspec.GridSpecFromSubplotSpec(2, 3, subplot_spec=gs1[0, 1],
+
+
+
+
+
+
+#################################################
+# OPTO
+#################################################
+psbdata = cPickle.load(open(dropbox_path + "/OPTO_PSB.pickle", "rb"))
+
+
+
+# PSB all tuning curves separated
+tc_hd = []
+tc_nhd = []
+
+fr = {'hd':{}, 'nhd':{}}
+
+groups = {}
+for ep in ['wake', 'sleep']:
+    allmeta = psbdata['allmeta'][ep]
+    allfr = psbdata['allfr'][ep]
+    alltc = psbdata['alltc'][ep]
+    neurons = allmeta.index.values
+    hd = neurons[allmeta['SI']>0.5]
+    nhd = neurons[allmeta['SI']<0.5]    
+    if ep == 'wake':
+        tmp = allfr[nhd].loc[0:10].mean() - allfr[nhd].loc[-4:0].mean()         
+        nhd = tmp[tmp>0].index.values
+    if ep == 'sleep':
+        tmp = allfr[nhd].loc[0:1].mean() - allfr[nhd].loc[-1:0].mean()
+        nhd = tmp[tmp>0].index.values
+
+    tc_hd.append(alltc[hd])
+    tc_nhd.append(alltc[nhd])
+    groups[ep] = {'hd':hd, 'nhd':nhd}
+    fr['hd'][ep] = allfr[hd]
+    fr['nhd'][ep] = allfr[nhd]
+
+
+tc_hd = pd.concat(tc_hd, axis=1)
+tc_nhd = pd.concat(tc_nhd, axis=1)
+
+
+
+
+#########################
+# TUNING CURVES SELECTION OPTO
+#########################
+
+gs3 = gridspec.GridSpecFromSubplotSpec(
+    1, 2, subplot_spec=outergs[2, 0], 
+    hspace=0.5, wspace = 0.3,
+    width_ratios=[0.5, 0.2]
+)
+
+
+
+
+gs1_2 = gridspec.GridSpecFromSubplotSpec(2, 3, subplot_spec=gs3[0, 0],
     hspace=0.5, wspace=0.6)
 
 
@@ -249,7 +366,7 @@ for ep in ['wake', 'sleep']:
         tmp = allfr[nhd].loc[0:10].mean() - allfr[nhd].loc[-4:0].mean()         
         nhd = tmp[tmp>0].index.values
     if ep == 'sleep':
-        tmp = allfr[nhd].loc[0:1].mean() - allfr[nhd].loc[-1:0].mean()         
+        tmp = allfr[nhd].loc[0:1].mean() - allfr[nhd].loc[-1:0].mean()
         nhd = tmp[tmp>0].index.values
 
     tc_hd.append(alltc[hd])
@@ -259,18 +376,18 @@ for ep in ['wake', 'sleep']:
     fr['nhd'][ep] = allfr[nhd]
 
 
-tc_hd = pd.concat(tc_hd, 1)
-tc_nhd = pd.concat(tc_nhd, 1)
+tc_hd = pd.concat(tc_hd, axis=1)
+tc_nhd = pd.concat(tc_nhd, axis=1)
 
 titles2 = ['PoSub HD', 'PoSub non-HD']
 
 for i, tc in enumerate([tc_hd, tc_nhd]):
-    tc = centerTuningCurves2(tc)
+    tc = centerTuningCurves_with_peak(tc)
     tc = tc / tc.loc[0]
     subplot(gs1_2[i,0])
     simpleaxis(gca())
-    plot(tc, color = clrs[i], linewidth=0.1, alpha=0.5)
-    plot(tc.mean(1), linewidth=1, color=clrs[i])
+    plot(tc, color = colors2[i], linewidth=0.1, alpha=0.5)
+    plot(tc.mean(1), linewidth=1, color=colors['psb'])
     xticks([-np.pi, 0, np.pi], ['', '', ''])
     yticks([0, 1], ['0', '1'])
     title(titles2[i], pad = 2)
@@ -289,8 +406,8 @@ for e, ep, sl, msl in zip(range(2), ['wake', 'sleep'], [slice(-4,14), slice(-1,2
         # tmp = tmp.rolling(window=100, win_type='gaussian', center=True, min_periods=1, axis = 0).mean(std=1)
         subplot(gs1_2[i,e+1])
         simpleaxis(gca())
-        plot(tmp, color = clrs[i], linewidth=0.1, alpha=0.5)
-        plot(tmp.mean(1), color = clrs[i], linewidth=1.0)
+        plot(tmp, color = colors2[i], linewidth=0.1, alpha=0.5)
+        plot(tmp.mean(1), color = colors2[i], linewidth=1.0)
         if ep == 'sleep':
             axvspan(0, 1, color = 'lightcoral', alpha=0.2, ec = None)
             xticks([0, 1])
@@ -308,7 +425,7 @@ for e, ep, sl, msl in zip(range(2), ['wake', 'sleep'], [slice(-4,14), slice(-1,2
 titles = ['Wake', 'nREM']
 
 # PSB opto vs control wake
-gs1_3 = gridspec.GridSpecFromSubplotSpec(2, 2, subplot_spec=gs1[0, 2],
+gs1_3 = gridspec.GridSpecFromSubplotSpec(2, 2, subplot_spec=gs3[0, 1],
     hspace=0.5, wspace=0.6)
 for i, gr in enumerate(['hd', 'nhd']):
     xs = [[0, 1], [2,3]]
@@ -357,7 +474,7 @@ for i, gr in enumerate(['hd', 'nhd']):
 
 
 
-outergs.update(top=0.97, bottom=0.04, right=0.97, left=0.08)
+outergs.update(top=0.95, bottom=0.06, right=0.97, left=0.08)
 
 
 savefig(

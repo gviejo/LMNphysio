@@ -2,7 +2,7 @@
 # @Author: gviejo
 # @Date:   2023-08-29 13:46:37
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-03-03 12:17:25
+# @Last Modified time: 2025-07-23 18:52:50
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -36,7 +36,8 @@ elif os.path.exists('/media/guillaume/Raid2'):
     data_directory = '/media/guillaume/Raid2'
 
 datasets = yaml.safe_load(open("/mnt/ceph/users/gviejo/datasets_OPTO.yaml", "r"))
-datasets = datasets['opto']['opto_psb_psb']
+
+datasets = datasets['opto']['psb']['opto']['ipsi']
 
 SI_thr = {
     'adn':0.5, 
@@ -57,36 +58,69 @@ for ep in ['wake', 'sleep']:
         # LOADING DATA
         ###############################################################################################
         path = os.path.join(data_directory, "OPTO", s)
-        data = nap.load_session(path, 'neurosuite')
-        spikes = data.spikes
-        position = data.position
-        wake_ep = data.epochs['wake'].loc[[0]]
-        sleep_ep = data.epochs["sleep"]
-        sws_ep = data.read_neuroscope_intervals('sws')
-        rem_ep = data.read_neuroscope_intervals('rem')
-        # down_ep = data.read_neuroscope_intervals('down')
-        spikes = spikes.getby_threshold("rate", 1.0)
-        idx = spikes._metadata[spikes._metadata["location"].str.contains("psb|PSB")].index.values
-        spikes = spikes[idx]
-          
-        ############################################################################################### 
-        # LOADING OPTO INFO
-        ###############################################################################################    
-        try:
-            opto_ep = nap.load_file(os.path.join(path, os.path.basename(path))+"_opto_ep.npz")
-        except:
-            opto_ep = []
-            epoch = 0
-            while len(opto_ep) == 0:
-                try:
-                    opto_ep = loadOptoEp(path, epoch=epoch, n_channels = 2, channel = 0)
-                    opto_ep = opto_ep.intersect(data.epochs[ep])
-                except:
-                    pass                    
-                epoch += 1
-                if epoch == 10:
-                    sys.exit()
-            opto_ep.save(os.path.join(path, os.path.basename(path))+"_opto_ep")
+        basename = os.path.basename(path)
+        filepath = os.path.join(path, "kilosort4", basename + ".nwb")
+
+        nwb = nap.load_file(filepath)
+
+        spikes = nwb['units']
+        spikes = spikes.getby_threshold("rate", 1)
+
+
+        position = []
+        columns = ['x', 'y', 'z', 'rx', 'ry', 'rz']
+        for k in columns:
+            position.append(nwb[k].values)
+        position = np.array(position)
+        position = np.transpose(position)
+        position = nap.TsdFrame(
+            t=nwb['x'].t,
+            d=position,
+            columns=columns,
+            time_support=nwb['position_time_support'])
+
+        epochs = nwb['epochs']
+        wake_ep = epochs[epochs.tags == "wake"]
+        sws_ep = nwb['sws']
+        rem_ep = nwb['rem']
+        
+        opto_ep = nwb['opto']
+
+
+        # path = os.path.join(data_directory, "OPTO", s)
+        # data = nap.load_session(path, 'neurosuite')
+        # spikes = data.spikes
+        # position = data.position
+        # wake_ep = data.epochs['wake'].loc[[0]]
+        # sleep_ep = data.epochs["sleep"]
+        # sws_ep = data.read_neuroscope_intervals('sws')
+        # rem_ep = data.read_neuroscope_intervals('rem')
+        # # down_ep = data.read_neuroscope_intervals('down')
+        # spikes = spikes.getby_threshold("rate", 1.0)
+        # idx = spikes.metadata[spikes.metadata["location"].str.contains("psb|PSB")].index.values
+        # spikes = spikes[idx]
+        
+        # if ep == 'sleep':
+        #     print(s, len(spikes))
+
+        # ############################################################################################### 
+        # # LOADING OPTO INFO
+        # ###############################################################################################    
+        # try:
+        #     opto_ep = nap.load_file(os.path.join(path, os.path.basename(path))+"_opto_ep.npz")
+        # except:
+        #     opto_ep = []
+        #     epoch = 0
+        #     while len(opto_ep) == 0:
+        #         try:
+        #             opto_ep = loadOptoEp(path, epoch=epoch, n_channels = 2, channel = 0)
+        #             opto_ep = opto_ep.intersect(data.epochs[ep])
+        #         except:
+        #             pass                    
+        #         epoch += 1
+        #         if epoch == 10:
+        #             sys.exit()
+        #     opto_ep.save(os.path.join(path, os.path.basename(path))+"_opto_ep")
 
         ############################################################################################### 
         # COMPUTING TUNING CURVES
@@ -134,21 +168,21 @@ for ep in ['wake', 'sleep']:
 
         frates = nap.compute_eventcorrelogram(spikes[tokeep], nap.Ts(opto_ep.start), stim_duration/20., stim_duration*2, norm=True)
                 
-        frates.columns = [data.basename+"_"+str(i) for i in frates.columns]
+        frates.columns = [basename+"_"+str(i) for i in frates.columns]
 
         #######################
         # SAVING
         #######################        
         allfr[ep].append(frates)
-        metadata = spikes._metadata
+        metadata = spikes.metadata
         metadata.index = frates.columns
         allmeta[ep].append(metadata)
         tuning_curves.columns = frates.columns
         alltc[ep].append(tuning_curves)        
                         
-    allfr[ep] = pd.concat(allfr[ep])
-    allmeta[ep] = pd.concat(allmeta[ep])
-    alltc[ep] = pd.concat(alltc[ep])
+    allfr[ep] = pd.concat(allfr[ep], axis=1)
+    allmeta[ep] = pd.concat(allmeta[ep], axis=0)
+    alltc[ep] = pd.concat(alltc[ep], axis=1)
 
 # allr = pd.concat(allr, 0)
 # corr = pd.concat(corr, 0)

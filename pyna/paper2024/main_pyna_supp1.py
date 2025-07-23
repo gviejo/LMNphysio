@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2025-07-19 15:01:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-07-22 17:37:28
+# @Last Modified time: 2025-07-23 10:23:43
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -169,7 +169,7 @@ for i, st in enumerate(['adn', 'lmn']):
     loglog(allinfo.loc[tokeep, 'rate'], allinfo.loc[tokeep, 'SI'], 'o', color=colors[st], markersize=1)
 
     xlabel("Rate (Hz)")
-    ylabel("Mutual Information (bits/spk)", labelpad=5)
+    ylabel("HD info. (bits/spk)", labelpad=5)
 
     axvline(1.0, linewidth=0.5, color=COLOR)
     axhline(0.1, linewidth=0.5, color=COLOR)
@@ -324,12 +324,17 @@ for k, e in enumerate(['sws', 'rem']):
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)        
         gca().set_aspect("equal")
+        r, _ = scipy.stats.pearsonr(allr.loc[index, 'wak'].values, allr.loc[index, e].values)
+
         scatter(allr.loc[index, 'wak'], allr.loc[index, e],
                 0.4,
                 color=colors[st]                    
             )
         xlim(-1, 1)
-        ylim(-1,1)
+        ylim(-1,1)        
+
+        gca().text(0.5, -0.9, f"r={np.round(r,2)}", fontsize=fontsize-1)
+
         if j == 0:
             ylabel(short_epochs[e], labelpad=15)
 
@@ -345,6 +350,7 @@ for k, e in enumerate(['sws', 'rem']):
         else:
             xticks([-1, 1], ['', ''])
             yticks([-1, 1], ['', ''])
+
 
         m, b = np.polyfit(allr.loc[index, 'wak'].values, allr.loc[index, e].values, 1)
         x = np.linspace(allr.loc[index, 'wak'].values.min(), allr.loc[index, 'wak'].values.max(),5)
@@ -387,12 +393,16 @@ for k, e in enumerate(['sws', 'rem']):
             )
         xlim(-1, 1)
         ylim(-1,1)
+
+        r, _ = scipy.stats.pearsonr(allr.loc[index, 'wak'].values, allr.loc[index, e].values)
+        gca().text(0.9, -0.9, f"r={np.round(r,2)}", fontsize=fontsize-1)
+
         if j == 0:
             ylabel(short_epochs[e], labelpad=15, y=0)
             
         if a == 'A5043' and e == 'rem':
             xlabel("Wake", labelpad=15)
-            
+
         if k == 0:
             title(a)
 
