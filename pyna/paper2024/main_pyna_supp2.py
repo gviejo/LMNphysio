@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2025-07-19 15:01:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-07-23 18:58:29
+# @Last Modified time: 2025-07-24 11:43:57
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -387,7 +387,7 @@ for i, tc in enumerate([tc_hd, tc_nhd]):
     subplot(gs1_2[i,0])
     simpleaxis(gca())
     plot(tc, color = colors2[i], linewidth=0.1, alpha=0.5)
-    plot(tc.mean(1), linewidth=1, color=colors['psb'])
+    plot(tc.mean(1), linewidth=1, color=colors2[i])
     xticks([-np.pi, 0, np.pi], ['', '', ''])
     yticks([0, 1], ['0', '1'])
     title(titles2[i], pad = 2)
@@ -406,7 +406,7 @@ for e, ep, sl, msl in zip(range(2), ['wake', 'sleep'], [slice(-4,14), slice(-1,2
         # tmp = tmp.rolling(window=100, win_type='gaussian', center=True, min_periods=1, axis = 0).mean(std=1)
         subplot(gs1_2[i,e+1])
         simpleaxis(gca())
-        plot(tmp, color = colors2[i], linewidth=0.1, alpha=0.5)
+        plot(tmp, color = colors2[i], linewidth=0.1, alpha=0.2)
         plot(tmp.mean(1), color = colors2[i], linewidth=1.0)
         if ep == 'sleep':
             axvspan(0, 1, color = 'lightcoral', alpha=0.2, ec = None)
@@ -416,8 +416,8 @@ for e, ep, sl, msl in zip(range(2), ['wake', 'sleep'], [slice(-4,14), slice(-1,2
             xticks([0, 10])
         if i == 0:
             title(titles[e])        
-        # ylim(0, 2.5)
-        yticks([0, 2], ['0', '2'])
+        ylim(0, 3)
+        yticks([0, 3], ['0', '2'])
         if i == 1:
             ylabel("Firing rate (norm.)", y=1.5)
             xlabel("Time (s)", labelpad=1)
@@ -442,7 +442,7 @@ for i, gr in enumerate(['hd', 'nhd']):
 
         y = tmp.loc[sl].mean().values-tmp.loc[msl].mean().values
 
-        hist(y, edgecolor=COLOR, facecolor='white', bins = np.linspace(-1, 1, 8))
+        hist(y, edgecolor=COLOR, facecolor='white', bins = np.linspace(-1, 1, 16))
 
         if i == 0:
             xlim(-1, 0)            
