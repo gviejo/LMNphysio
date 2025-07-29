@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-07-17 18:23:54
+# @Last Modified time: 2025-07-28 11:22:48
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -344,7 +344,7 @@ for i, f in enumerate(['ipsi', 'bilateral']):
 
 
     s, e = opto_ep.intersect(ex).values[0]
-    print(s, e)
+    # print(s, e)
     if i == 0:
         height=0.8
     else:
@@ -477,6 +477,7 @@ for i, f in enumerate(['ipsi', 'bilateral']):
     signi = np.digitize(p, [1, 0.05, 0.01, 0.001, 0.0])
     text(0.6, 0.8, s=map_significance[signi], va="center", ha="left", transform=gca().transAxes)
 
+    print("Rate mode ttest", zw, p, len(np.array(delta.values).astype(float)), np.mean(np.array(delta.values).astype(float)))
 
     colors2 = [opto_color, "#FF7F50"]
 
@@ -559,6 +560,8 @@ for i, f in enumerate(['ipsi', 'bilateral']):
         zw, p = scipy.stats.mannwhitneyu(corr3.iloc[:,i], base3.iloc[:,i], alternative='greater')
         signi = np.digitize(p, [1, 0.05, 0.01, 0.001, 0.0])
         text(i+0.9, m[i]-0.07, s=map_significance[signi], va="center", ha="right")
+
+        print("mannwhitneyu", i, f, zw, p)
     
     xl, xr = 2.5, 2.6
     plot([xl, xr], [m[0], m[0]], linewidth=0.2, color=COLOR)
@@ -569,7 +572,7 @@ for i, f in enumerate(['ipsi', 'bilateral']):
     text(xr+0.1, np.mean(m)-0.07, s=map_significance[signi], va="center", ha="left")
 
 
-
+    print("mannwhitneyu across", f, zw, p)
 
 
 
@@ -577,25 +580,25 @@ for i, f in enumerate(['ipsi', 'bilateral']):
 outergs.update(top=0.92, bottom=0.09, right=0.99, left=0.05)
 
 
-savefig(
-    os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/fig3.pdf",
-    dpi=200,
-    facecolor="white",
-)
-# show()
+# savefig(
+#     os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/fig3.pdf",
+#     dpi=200,
+#     facecolor="white",
+# )
+# # show()
 
 
 
-corr3['chfr'] = pd.Series({s:delta[delta.index.str.contains(s)].mean() for s in corr3.index.values})
+# corr3['chfr'] = pd.Series({s:delta[delta.index.str.contains(s)].mean() for s in corr3.index.values})
 
 
-figure()
-plot(corr3['opto'], corr3['chfr'], 'o')
-xlabel("Session correlation", fontsize=12)
-ylabel("Delta firing rate", fontsize=12)
-m, b = np.polyfit(corr3['opto'], corr3['chfr'], 1)
-x = np.linspace(corr3['opto'].min(), corr3['opto'].max(),5)
-plot(x, x*m + b)
-tau, p = scipy.stats.kendalltau(corr3['opto'], corr3['chfr'])
-title(f"tau={np.round(tau,2)}, p={np.round(p,2)}", fontsize=12)
-savefig(os.path.expanduser("~") + "/Dropbox/LMNphysio/summary_opto/fig_corr_coh_rate.png")
+# figure()
+# plot(corr3['opto'], corr3['chfr'], 'o')
+# xlabel("Session correlation", fontsize=12)
+# ylabel("Delta firing rate", fontsize=12)
+# m, b = np.polyfit(corr3['opto'], corr3['chfr'], 1)
+# x = np.linspace(corr3['opto'].min(), corr3['opto'].max(),5)
+# plot(x, x*m + b)
+# tau, p = scipy.stats.kendalltau(corr3['opto'], corr3['chfr'])
+# title(f"tau={np.round(tau,2)}, p={np.round(p,2)}", fontsize=12)
+# savefig(os.path.expanduser("~") + "/Dropbox/LMNphysio/summary_opto/fig_corr_coh_rate.png")

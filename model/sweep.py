@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2025-07-16 14:52:34
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-07-17 10:08:38
+# @Last Modified time: 2025-07-24 10:23:42
 
 import numpy as np
 from matplotlib.pyplot import *
@@ -120,9 +120,9 @@ if __name__ == "__main__":
     
     # Define parameters to sweep
     params = {
-        'w_trn_adn_': np.linspace(0.0, 0.1, 40),
+        'w_trn_adn_': np.linspace(0.0, 0.1, 10),
         # 'beta_adn': [1, 5, 10, 15]
-        "w_lmn_adn_" : np.linspace(0.9, 2.0, 5)
+        "w_lmn_adn_" : np.linspace(0.9, 2.0, 3)
     }
     
     # Run sweep

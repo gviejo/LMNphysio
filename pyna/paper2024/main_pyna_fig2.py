@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-07-18 12:05:02
+# @Last Modified time: 2025-07-28 17:24:45
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -418,6 +418,7 @@ xlim(-0.01, 0.01)
 ylabel("Rate (Hz)", labelpad=4)    
 xticks([-0.01, 0, 0.01], [-10, 0, 10])
 xlabel("Lag (ms)")
+print(tmp.idxmax())
 
 
 
@@ -560,7 +561,7 @@ zw, p = scipy.stats.wilcoxon(tmp[:,1], tmp[:,0], alternative='greater')
 signi = np.digitize(p, [1, 0.05, 0.01, 0.001, 0.0])
 text(xr+0.1, np.mean(m)-0.07, s=map_significance[signi], va="center", ha="left")
 
-
+print("wilcoxon", zw, p)
 
 
 
@@ -892,6 +893,7 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
     signi = np.digitize(p, [1, 0.05, 0.01, 0.001, 0.0])
     text(0.6, 0.8, s=map_significance[signi], va="center", ha="left", transform=gca().transAxes)
 
+    print("Rate mod", "ttest", zw, p, "df", len(np.array(delta.values).astype(float)))
 
     colors2 = [opto_color, "#FF7F50"]
 
@@ -965,6 +967,8 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
             zw, p = scipy.stats.mannwhitneyu(corr3[i], base3[i], alternative='greater')
             signi = np.digitize(p, [1, 0.05, 0.01, 0.001, 0.0])
             text(i+0.9, m[i]-0.07, s=map_significance[signi], va="center", ha="right")
+
+            print("sleep", i, "mannwhitneyu", zw, p)
 
         xl, xr = 2.5, 2.6
         plot([xl, xr], [m[0], m[0]], linewidth=0.2, color=COLOR)
@@ -1053,7 +1057,9 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
             zw, p = scipy.stats.mannwhitneyu(corr3.iloc[:,i], base3.iloc[:,i], alternative='greater')
             signi = np.digitize(p, [1, 0.05, 0.01, 0.001, 0.0])
             text(i+0.9, m[i]-0.07, s=map_significance[signi], va="center", ha="right")
-        
+            
+            print("Sleep control", i, "mannwhitneyu", zw, p, f"n={len(corr3)}")
+
         xl, xr = 2.5, 2.6
         plot([xl, xr], [m[0], m[0]], linewidth=0.2, color=COLOR)
         plot([xr, xr], [m[0], m[1]], linewidth=0.2, color=COLOR)
@@ -1062,7 +1068,7 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
         signi = np.digitize(p, [1, 0.05, 0.01, 0.001, 0.0])
         text(xr+0.1, np.mean(m)-0.07, s=map_significance[signi], va="center", ha="left")
 
-
+        print("Sleep control N ", "mannwhitneyu", zw, p)
 
     if f == 'OPTO_WAKE':
 
@@ -1138,6 +1144,8 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
             signi = np.digitize(p, [1, 0.05, 0.01, 0.001, 0.0])
             text(i+0.9, m[i]-0.07, s=map_significance[signi], va="center", ha="right")
 
+            print("Wake", i, "mannwhitneyu", zw, p)
+
         xl, xr = 2.5, 2.6
         plot([xl, xr], [m[0], m[0]], linewidth=0.2, color=COLOR)
         plot([xr, xr], [m[0], m[1]], linewidth=0.2, color=COLOR)
@@ -1145,6 +1153,8 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
         zw, p = scipy.stats.mannwhitneyu(tmp[0], tmp[1])
         signi = np.digitize(p, [1, 0.05, 0.01, 0.001, 0.0])
         text(xr+0.1, np.mean(m)-0.07, s=map_significance[signi], va="center", ha="left")
+
+        print("Wake across", "mannwhitneyu", zw, p)
 
         ########################
         # TUNING CURVES WAKE OPTO
@@ -1250,9 +1260,9 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
 outergs.update(top=0.95, bottom=0.06, right=0.98, left=0.05)
 
 
-savefig(
-    os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/fig2.pdf",
-    dpi=200,
-    facecolor="white",
-)
+# savefig(
+#     os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/fig2.pdf",
+#     dpi=200,
+#     facecolor="white",
+# )
 # show()

@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-07-22 11:29:44
+# @Last Modified time: 2025-07-28 17:22:05
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -751,6 +751,7 @@ plot([xl, xr], [m[0], m[0]], linewidth=0.2, color=COLOR)
 plot([xr, xr], [m[0], m[1]], linewidth=0.2, color=COLOR)
 plot([xl, xr], [m[1], m[1]], linewidth=0.2, color=COLOR)
 zw, p = mannwhitneyu(tmp[1], tmp[0])
+print("mannwhitneyu", zw, p, f"n={len(tmp[0])}", f"n={len(tmp[1])}")
 signi = np.digitize(p, [1, 0.05, 0.01, 0.001, 0.0])
 text(xr+0.1, np.mean(m)-0.07, s=map_significance[signi], va="center", ha="left")
 
@@ -1090,6 +1091,7 @@ plot([xl, xr], [m[0], m[0]], linewidth=0.2, color=COLOR)
 plot([xr, xr], [m[0], m[1]], linewidth=0.2, color=COLOR)
 plot([xl, xr], [m[1], m[1]], linewidth=0.2, color=COLOR)
 zw, p = mannwhitneyu(tmp[1], tmp[0])
+print("mannwhitneyu", zw, p, f"n={len(tmp[0])}", f"n={len(tmp[1])}")
 signi = np.digitize(p, [1, 0.05, 0.01, 0.001, 0.0])
 text(xr+0.1, np.mean(m)-0.02, s=map_significance[signi], va="center", ha="left")
 
@@ -1100,11 +1102,11 @@ text(xr+0.1, np.mean(m)-0.02, s=map_significance[signi], va="center", ha="left")
 outergs.update(top=0.96, bottom=0.06, right=0.98, left=0.02)
 
 
-savefig(
-    os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/fig1.pdf",
-    dpi=200,
-    facecolor="white",
-)
+# savefig(
+#     os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/fig1.pdf",
+#     dpi=200,
+#     facecolor="white",
+# )
 # show()
 
 
