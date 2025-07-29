@@ -2,7 +2,7 @@
 # @Author: gviejo
 # @Date:   2023-08-29 13:46:37
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-05-15 12:13:43
+# @Last Modified time: 2025-07-29 17:14:58
 # %%
 import numpy as np
 import pandas as pd
@@ -242,6 +242,58 @@ for st in ['adn', 'lmn']:
                         tmp['n'] = len(spikes)
                         corr[st][gr][sd].append(tmp)
 
+                        #########################
+                        # FIRING RATE MODULATION DURING OPTO
+                        #########################
+                        delta = (spikes.restrict(opto_ep).rate - spikes.restrict(pre_ep).rate)/spikes.restrict(pre_ep).rate
+
+                        ##############################
+                        # SPIKES DECIMATION
+                        ##############################
+                        
+                        pre_spikes = spikes.restrict(pre_ep)
+                        percent = 1+delta
+                        percent[percent>1] = 1.0
+                        bin_size = 0.02
+
+                        allr_dec = []
+                        r_dec = []
+
+
+
+                        for i in range(1000):
+
+                            # Matching spike counts
+                            decimated_spikes = nap.TsGroup(
+                                {n:nap.Ts(np.sort(np.random.choice(pre_spikes[n].t, int(len(pre_spikes[n])*percent[n]), replace=False))) for n in pre_spikes
+                                }, time_support=pre_ep)
+                                    
+                            count = decimated_spikes.count(bin_size, pre_ep.drop_short_intervals(bin_size*21))
+                            rate = count/bin_size
+                            rate = rate.smooth(std=bin_size*2, windowsize=bin_size*20).as_dataframe()
+                            rate = rate.apply(zscore)
+                            rate = nap.TsdFrame(rate, time_support = pre_ep)            
+
+                            
+                            # Correlation                
+                            tmp2 = np.corrcoef(rate.values.T)
+                            r_ = tmp2[np.triu_indices(tmp2.shape[0], 1)]
+
+                            rd, p = scipy.stats.pearsonr(r['wak'], r_)
+
+                            r_dec.append(r_)
+                            allr_dec.append(rd)
+
+
+                        r_dec = np.mean(r_dec, 0)
+
+                        tmp.loc[basename,'decimated'] = np.mean(allr_dec)
+
+                        r["decimated"] = r_dec
+
+
+                        corr[st][gr][sd].append(tmp)                        
+
                         #######################
                         # Session correlation with bootstrap
                         #######################
@@ -275,8 +327,8 @@ for st in ['adn', 'lmn']:
                         #######################
                         # SHUFFLING TO COMPUTE BASELINE
                         #######################
-                        tmp = pd.DataFrame(index=[basename], columns=['pre', 'opto'], dtype="float")
-                        for c in ['pre', 'opto']:
+                        tmp = pd.DataFrame(index=[basename], columns=['pre', 'opto', 'decimated'], dtype="float")
+                        for c in ['pre', 'opto', 'decimated']:
                             tmp.loc[basename,c] = np.mean([
                                 scipy.stats.pearsonr(r['wak'].values, r[c].sample(frac=1, random_state=42).values)[0]
                                 for i in range(1000)
