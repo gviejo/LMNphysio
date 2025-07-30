@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   gviejo
-# @Last Modified time: 2025-07-29 21:50:26
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2025-07-30 12:56:03
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -178,7 +178,7 @@ gs_bottom = gridspec.GridSpecFromSubplotSpec(
     )
 
 
-ranges = (-0.9,0,1,1.9)
+ranges = (-8,0,10,18)
 
 data = cPickle.load(open(os.path.expanduser("~/Dropbox/LMNphysio/data/OPTO_WAKE.pickle"), 'rb'))
 allr = data['allr']
@@ -194,8 +194,8 @@ titles = ['Ipsilateral', 'Bilateral']
 
 exs = {
     'wak': {
-        'ipsi': ("B3700/B3704/B3704-240609A", nap.IntervalSet(5130, 5232)),
-        "bilateral": ("B2800/B2810/B2810-240925B", nap.IntervalSet(8269, 8379))
+        'ipsi': ("B3700/B3704/B3704-240609A", nap.IntervalSet(5187, 5215)),
+        "bilateral": ("B2800/B2810/B2810-240925B", nap.IntervalSet(8311, 8337))
         },
     'sws': {
         "ipsi": ("B3700/B3704/B3704-240608A", nap.IntervalSet(4112.6, 4115.5)),
@@ -257,7 +257,8 @@ for i, f in enumerate(['ipsi', 'bilateral']):
 
     #
     exex = nap.IntervalSet(ex.start[0] - 10, ex.end[0] + 10)
-        
+    
+    # sys.exit()
 
     # tuning_curves = tuning_curves[spikes.keys()]
     # tuning_curves = tuning_curves/tuning_curves.max()
@@ -290,15 +291,25 @@ for i, f in enumerate(['ipsi', 'bilateral']):
     
     yticks([0, 2*np.pi], [0, 360])    
 
-    H = np.sum(P*np.log(P.values), 1)
-    H = H-H.min()
-    H = H/H.max()
-    a_ex = H.threshold(0.1).time_support.intersect(ex)
+    plot(position['ry'].restrict(ex), '.', color=COLOR, markersize=0.01, label="True HD")
 
-    for s, e in a_ex.values:
-        plot(da.get(s, e), 'o', markersize= 0.5, markerfacecolor=COLOR, markeredgecolor=None, markeredgewidth=0)
+    legend(
+        handlelength=1,
+        loc="center",
+        bbox_to_anchor=(-0.2, -0.6, 0.5, 0.5),
+        framealpha=0,
+    )
 
-    s, e = opto_ep.intersect(ex).values[0]
+
+    # H = np.sum(P*np.log(P.values), 1)
+    # H = H-H.min()
+    # H = H/H.max()
+    # a_ex = H.threshold(0.1).time_support.intersect(ex)
+
+    # for s, e in a_ex.values:
+    #     plot(da.get(s, e), 'o', markersize= 0.5, markerfacecolor=COLOR, markeredgecolor=None, markeredgewidth=0)
+
+    # s, e = opto_ep.intersect(ex).values[0]
     gca().spines['bottom'].set_bounds(s, e)
     xticks([s, e], ['', ''])
     
@@ -400,13 +411,14 @@ for i, f in enumerate(['ipsi', 'bilateral']):
     corr3 = corr3[['opto', 'decimated']]
     base3 = base3[['opto', 'decimated']]
 
+    corr3 = corr3.drop_duplicates()
+    base3 = base3.drop_duplicates()
 
     for s in corr3.index:
         plot([1, 2], corr3.loc[s,['opto', 'decimated']], '-', color=COLOR, linewidth=0.1)
     plot(np.ones(len(corr3)),   corr3['opto'], 'o', color=opto_color, markersize=1)
     plot(np.ones(len(corr3))*2, corr3['decimated'], 'o', color="grey", markersize=1)
 
-    
     # ymin = corr3['opto'].min()
     ymin = -0.12
     ylim(ymin, 1.1)

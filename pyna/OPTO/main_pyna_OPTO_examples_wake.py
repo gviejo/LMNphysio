@@ -2,11 +2,11 @@
 # @Author: Guillaume Viejo
 # @Date:   2025-03-17 14:23:16
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-03-17 18:55:25
+# @Last Modified time: 2025-07-30 11:02:04
 import numpy as np
 import pandas as pd
 import pynapple as nap
-import nwbmatic as ntm
+# import nwbmatic as ntm
 from pylab import *
 import sys, os
 sys.path.append("..")
@@ -143,7 +143,7 @@ for i, grp in enumerate(sessions.keys()):
     ax2 = gca().twinx()
     ax2.plot(position['ry'].restrict(sessions_exs[sessions[grp]]), '.')
 
-    title(grp + " " + len(spikes))
+    title(str(grp) + " " + str(len(spikes)))
 
 
 
@@ -159,7 +159,8 @@ for i, grp in enumerate(sessions.keys()):
     ###################################################
 
 tight_layout()
-savefig(os.path.expanduser("~/Dropbox/LMNphysio/summary_opto/fig_examples_wake.png"))
+# savefig(os.path.expanduser("~/Dropbox/LMNphysio/summary_opto/fig_examples_wake.png"))
+show()
         
 
 
