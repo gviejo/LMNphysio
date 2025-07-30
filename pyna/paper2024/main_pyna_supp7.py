@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-07-29 17:00:54
+# @Last Modified by:   gviejo
+# @Last Modified time: 2025-07-29 21:50:26
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -253,7 +253,7 @@ for i, f in enumerate(['ipsi', 'bilateral']):
     gca().spines['left'].set_bounds(0, len(spikes)-1)
     gca().spines['bottom'].set_bounds(s, e)    
     ylabel("Neurons")
-    title("Non-REM sleep")
+    title("Wakefulness")
 
     #
     exex = nap.IntervalSet(ex.start[0] - 10, ex.end[0] + 10)
