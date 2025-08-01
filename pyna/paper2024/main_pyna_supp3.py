@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2025-07-19 15:01:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-08-01 15:35:09
+# @Last Modified time: 2025-08-01 16:48:23
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -53,7 +53,7 @@ def figsize(scale):
     golden_mean = (np.sqrt(5.0) - 1.0) / 2  # Aesthetic ratio (you could change this)
     # fig_width = fig_width_pt*inches_per_pt*scale    # width in inches
     fig_width = 6
-    fig_height = fig_width * golden_mean * 2 # height in inches
+    fig_height = fig_width * golden_mean * 1.5 # height in inches
     fig_size = [fig_width, fig_height]
     return fig_size
 
@@ -151,7 +151,7 @@ allinfo = data['allinfo']
 
 fig = figure(figsize=figsize(1))
 
-outergs = GridSpec(3, 1, hspace = 0.3, height_ratios=[0.1, 0.3, 0.2])
+outergs = GridSpec(2, 1, hspace = 0.3, height_ratios=[0.1, 0.5])
 
 
 #########################
@@ -293,41 +293,6 @@ for i, idx in enumerate(neurons):
 #################################################
 psbdata = cPickle.load(open(dropbox_path + "/OPTO_PSB.pickle", "rb"))
 
-gr = "opto"
-
-# PSB all tuning curves separated
-tc_hd = []
-tc_nhd = []
-
-fr = {'hd':{}, 'nhd':{}}
-
-groups = {}
-for ep in ['wake', 'sleep']:
-    allmeta = psbdata['allmeta'][gr][ep]
-    allfr = psbdata['allfr'][gr][ep]
-    alltc = psbdata['alltc'][gr][ep]
-    neurons = allmeta.index.values
-    hd = neurons[allmeta['SI']>0.5]
-    nhd = neurons[allmeta['SI']<0.5]    
-    if ep == 'wake':
-        tmp = allfr[nhd].loc[0:10].mean() - allfr[nhd].loc[-4:0].mean()         
-        nhd = tmp[tmp>0].index.values
-    if ep == 'sleep':
-        tmp = allfr[nhd].loc[0:1].mean() - allfr[nhd].loc[-1:0].mean()
-        nhd = tmp[tmp>0].index.values
-
-    tc_hd.append(alltc[hd])
-    tc_nhd.append(alltc[nhd])
-    groups[ep] = {'hd':hd, 'nhd':nhd}
-    fr['hd'][ep] = allfr[hd]
-    fr['nhd'][ep] = allfr[nhd]
-
-
-tc_hd = pd.concat(tc_hd, axis=1)
-tc_nhd = pd.concat(tc_nhd, axis=1)
-
-
-
 
 gs2_2 = gridspec.GridSpecFromSubplotSpec(
     1, 2, subplot_spec=gs2[1, :],
@@ -343,28 +308,31 @@ gs1_2 = gridspec.GridSpecFromSubplotSpec(2, 3, subplot_spec=gs2_2[0, 0],
 tc_hd = []
 tc_nhd = []
 
-fr = {'hd':{}, 'nhd':{}}
-
+fr = {}
 groups = {}
-for ep in ['wake', 'sleep']:
-    allmeta = psbdata['allmeta'][gr][ep]
-    allfr = psbdata['allfr'][gr][ep]
-    alltc = psbdata['alltc'][gr][ep]
-    neurons = allmeta.index.values
-    hd = neurons[allmeta['SI']>0.5]
-    nhd = neurons[allmeta['SI']<0.5]    
-    if ep == 'wake':
-        tmp = allfr[nhd].loc[0:10].mean() - allfr[nhd].loc[-4:0].mean()         
-        nhd = tmp[tmp>0].index.values
-    if ep == 'sleep':
-        tmp = allfr[nhd].loc[0:1].mean() - allfr[nhd].loc[-1:0].mean()
-        nhd = tmp[tmp>0].index.values
 
-    tc_hd.append(alltc[hd])
-    tc_nhd.append(alltc[nhd])
-    groups[ep] = {'hd':hd, 'nhd':nhd}
-    fr['hd'][ep] = allfr[hd]
-    fr['nhd'][ep] = allfr[nhd]
+for gr in ["opto", "ctrl"]:
+    fr[gr] = {}
+    groups[gr] = {}
+    for ep in ['wake', 'sleep']:
+        fr[gr][ep] = {}
+        allmeta = psbdata['allmeta'][gr][ep]
+        allfr = psbdata['allfr'][gr][ep]
+        alltc = psbdata['alltc'][gr][ep]
+        neurons = allmeta.index.values
+        hd = neurons[allmeta['SI']>0.5]
+        nhd = neurons[allmeta['SI']<0.5]    
+        if ep == 'wake':
+            tmp = allfr[nhd].loc[0:10].mean() - allfr[nhd].loc[-4:0].mean()         
+            nhd = tmp[tmp>0].index.values
+        if ep == 'sleep':
+            tmp = allfr[nhd].loc[0:1].mean() - allfr[nhd].loc[-1:0].mean()
+            nhd = tmp[tmp>0].index.values
+
+        tc_hd.append(alltc[hd])
+        tc_nhd.append(alltc[nhd])
+        groups[gr][ep] = {'hd':hd, 'nhd':nhd}
+        fr[gr][ep] = {"hd":allfr[hd], "nhd":allfr[nhd]}        
 
 
 tc_hd = pd.concat(tc_hd, axis=1)
@@ -378,170 +346,6 @@ for i, tc in enumerate([tc_hd, tc_nhd]):
     subplot(gs1_2[i,0])
     simpleaxis(gca())
     plot(tc, color = colors2[i], linewidth=0.1, alpha=0.5)
-    plot(tc.mean(1), linewidth=1, color=colors2[i])
-    xticks([-np.pi, 0, np.pi], ['', '', ''])
-    yticks([0, 1], ['0', '1'])
-    title(titles2[i], pad = 2)
-    if i == 1:
-        xticks([-np.pi, 0, np.pi], [-180, 0, 180])
-        xlabel("Centered HD", labelpad=1)
-        ylabel("Firing rate (norm.)", y = 1)
-
-titles = ['Wake', 'nREM sleep']
-
-
-for e, ep, sl, msl in zip(range(2), ['wake', 'sleep'], [slice(-4,14), slice(-1,2)], [slice(-4,0), slice(-1,0)]):    
-    allfr = psbdata['allfr'][gr][ep]
-    for i, grn in enumerate(['hd', 'nhd']):
-        tmp = allfr[groups[ep][grn]].loc[sl]
-        # tmp = tmp.rolling(window=100, win_type='gaussian', center=True, min_periods=1, axis = 0).mean(std=1)
-        subplot(gs1_2[i,e+1])
-        simpleaxis(gca())
-        tmp = tmp.apply(lambda col: gaussian_filter1d(col.values, sigma=1), axis=0)
-        plot(tmp, color = colors2[i], linewidth=0.1, alpha=0.2)
-        plot(tmp.mean(1), color = colors2[i], linewidth=1.0)
-        if ep == 'sleep':
-            axvspan(0, 1, color = 'lightcoral', alpha=0.2, ec = None)
-            xticks([0, 1])
-        if ep == 'wake':
-            axvspan(0, 10, color = 'lightcoral', alpha=0.2, ec = None)
-            xticks([0, 10])
-        if i == 0:
-            title(titles[e])        
-        ylim(0, 3)
-        yticks([0, 3], ['0', '2'])
-        if i == 1:
-            ylabel("Firing rate (norm.)", y=1.5)
-            xlabel("Time (s)", labelpad=1)
-
-titles = ['Wake', 'nREM']
-
-# PSB opto vs control wake
-gs1_3 = gridspec.GridSpecFromSubplotSpec(2, 2, subplot_spec=gs2_2[0, 1],
-    hspace=0.5, wspace=0.6)
-for i, grn in enumerate(['hd', 'nhd']):
-    xs = [[0, 1], [2,3]]
-
-    for e, ep, sl, msl in zip(range(2), ['wake', 'sleep'], [slice(0,10), slice(0,1)], [slice(-3,-1), slice(-1,0)]):
-
-        subplot(gs1_3[i, e])
-        simpleaxis(gca())
-
-
-        allfr = psbdata['allfr'][gr][ep]
-            
-        tmp = allfr[groups[ep][grn]]
-
-        y = (tmp.loc[sl].mean().values-tmp.loc[msl].mean().values)/(tmp.loc[sl].mean().values+tmp.loc[msl].mean().values)
-
-        hist(y, edgecolor=COLOR, facecolor='white', bins = np.linspace(-1, 1, 16))
-
-        if i == 0:
-            xlim(-1, 0)            
-            title(titles[e])
-                    
-        if i == 1 and e == 0:
-            ylabel("Count", y = 1.05, labelpad = 10)
-            xlabel("% mod", x = 1)
-        # if i == 1:
-        xlim(-1, 1)
-
-        zw, p = scipy.stats.wilcoxon(y)
-
-        print(f"Rate mod {gr} {grn} {ep}", "Wilcoxon", zw, p, "n=", len(y))
-
-        signi = np.digitize(p, [1, 0.05, 0.01, 0.001, 0.0])
-        text(0.6, 0.8, s=map_significance[signi], va="center", ha="left", transform=gca().transAxes)
-
-
-
-
-
-#########################
-# TDTOMATO CONTROL
-#########################
-
-gs3 = gridspec.GridSpecFromSubplotSpec(2, 4, subplot_spec=outergs[2, 0],
-    hspace=0.5, wspace=0.6, width_ratios=[0.2, 0.2, 0.2, 0.35])
-
-
-gr = "ctrl"
-
-# PSB all tuning curves separated
-tc_hd = []
-tc_nhd = []
-
-fr = {'hd':{}, 'nhd':{}}
-
-groups = {}
-for ep in ['wake', 'sleep']:
-    allmeta = psbdata['allmeta'][gr][ep]
-    allfr = psbdata['allfr'][gr][ep]
-    alltc = psbdata['alltc'][gr][ep]
-    neurons = allmeta.index.values
-    hd = neurons[allmeta['SI']>0.5]
-    nhd = neurons[allmeta['SI']<0.5]    
-    if ep == 'wake':
-        tmp = allfr[nhd].loc[0:10].mean() - allfr[nhd].loc[-4:0].mean()         
-        nhd = tmp[tmp>0].index.values
-    if ep == 'sleep':
-        tmp = allfr[nhd].loc[0:1].mean() - allfr[nhd].loc[-1:0].mean()
-        nhd = tmp[tmp>0].index.values
-
-    tc_hd.append(alltc[hd])
-    tc_nhd.append(alltc[nhd])
-    groups[ep] = {'hd':hd, 'nhd':nhd}
-    fr['hd'][ep] = allfr[hd]
-    fr['nhd'][ep] = allfr[nhd]
-
-
-tc_hd = pd.concat(tc_hd, axis=1)
-tc_nhd = pd.concat(tc_nhd, axis=1)
-
-
-
-# gs3_1 = gridspec.GridSpecFromSubplotSpec(2, 3, subplot_spec=gs3[0, 0],
-#     hspace=0.5, wspace=0.6)
-
-# PSB all tuning curves separated
-tc_hd = []
-tc_nhd = []
-
-fr = {'hd':{}, 'nhd':{}}
-
-groups = {}
-for ep in ['wake', 'sleep']:
-    allmeta = psbdata['allmeta'][gr][ep]
-    allfr = psbdata['allfr'][gr][ep]
-    alltc = psbdata['alltc'][gr][ep]
-    neurons = allmeta.index.values
-    hd = neurons[allmeta['SI']>0.5]
-    nhd = neurons[allmeta['SI']<0.5]    
-    if ep == 'wake':
-        tmp = allfr[nhd].loc[0:10].mean() - allfr[nhd].loc[-4:0].mean()         
-        nhd = tmp[tmp>0].index.values
-    if ep == 'sleep':
-        tmp = allfr[nhd].loc[0:1].mean() - allfr[nhd].loc[-1:0].mean()
-        nhd = tmp[tmp>0].index.values
-
-    tc_hd.append(alltc[hd])
-    tc_nhd.append(alltc[nhd])
-    groups[ep] = {'hd':hd, 'nhd':nhd}
-    fr['hd'][ep] = allfr[hd]
-    fr['nhd'][ep] = allfr[nhd]
-
-
-tc_hd = pd.concat(tc_hd, axis=1)
-tc_nhd = pd.concat(tc_nhd, axis=1)
-
-titles2 = ['PoSub HD', 'PoSub non-HD']
-
-for i, tc in enumerate([tc_hd, tc_nhd]):
-    tc = centerTuningCurves_with_peak(tc)
-    tc = tc / tc.loc[0]
-    subplot(gs3[i,0])
-    simpleaxis(gca())
-    plot(tc, color = colors2[i], linewidth=0.1, alpha=0.1)
     plot(tc.mean(1), linewidth=1, color=COLOR)
     xticks([-np.pi, 0, np.pi], ['', '', ''])
     yticks([0, 1], ['0', '1'])
@@ -553,19 +357,17 @@ for i, tc in enumerate([tc_hd, tc_nhd]):
 
 titles = ['Wake', 'nREM sleep']
 
+gr = "opto"
 
 for e, ep, sl, msl in zip(range(2), ['wake', 'sleep'], [slice(-4,14), slice(-1,2)], [slice(-4,0), slice(-1,0)]):    
     allfr = psbdata['allfr'][gr][ep]
     for i, grn in enumerate(['hd', 'nhd']):
-        tmp = allfr[groups[ep][grn]].loc[sl]
+        tmp = allfr[groups[gr][ep][grn]].loc[sl]
         # tmp = tmp.rolling(window=100, win_type='gaussian', center=True, min_periods=1, axis = 0).mean(std=1)
-        # subplot(gs1_2[i,e+1])
-        subplot(gs3[i,e+1])
+        subplot(gs1_2[i,e+1])
         simpleaxis(gca())
-        
-        tmp = tmp.apply(lambda col: gaussian_filter1d(col.values, sigma=2), axis=0)
-
-        plot(tmp, color = colors2[i], linewidth=0.1, alpha=0.2)
+        tmp = tmp.apply(lambda col: gaussian_filter1d(col.values, sigma=1), axis=0)
+        plot(tmp, color = colors2[i], linewidth=0.1, alpha=0.5)
         plot(tmp.mean(1), color = COLOR, linewidth=1.0)
         if ep == 'sleep':
             axvspan(0, 1, color = 'lightcoral', alpha=0.2, ec = None)
@@ -584,46 +386,82 @@ for e, ep, sl, msl in zip(range(2), ['wake', 'sleep'], [slice(-4,14), slice(-1,2
 titles = ['Wake', 'nREM']
 
 # PSB opto vs control wake
-gs1_3 = gridspec.GridSpecFromSubplotSpec(2, 2, subplot_spec=gs3[:, -1],
-    hspace=0.5, wspace=0.6)
+gs1_3 = gridspec.GridSpecFromSubplotSpec(2, 2, subplot_spec=gs2_2[0, 1],
+    hspace=0.3, wspace=0.6)
+
+
+colors2 = ["#DC143C", "#FF7F50"]
 
 for i, grn in enumerate(['hd', 'nhd']):
     xs = [[0, 1], [2,3]]
 
-    for e, ep, sl, msl in zip(range(2), ['wake', 'sleep'], [slice(0,10), slice(0, 1)], [slice(-8, -2), slice(-1,-0.2)]):
+    for e, ep, sl, msl in zip(range(2), ['wake', 'sleep'], [slice(1,10), slice(0.1,1)], [slice(-5,-1), slice(-1,-0.1)]):
 
         subplot(gs1_3[i, e])
         simpleaxis(gca())
+        gca().spines['bottom'].set_bounds(0, 1)
+        ys = []
 
+        for j, gr in enumerate(['opto', 'ctrl']):
 
-        allfr = psbdata['allfr'][gr][ep]
+            allfr = psbdata['allfr'][gr][ep]
             
-        tmp = allfr[groups[ep][grn]]
+            tmp = allfr[groups[gr][ep][grn]]
 
-        tmp = tmp.apply(lambda col: gaussian_filter1d(col.values, sigma=1), axis=0)
+            y = (tmp.loc[sl].mean().values-tmp.loc[msl].mean().values)/(tmp.loc[sl].mean().values+tmp.loc[msl].mean().values)
 
-        # sys.exit()
+            plot(np.ones_like(y)*j+np.random.randn(len(y))*0.1, y, 'o', color=colors2[j], markersize=1)
+            
+            plot([j-0.2, j+0.2], [np.mean(y), np.mean(y)], linewidth=1, color=COLOR)            
 
-        y = (tmp.loc[sl].mean().values-tmp.loc[msl].mean().values)/(tmp.loc[sl].mean().values+tmp.loc[msl].mean().values)
+            ys.append(y)
 
-        hist(y, edgecolor=COLOR, facecolor='white', bins = np.linspace(-1, 1, 16))
 
-        if i == 0:
-            xlim(-1, 0)            
-            title(titles[e])
-                    
-        if i == 1 and e == 0:
-            ylabel("Count", y = 1.05, labelpad = 10)
-            xlabel("% mod", x = 1)
-        # if i == 1:
-        xlim(-1, 1)
-
-        zw, p = scipy.stats.wilcoxon(y)
-
-        print(f"Rate mod {gr} {grn} {ep}", "Wilcoxon", zw, p, "n=", len(y), "mean=", np.mean(y))
+        zw, p = scipy.stats.mannwhitneyu(ys[0], ys[1])
 
         signi = np.digitize(p, [1, 0.05, 0.01, 0.001, 0.0])
-        text(0.6, 0.8, s=map_significance[signi], va="center", ha="left", transform=gca().transAxes)
+
+        xl, xr = 1.5, 1.6
+        m = [ys[0].mean(), ys[1].mean()]
+        plot([xl, xr], [m[0], m[0]], linewidth=0.2, color=COLOR)
+        plot([xr, xr], [m[0], m[1]], linewidth=0.2, color=COLOR)
+        plot([xl, xr], [m[1], m[1]], linewidth=0.2, color=COLOR)
+        text(xr+0.1, np.mean(m)-0.07, s=map_significance[signi], va="center", ha="left")
+
+        print(grn, ep, zw, p, len(ys[0]), len(ys[1]))
+
+        xlim(-0.5, 2)
+        ylim(-1, 1)
+        yticks([-1, 0, 1])
+        if e == 0:
+            ylabel("Mod.")
+        if i == 0:
+            title(titles[e])
+            xticks([0,1], ["", ""])
+        else:
+            xticks([0, 1], ["Chrim.", 'TdTom.'], rotation=45)
+
+        # hist(y, edgecolor=COLOR, facecolor='white', bins = np.linspace(-1, 1, 16))
+
+        # if i == 0:
+        #     xlim(-1, 0)            
+        #     title(titles[e])
+                    
+        # if i == 1 and e == 0:
+        #     ylabel("Count", y = 1.05, labelpad = 10)
+        #     xlabel("% mod", x = 1)
+        # # if i == 1:
+        # xlim(-1, 1)
+
+        # zw, p = scipy.stats.wilcoxon(y)
+
+        # print(f"Rate mod {gr} {grn} {ep}", "Wilcoxon", zw, p, "n=", len(y))
+
+        # signi = np.digitize(p, [1, 0.05, 0.01, 0.001, 0.0])
+        # text(0.6, 0.8, s=map_significance[signi], va="center", ha="left", transform=gca().transAxes)
+
+
+
 
 
 
