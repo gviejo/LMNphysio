@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-07-28 17:22:05
+# @Last Modified by:   gviejo
+# @Last Modified time: 2025-07-31 21:51:31
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -1083,6 +1083,7 @@ plot([1, 2], m, 'o', markersize=0.5, color=COLOR)
 
 for i, g in enumerate(tmp):
     zw, p = scipy.stats.wilcoxon(g)
+    print("Wilcoxon", zw, p, f"n={len(g)}")
     signi = np.digitize(p, [1, 0.05, 0.01, 0.001, 0.0])
     text(i+0.9, m[i]-0.02, s=map_significance[signi], va="center", ha="right")
 

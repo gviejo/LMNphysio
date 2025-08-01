@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-07-28 17:24:45
+# @Last Modified by:   gviejo
+# @Last Modified time: 2025-07-31 22:07:43
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -552,6 +552,7 @@ for i, k in enumerate(['down', 'decimated']):
     zw, p = scipy.stats.wilcoxon(pearson[k].values.astype("float"), baseline[k].values.astype("float"), alternative='greater')
     signi = np.digitize(p, [1, 0.05, 0.01, 0.001, 0.0])
     text(i+0.9, m[i]-0.07, s=map_significance[signi], va="center", ha="right")
+    print("wilcoxon baseline", zw, p, len(pearson))
 
 xl, xr = 2.5, 2.6
 plot([xl, xr], [m[0], m[0]], linewidth=0.2, color=COLOR)
@@ -561,7 +562,7 @@ zw, p = scipy.stats.wilcoxon(tmp[:,1], tmp[:,0], alternative='greater')
 signi = np.digitize(p, [1, 0.05, 0.01, 0.001, 0.0])
 text(xr+0.1, np.mean(m)-0.07, s=map_significance[signi], va="center", ha="left")
 
-print("wilcoxon", zw, p)
+print("wilcoxon across", zw, p, len(tmp))
 
 
 
