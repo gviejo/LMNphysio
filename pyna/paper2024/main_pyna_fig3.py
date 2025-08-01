@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-07-28 11:22:48
+# @Last Modified time: 2025-08-01 11:08:46
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -252,28 +252,28 @@ gs_histo = gridspec.GridSpecFromSubplotSpec(
 )
 
 
-subplot(gs_histo[0,0])
-noaxis(gca())
-img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/LMN-PSB-opto.png")
-imshow(img, aspect="equal")
-xticks([])
-yticks([])
+# subplot(gs_histo[0,0])
+# noaxis(gca())
+# img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/LMN-PSB-opto.png")
+# imshow(img, aspect="equal")
+# xticks([])
+# yticks([])
 
 
-subplot(gs_histo[1,0])
-noaxis(gca())
-img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/A8066_S7_3_2xMerged.png")
-imshow(img, aspect="equal")
-xticks([])
-yticks([])
+# subplot(gs_histo[1,0])
+# noaxis(gca())
+# img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/A8066_S7_3_2xMerged.png")
+# imshow(img, aspect="equal")
+# xticks([])
+# yticks([])
 
 
-subplot(gs_histo[2,0])
-noaxis(gca())
-img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/A8066_S7_3_4xMerged.png")
-imshow(img, aspect="equal")
-xticks([])
-yticks([])
+# subplot(gs_histo[2,0])
+# noaxis(gca())
+# img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/A8066_S7_3_4xMerged.png")
+# imshow(img, aspect="equal")
+# xticks([])
+# yticks([])
 
 
 
@@ -473,11 +473,12 @@ for i, f in enumerate(['ipsi', 'bilateral']):
     xlabel("Rate mod.", labelpad=1)
     ylim(0, 30)
 
-    zw, p = scipy.stats.ttest_1samp(np.array(delta.values).astype(float), popmean=0)
+    # zw, p = scipy.stats.ttest_1samp(np.array(delta.values).astype(float), popmean=0)
+    zw, p = scipy.stats.wilcoxon(np.array(delta.values).astype(float))
     signi = np.digitize(p, [1, 0.05, 0.01, 0.001, 0.0])
     text(0.6, 0.8, s=map_significance[signi], va="center", ha="left", transform=gca().transAxes)
 
-    print("Rate mode ttest", zw, p, len(np.array(delta.values).astype(float)), np.mean(np.array(delta.values).astype(float)))
+    print("Rate mode Wilcoxon", zw, p, len(np.array(delta.values).astype(float)), np.mean(np.array(delta.values).astype(float)))
 
     colors2 = [opto_color, "#FF7F50"]
 

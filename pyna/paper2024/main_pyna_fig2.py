@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   gviejo
-# @Last Modified time: 2025-07-31 22:07:43
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2025-08-01 10:58:20
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -890,11 +890,12 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
     xlabel("Rate mod.", labelpad=1)
     ylim(0, 30)
 
-    zw, p = scipy.stats.ttest_1samp(np.array(delta.values).astype(float), popmean=0)
+    # zw, p = scipy.stats.ttest_1samp(np.array(delta.values).astype(float), popmean=0)
+    zw, p = scipy.stats.wilcoxon(delta.values.astype(float))
     signi = np.digitize(p, [1, 0.05, 0.01, 0.001, 0.0])
     text(0.6, 0.8, s=map_significance[signi], va="center", ha="left", transform=gca().transAxes)
 
-    print("Rate mod", "ttest", zw, p, "df", len(np.array(delta.values).astype(float)))
+    print(f"Rate mod {f}", "Wilcoxon", zw, p, "n", len(np.array(delta.values).astype(float)))
 
     colors2 = [opto_color, "#FF7F50"]
 
@@ -979,7 +980,8 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
         signi = np.digitize(p, [1, 0.05, 0.01, 0.001, 0.0])
         text(xr+0.1, np.mean(m)-0.07, s=map_significance[signi], va="center", ha="left")
 
-    
+        print("sleep across", i, "mannwhitneyu", zw, p, len(tmp[0]), len(tmp[1]))
+
         ###############################
         # CHRIMSON CHRIMSON COMPARAISON
         ###############################
@@ -1069,7 +1071,7 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
         signi = np.digitize(p, [1, 0.05, 0.01, 0.001, 0.0])
         text(xr+0.1, np.mean(m)-0.07, s=map_significance[signi], va="center", ha="left")
 
-        print("Sleep control N ", "mannwhitneyu", zw, p)
+        print("Sleep control across ", "mannwhitneyu", zw, p, len(tmp['opto']), len(tmp['decimated']))
 
     if f == 'OPTO_WAKE':
 
@@ -1155,7 +1157,8 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
         signi = np.digitize(p, [1, 0.05, 0.01, 0.001, 0.0])
         text(xr+0.1, np.mean(m)-0.07, s=map_significance[signi], va="center", ha="left")
 
-        print("Wake across", "mannwhitneyu", zw, p)
+        print("Wake across", "mannwhitneyu", zw, p, len(tmp[0]), len(tmp[1]))
+
 
         ########################
         # TUNING CURVES WAKE OPTO
@@ -1253,6 +1256,7 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
                 bbox=dict(facecolor='white', edgecolor='none',boxstyle='round,pad=0.01')
                 )
 
+            print("Wilcoxon tc", str(i), zw, p, len(df))
 
 
 
