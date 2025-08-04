@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2025-07-19 15:01:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-07-29 13:49:25
+# @Last Modified time: 2025-08-04 14:35:20
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -292,7 +292,7 @@ zw, p = mannwhitneyu(tmp[1], tmp[0])
 signi = np.digitize(p, [1, 0.05, 0.01, 0.001, 0.0])
 text(xr+0.1, np.mean(m)-0.07, s=map_significance[signi], va="center", ha="left")
 
-
+print("REM acrross", zw, p, len(tmp[0]), len(tmp[1]))
 
 ################################
 # PAIRWISE CORRELATION / ANIMAL
@@ -535,12 +535,14 @@ peak = data['zcc']['sws'][order].loc[0.001:0.008].idxmax()
 
 hist_, bin_edges = np.histogram(peak.values, bins = np.linspace(0, 0.01, 25), range = (0, 0.01))
 
-stairs(hist_, bin_edges, fill=True, color=COLOR, alpha=1)
+hist_percent = hist_ / hist_.sum() * 100
+
+stairs(hist_percent, bin_edges, fill=True, color=COLOR, alpha=1)
 
 xticks([0, 0.005, 0.01], [0, 5, 10])
 xlabel("Lag (ms)")
 ylabel("%")
-
+title(f"mean lag = {np.round(peak.mean()*1e3, 2)} ms")
 
 outergs.update(top=0.97, bottom=0.04, right=0.97, left=0.08)
 

@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
-# @Last Modified by:   gviejo
-# @Last Modified time: 2025-07-31 21:51:31
+# @Last Modified by:   Guillaume Viejo
+# @Last Modified time: 2025-08-04 09:54:03
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -827,7 +827,7 @@ for k, g in enumerate(['adn', 'lmn']):
             )
 
         if k == 0 and u == 0:        
-            text(0.5, 1.9, "Norm. x corr.", transform=gca().transAxes)
+            text(0.5, 1.9, "Norm. xcorr.", transform=gca().transAxes)
         if k == 1 and u == 0:
             xlabel("Time lag (s)", x = 1.1)
             xticks([0, len(Z)//2, len(Z)], [-40, 0, 40])
@@ -1004,7 +1004,7 @@ for i, k in enumerate(['wak', 'sws']):
 
     if i == 0:
         ylabel("Norm. corr. (Z)")    
-        text(0.7, 1.35, "Norm. x corr\nLMN-ADN", transform=gca().transAxes)
+        text(0.7, 1.35, "Norm. xcorr\nLMN-ADN", transform=gca().transAxes)
         # gca().spines['bottom'].set_visible(False)
         # xticks([])
         # yticks([0, 3])    

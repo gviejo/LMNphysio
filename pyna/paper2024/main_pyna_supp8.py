@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-07-31 17:16:15
+# @Last Modified time: 2025-08-01 17:42:15
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -155,7 +155,7 @@ markers = ["d", "o", "v"]
 
 fig = figure(figsize=figsize(1))
 
-outergs = GridSpec(1, 2, hspace = 0.4, wspace=0.5)
+outergs = GridSpec(1, 2, hspace = 0.4, wspace=0.5, width_ratios=[0.7, 0.3])
 
 
 names = {'adn':"ADN", 'lmn':"LMN"}
@@ -176,7 +176,7 @@ gs_top1 = gridspec.GridSpecFromSubplotSpec(
 
 subplot(gs_top1[0,0])
 
-im = imshow(m.w_lmn_adn, aspect='auto', cmap='bwr', origin='lower')
+im = imshow(m.w_lmn_adn, aspect='auto', cmap='viridis', origin='lower')
 
 xlabel("LMN")
 ylabel("ADN")
@@ -192,7 +192,7 @@ axip.set_title("W")
 
 subplot(gs_top1[0,1])
 
-im = imshow(m.w_psb_lmn, aspect='auto', cmap='bwr')
+im = imshow(m.w_psb_lmn, aspect='auto', cmap='viridis')
 
 xlabel("PSB (ADN)")
 ylabel("LMN")
@@ -217,7 +217,14 @@ for i, st in enumerate(['adn', 'lmn']):
     for j, e in enumerate(['sws', 'opto']):
 
         subplot(gs_top2[i,j])
-        scatter(popcoh[st]['wak'], popcoh[st][e], 0.5, color=colors[st])
+        simpleaxis(gca())
+        H, xedges, yedges = np.histogram2d(popcoh[st]['wak'], popcoh[st][e], bins=np.linspace(-1, 1, 100))
+
+        H[H>0] = 1
+        
+        imshow(H.T, origin='lower', extent=(-1, 1, -1, 1), cmap='binary')
+
+        # scatter(popcoh[st]['wak'], popcoh[st][e], 0.5, color=colors[st])
         r, p = pearsonr(popcoh[st]['wak'], popcoh[st][e])
         m, b = np.polyfit(popcoh[st]['wak'], popcoh[st][e], 1)
         x = np.linspace(popcoh[st]['wak'].min(), popcoh[st]['wak'].max(),5)
@@ -230,7 +237,7 @@ for i, st in enumerate(['adn', 'lmn']):
             ylabel("'Sleep'")
         else:
             ylabel("'Opto.'")
-        title(f" r={np.round(r, 2)}", y=0)
+        title(f" r={np.round(r, 2)}", y=0.9)
 
         if j == 0:
             text(1.5, 1.2, st.upper())
