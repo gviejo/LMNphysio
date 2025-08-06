@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-08-04 16:11:58
+# @Last Modified time: 2025-08-06 10:02:46
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -266,7 +266,7 @@ for i, f in enumerate(['ipsi', 'bilateral']):
     tuning_curves = nap.compute_1d_tuning_curves(spikes, position['ry'], 24, minmax=(0, 2*np.pi), ep = position.time_support.loc[[0]])
     tuning_curves = smoothAngularTuningCurves(tuning_curves)    
 
-    da, P = nap.decode_1d(tuning_curves, spikes.count(0.01, exex).smooth(0.02, size_factor=10), exex, 0.01)
+    da, P = nap.decode_1d(tuning_curves, spikes.count(0.05, exex).smooth(0.1, size_factor=10), exex, 0.01)
 
 
     # p = spikes.count(0.01, exex).smooth(0.04, size_factor=20)
@@ -291,7 +291,7 @@ for i, f in enumerate(['ipsi', 'bilateral']):
     
     yticks([0, 2*np.pi], [0, 360])    
 
-    plot(position['ry'].restrict(ex), '.', color=COLOR, markersize=0.01, label="True HD")
+    plot(position['ry'].restrict(ex), '-', linewidth=0.5, color=COLOR, label="True HD")
 
     legend(
         handlelength=1,
@@ -425,7 +425,7 @@ for i, f in enumerate(['ipsi', 'bilateral']):
     ylim(ymin, 1.1)
     xlim(0.5, 3)
     gca().spines['left'].set_bounds(ymin, 1.0)
-    ylabel("Pop. coherence (r)", y=0, labelpad=3)
+    ylabel("ADN pop. coherence (r)", y=0, labelpad=3)
 
     # ylabel("Pearson r")
     xticks([1, 2], ['Chrimson', 'Control'], fontsize=fontsize)
