@@ -10,7 +10,10 @@ import numpy as np
 import pandas as pd
 import pynapple as nap
 import nwbmatic as ntm
+from scipy.linalg import expm
 from scipy.ndimage import gaussian_filter
+from sklearn.neighbors import kneighbors_graph
+from sklearn.utils._random import sample_without_replacement
 from umap import UMAP
 
 from functions import *
@@ -25,8 +28,6 @@ from sklearn.manifold import Isomap, MDS
 from sklearn.decomposition import PCA, KernelPCA
 import warnings
 
-import pymde
-import torch
 
 
 warnings.filterwarnings("ignore")
@@ -99,7 +100,7 @@ models = {}
 bin_sizes = {
     "wake": 0.2,
     "rem": 0.2,
-    "sws": 0.005
+    "sws": 0.02
 }
 
 exs = {
@@ -108,65 +109,88 @@ exs = {
     "rem": nap.IntervalSet(15710.1, 15720.4)
     }
 
-#%%
-# --------------------------
-# Binning, smoothing, normalization
-# --------------------------
-for name, epochs in zip(
-        [
-            'wake',
-            'sws',
-            'rem'
-        ],
-        [
-            angle.time_support,
-            sws_ep,
-            rem_ep
-        ]):
-
-    X_[name] = {}
-    X_exs[name] = {}
-
-    for loc in groups.keys():
-
-        # X = groups[loc].count(bin_sizes[name], epochs)
-        X = np.sqrt(groups[loc].count(bin_sizes[name], epochs))
-        # X = np.log(1+groups[loc].count(bin_sizes[name], epochs))
-        X = X.smooth(bin_sizes[name]*6, norm=True)
-        # X = X.convolve(np.ones(5)/5)
-        X = X - X.mean(0)
-        X = X / X.std(0)
-        # X = X/X.max(0)
-        Xex = X.restrict(exs[name])
-        # Dropping empty bins for sleep
-        if name == 'sws':
-            # threshold = np.percentile(X.sum(1), 90)
-            # X = X[X.sum(1)>threshold]
-            print(np.percentile(X.mean(1), 95))
-            thr = np.percentile(X.mean(1), 95)
-            X = X[X.mean(1) > thr]
-            # Xex = Xex[Xex.mean(1) > thr]
-        X_[name][loc] = X
-        X_exs[name][loc] = Xex
 
 # %%
 # --------------------------
 # Dimensionality reduction
 # --------------------------
+def get_X(data, bin_size, epochs, q_threshold=None):
+    X = data.count(bin_size, epochs)
+    X = np.sqrt(X.smooth(bin_size*4, norm=False))
+    X = X - X.mean(0)
+    X = X / X.std(0)
+    if q_threshold is not None:
+        thr = np.percentile(X.mean(1), q_threshold)
+        X = X[X.mean(1) > thr]
+
+    # Y = PCA(n_components=3).fit_transform(X.values)
+    # K = diffusion_kernel(X.values, n_neighbors=15, t=1.0)
+    # return nap.TsdFrame(t=X.index, d=K, time_support=X.time_support)
+    return X
 
 proj = {"wake": {}, "sws": {}, "rem": {}}
 proj_ex = {"wake": {}, "sws": {}, "rem": {}}
 
 for loc in ["adn", "lmn"]:
 
+    # Wake + REM + SWS
+    allX = {}
+    for name, epochs, q_thr in zip(
+            ['wake', 'rem', 'sws'],
+            [angle.time_support,
+             rem_ep.union(angle.time_support),
+             sws_ep.union(nap.IntervalSet(angle.time_support.start[0], angle.time_support.start[0] + 60 * 10))],
+            [None, None, 95]):
 
+        X = get_X(groups[loc], bin_sizes[name], epochs, q_threshold=q_thr)
+
+        allX[name] = X
+
+    X = []
     for name in ['wake', 'rem', 'sws']:
-        model = KernelPCA(n_components=2, kernel='cosine')
-        # model = Isomap(n_components=2, n_neighbors=200)
+        # Sample 10000 points for fitting
+        n_samples = min(10000, allX[name].shape[0])
+        sample_indices = sample_without_replacement(allX[name].shape[0], n_samples, random_state=42)
+        X_sampled = allX[name].values[sample_indices]
 
-        model.fit(X_[name][loc])
-        proj[name][loc] = model.transform(X_[name][loc].values)
-        proj_ex[name][loc] = model.transform(X_exs[name][loc].values)
+        X.append(X_sampled)
+
+    X = np.vstack(X)
+
+    model = KernelPCA(n_components=2, kernel='cosine')
+    model.fit(X)
+
+    # TRANSFORMATIONS
+    for name in ['wake', 'rem', 'sws']:
+        X = allX[name]
+        proj[name][loc] = model.transform(X.values)
+        proj_ex[name][loc] = model.transform(X.restrict(exs[name]).values)
+
+    #
+    # # Wake
+    # X = get_X(groups[loc], bin_sizes['wake'], angle.time_support)
+    #
+    # model = KernelPCA(n_components=2, kernel='cosine')
+    # model.fit(X.values)
+    # proj['wake'][loc] = model.transform(X.values)
+    # proj_ex['wake'][loc] = model.transform(X.restrict(exs['wake']).values)
+    #
+    # # Wake + REM
+    # X = get_X(groups[loc], bin_sizes['rem'], rem_ep.union(angle.time_support))
+    # model = KernelPCA(n_components=2, kernel='cosine')
+    # model.fit(X.values)
+    # proj['rem'][loc] = model.transform(X.values)
+    # proj_ex['rem'][loc] = model.transform(X.restrict(exs['rem']).values)
+    #
+    # # Wake + SWS
+    # ep = sws_ep.union(nap.IntervalSet(angle.time_support.start[0], angle.time_support.start[0] + 60 * 10))
+    # X = get_X(groups[loc], bin_sizes['sws'], ep, q_threshold=95)
+    # model = KernelPCA(n_components=2, kernel='cosine')
+    # model.fit(X.values)
+    # proj['sws'][loc] = model.transform(X.values)
+    # proj_ex['sws'][loc] = model.transform(X.restrict(exs['sws']).values)
+
+
 
 
 
@@ -215,7 +239,7 @@ for j, name in enumerate(['wake', 'rem', 'sws']):
             proj_ex[name][loc][:, 1],
             'o',
             color='black',
-            markersize=2,
+            markersize=5,
             markeredgecolor='white',
             markeredgewidth=0.5,
         )
@@ -223,7 +247,7 @@ for j, name in enumerate(['wake', 'rem', 'sws']):
         ax.set_title(f"{loc} {name}")
 
 plt.suptitle("Projections Scatter Plots")
-plt.savefig(os.path.expanduser("~/Dropbox/LMNphysio/data/projections_scatter_KPCA_v1.png"), dpi=300)
+plt.savefig(os.path.expanduser("~/Dropbox/LMNphysio/data/projections_scatter_KPCA_v3.png"), dpi=300)
 
 #%%
 # --------------------------
@@ -254,7 +278,7 @@ for j, name in enumerate(['wake', 'rem', 'sws']):
             proj_ex[name][loc][:, 1],
             'o',
             color='black',
-            markersize=2,
+            markersize=5,
             markeredgecolor='white',
             markeredgewidth=0.5,
         )
@@ -263,7 +287,7 @@ for j, name in enumerate(['wake', 'rem', 'sws']):
         ax.set_title(f"{loc} {name}")
 
 plt.suptitle("Histogram of Projections")
-plt.savefig(os.path.expanduser("~/Dropbox/LMNphysio/data/projections_hist_KPCA_v1.png"), dpi=300)
+plt.savefig(os.path.expanduser("~/Dropbox/LMNphysio/data/projections_hist_KPCA_v3.png"), dpi=300)
 plt.show()
 
 #%%

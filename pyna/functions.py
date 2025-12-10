@@ -10,7 +10,7 @@ import sys, os
 import scipy
 # from scipy import signal
 from itertools import combinations
-from pycircstat.descriptive import mean as circmean
+# from pycircstat.descriptive import mean as circmean
 from pylab import *
 import pynapple as nap
 from matplotlib.colors import hsv_to_rgb
@@ -78,10 +78,11 @@ def findHDCells(tuning_curves, z = 50, p = 0.0001 , m = 1):
         and Rayleigh test p<0.001 & z > 100
     """
     cond1 = tuning_curves.max()>m
-    from pycircstat.tests import rayleigh
-    stat = pd.DataFrame(index = tuning_curves.columns, columns = ['pval', 'z'])
+    from pingouin import circ_rayleigh as rayleigh
+    stat = pd.DataFrame(index = tuning_curves.columns, columns = ['z', 'pval'])
     for k in tuning_curves:
         stat.loc[k] = rayleigh(tuning_curves[k].index.values, tuning_curves[k].values)
+
     cond2 = np.logical_and(stat['pval']<p,stat['z']>z)
     tokeep = stat.index.values[np.where(np.logical_and(cond1, cond2))[0]]
     return tokeep, stat 
@@ -232,7 +233,7 @@ def centerTuningCurves_with_mean(tcurve, by=None):
     """
     if by is None:
         by = tcurve
-    peak            = pd.Series(index=by.columns,data = np.array([circmean(by.index.values, by[i].values) for i in by.columns]))
+    # peak            = pd.Series(index=by.columns,data = np.array([circmean(by.index.values, by[i].values) for i in by.columns]))
     new_tcurve      = []
     for p in tcurve.columns:    
         x = tcurve[p].index.values - tcurve[p].index[np.searchsorted(tcurve[p].index, peak[p])-1]

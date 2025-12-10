@@ -25,9 +25,6 @@ from sklearn.manifold import Isomap, MDS
 from sklearn.decomposition import PCA, KernelPCA
 import warnings
 
-import pymde
-import torch
-
 
 warnings.filterwarnings("ignore")
 
@@ -99,7 +96,7 @@ models = {}
 bin_sizes = {
     "wake": 0.2,
     "rem": 0.2,
-    "sws": 0.005
+    "sws": 0.01
 }
 
 exs = {
@@ -129,11 +126,10 @@ for name, epochs in zip(
 
     for loc in groups.keys():
 
-        # X = groups[loc].count(bin_sizes[name], epochs)
-        X = np.sqrt(groups[loc].count(bin_sizes[name], epochs))
+        X = groups[loc].count(bin_sizes[name], epochs)
+        # X = np.sqrt(groups[loc].count(bin_sizes[name], epochs))
         # X = np.log(1+groups[loc].count(bin_sizes[name], epochs))
-        X = X.smooth(bin_sizes[name]*6, norm=True)
-        # X = X.convolve(np.ones(5)/5)
+        X = X.smooth(bin_sizes[name]*4, norm=False)
         X = X - X.mean(0)
         X = X / X.std(0)
         # X = X/X.max(0)
@@ -142,10 +138,10 @@ for name, epochs in zip(
         if name == 'sws':
             # threshold = np.percentile(X.sum(1), 90)
             # X = X[X.sum(1)>threshold]
-            print(np.percentile(X.mean(1), 95))
-            thr = np.percentile(X.mean(1), 95)
+            # print(np.percentile(X.mean(1), 50))
+            thr = np.percentile(X.mean(1), 50)
             X = X[X.mean(1) > thr]
-            # Xex = Xex[Xex.mean(1) > thr]
+            Xex = Xex[Xex.mean(1) > thr]
         X_[name][loc] = X
         X_exs[name][loc] = Xex
 
@@ -159,14 +155,33 @@ proj_ex = {"wake": {}, "sws": {}, "rem": {}}
 
 for loc in ["adn", "lmn"]:
 
+    model = KernelPCA(n_components=2, kernel='cosine')
+    # model = Isomap(n_components=2, n_neighbors=50, path_method="D", n_jobs=-1)
 
-    for name in ['wake', 'rem', 'sws']:
-        model = KernelPCA(n_components=2, kernel='cosine')
-        # model = Isomap(n_components=2, n_neighbors=200)
+    # Wake + REM + some sws
+    # tmp = np.vstack((
+    #     X_['wake'][loc].values,
+    #     X_['rem'][loc].values,
+    #     X_[ 'sws'][loc].values[:2000]
+    # ))
+    tmp = X_['wake'][loc].values
+    model.fit(tmp)
+    models['wake'] = model
 
-        model.fit(X_[name][loc])
-        proj[name][loc] = model.transform(X_[name][loc].values)
-        proj_ex[name][loc] = model.transform(X_exs[name][loc].values)
+    # Y = model.fit_transform(X_['wake'][loc])
+    # Yex = model.transform(X_exs['wake'][loc])
+
+    # proj['wake'][loc] = Y
+    # proj_ex['wake'][loc] = Yex
+
+
+    # Sws & Rem
+    for name in ['wake', 'sws', 'rem']:
+        proj[name][loc] = model.transform(X_[name][loc])
+        proj_ex[name][loc] = model.transform(X_exs[name][loc])
+
+
+
 
 
 
@@ -215,7 +230,7 @@ for j, name in enumerate(['wake', 'rem', 'sws']):
             proj_ex[name][loc][:, 1],
             'o',
             color='black',
-            markersize=2,
+            markersize=5,
             markeredgecolor='white',
             markeredgewidth=0.5,
         )
@@ -223,7 +238,7 @@ for j, name in enumerate(['wake', 'rem', 'sws']):
         ax.set_title(f"{loc} {name}")
 
 plt.suptitle("Projections Scatter Plots")
-plt.savefig(os.path.expanduser("~/Dropbox/LMNphysio/data/projections_scatter_KPCA_v1.png"), dpi=300)
+plt.savefig(os.path.expanduser("~/Dropbox/LMNphysio/data/projections_scatter_KPCA_v2.png"), dpi=300)
 
 #%%
 # --------------------------
@@ -254,7 +269,7 @@ for j, name in enumerate(['wake', 'rem', 'sws']):
             proj_ex[name][loc][:, 1],
             'o',
             color='black',
-            markersize=2,
+            markersize=5,
             markeredgecolor='white',
             markeredgewidth=0.5,
         )
@@ -263,7 +278,7 @@ for j, name in enumerate(['wake', 'rem', 'sws']):
         ax.set_title(f"{loc} {name}")
 
 plt.suptitle("Histogram of Projections")
-plt.savefig(os.path.expanduser("~/Dropbox/LMNphysio/data/projections_hist_KPCA_v1.png"), dpi=300)
+plt.savefig(os.path.expanduser("~/Dropbox/LMNphysio/data/projections_hist_KPCA_v2.png"), dpi=300)
 plt.show()
 
 #%%
