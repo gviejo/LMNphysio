@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 import pynapple as nap
 import nwbmatic as ntm
+import umap
 from scipy.ndimage import gaussian_filter
 from umap import UMAP
 
@@ -23,8 +24,10 @@ import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 from sklearn.manifold import Isomap, MDS
 from sklearn.decomposition import PCA, KernelPCA
+from sklearn.preprocessing import StandardScaler
 import warnings
-
+import _pickle as cPickle
+import hsluv
 
 warnings.filterwarnings("ignore")
 
@@ -41,17 +44,34 @@ elif os.path.exists('/Users/gviejo/Data'):
 
 path = os.path.join(data_directory, 'LMN-ADN/A5011/A5011-201014A')
 # path = os.path.join(data_directory, 'LMN-ADN/A5043/A5043-230301A')
+# path = os.path.join(data_directory, 'LMN-ADN/A5044/A5044-240404A')
+
 
 basename = os.path.basename(path)
 data = nap.load_file(path + "/kilosort4/" + basename+".nwb")
 
+
 spikes = data['units']
 angle = data['ry']
 epochs = data['epochs']
-wake_ep = epochs[epochs.tags=="wake"]
+wake_ep = epochs[epochs.tags=="wak"]
 sleep_ep = epochs[epochs.tags=="sleep"]
 sws_ep = data['sws']
 rem_ep = data['rem']
+
+sws_ep = sws_ep.intersect(sleep_ep[1])
+
+x = data['x']
+z = data['z']
+position = nap.TsdFrame(
+    t=x.index,
+    d=np.vstack((x.values, z.values)).T,
+    columns=['x', 'z'],
+    time_support=x.time_support
+)
+
+velocity = computeLinearVelocity(position[['x', 'z']], position.time_support.loc[[0]], 0.2)
+newwake_ep = velocity.threshold(0.005).time_support
 
 tuning_curves = nap.compute_1d_tuning_curves(spikes, angle, 120, minmax=(0, 2*np.pi))
 tuning_curves = smoothAngularTuningCurves(tuning_curves)
@@ -59,7 +79,19 @@ tuning_curves = smoothAngularTuningCurves(tuning_curves)
 SI = nap.compute_1d_mutual_info(tuning_curves, angle, angle.time_support.loc[[0]], minmax=(0,2*np.pi))
 spikes.set_info(SI)
 
-spikes = spikes[spikes.SI>0.1]
+adn_idx = spikes.SI[spikes.location == "adn"] > 0.4
+adn_idx = adn_idx[adn_idx].index
+
+# print(adn_idx)
+# adn_idx = np.delete(adn_idx, 13)
+# print(adn_idx)
+
+
+lmn_idx = spikes.SI[spikes.location == "lmn"] > 0.01
+lmn_idx = lmn_idx[lmn_idx].index
+tokeep = np.hstack((adn_idx, lmn_idx))
+
+spikes = spikes[tokeep]
 
 # CHECKING HALF EPOCHS
 wake2_ep = splitWake(angle.time_support.loc[[0]])
@@ -92,18 +124,17 @@ groups = {
 X_ = {}
 X_exs = {}
 models = {}
+idxs = {}
 
 bin_sizes = {
-    "wake": 0.2,
-    "rem": 0.2,
-    "sws": 0.01
+    "wak": 0.3,
+    "rem": 0.1,
+    "sws": 0.02
 }
 
-exs = {
-    "wake": nap.IntervalSet(9604.5, 9613.7),
-    "sws": nap.IntervalSet(13876, 13880.5),
-    "rem": nap.IntervalSet(15710.1, 15720.4)
-    }
+filepath = os.path.join(os.path.expanduser("~"), f'Dropbox/LMNphysio/data/DATA_FIG_LMN_ADN_{basename}.pickle')
+# exdata = cPickle.load(open(filepath, 'rb'))
+# exs = {"wak": exdata["ex_wak"], "rem": exdata["ex_rem"], "sws": exdata["ex_sws"]}
 
 #%%
 # --------------------------
@@ -111,103 +142,174 @@ exs = {
 # --------------------------
 for name, epochs in zip(
         [
-            'wake',
+            'wak',
             'sws',
             'rem'
         ],
         [
-            angle.time_support,
+            newwake_ep,
             sws_ep,
             rem_ep
         ]):
 
     X_[name] = {}
-    X_exs[name] = {}
+    # X_exs[name] = {}
+    idxs[name] = {}
 
     for loc in groups.keys():
 
-        X = groups[loc].count(bin_sizes[name], epochs)
-        # X = np.sqrt(groups[loc].count(bin_sizes[name], epochs))
+        # X = groups[loc].count(bin_sizes[name], epochs)
+        X = np.sqrt(groups[loc].count(bin_sizes[name], epochs))
+
+
+
         # X = np.log(1+groups[loc].count(bin_sizes[name], epochs))
-        X = X.smooth(bin_sizes[name]*4, norm=False)
+        # X = X / X.max(0)
+        X = X.smooth(bin_sizes[name]*3, norm=False)
+
+
         X = X - X.mean(0)
         X = X / X.std(0)
-        # X = X/X.max(0)
-        Xex = X.restrict(exs[name])
-        # Dropping empty bins for sleep
-        if name == 'sws':
-            # threshold = np.percentile(X.sum(1), 90)
-            # X = X[X.sum(1)>threshold]
-            # print(np.percentile(X.mean(1), 50))
-            thr = np.percentile(X.mean(1), 50)
-            X = X[X.mean(1) > thr]
-            Xex = Xex[Xex.mean(1) > thr]
+
         X_[name][loc] = X
-        X_exs[name][loc] = Xex
+        # X_exs[name][loc] = X.restrict(exs[name])
+
+# Selecting same indices for lmn and adn
+thr = np.percentile(X_['sws']['adn'].mean(1), 50)
+idxs['sws']['adn'] = (X_['sws']['adn'].mean(1) > thr).values
+idxs['sws']['lmn'] = idxs['sws']['adn']
+
+X_['sws']['adn'] = X_['sws']['adn'][idxs['sws']['adn']]
+X_['sws']['lmn'] = X_['sws']['lmn'][idxs['sws']['lmn']]
 
 # %%
 # --------------------------
 # Dimensionality reduction
 # --------------------------
 
-proj = {"wake": {}, "sws": {}, "rem": {}}
-proj_ex = {"wake": {}, "sws": {}, "rem": {}}
+proj = {"wak": {}, "sws": {}, "rem": {}}
+proj_ex = {"wak": {}, "sws": {}, "rem": {}}
 
 for loc in ["adn", "lmn"]:
 
     model = KernelPCA(n_components=2, kernel='cosine')
     # model = Isomap(n_components=2, n_neighbors=50, path_method="D", n_jobs=-1)
+    #
+    # model = umap.UMAP(
+    #     n_components=2,  # number of dimensions
+    #     metric='cosine',  # distance metric
+    #     # options: 'euclidean', 'cosine', 'correlation', etc.
+    #     n_neighbors=100,  # local neighborhood size
+    #     # larger = more global structure
+    #     # smaller = more local structure
+    #     min_dist=0.5,  # minimum distance between points in embedding
+    #     # smaller = tighter clusters
+    #     # larger = more spread out
+    #     n_epochs=200,  # number of training epochs (default: auto)
+    #     random_state=42,  # reproducibility
+    #     n_jobs=-1  # parallel processing
+    # )
 
-    # Wake + REM + some sws
-    # tmp = np.vstack((
-    #     X_['wake'][loc].values,
-    #     X_['rem'][loc].values,
-    #     X_[ 'sws'][loc].values[:2000]
-    # ))
-    tmp = X_['wake'][loc].values
+
+    tmp = X_['wak'][loc].values
+    
     model.fit(tmp)
-    models['wake'] = model
+    models['wak'] = model
 
-    # Y = model.fit_transform(X_['wake'][loc])
-    # Yex = model.transform(X_exs['wake'][loc])
-
-    # proj['wake'][loc] = Y
-    # proj_ex['wake'][loc] = Yex
 
 
     # Sws & Rem
-    for name in ['wake', 'sws', 'rem']:
-        proj[name][loc] = model.transform(X_[name][loc])
-        proj_ex[name][loc] = model.transform(X_exs[name][loc])
+    for name in ['wak', 'sws', 'rem']:
+        tmp = X_[name][loc].values
+        proj[name][loc] = model.transform(tmp)
+        # proj_ex[name][loc] = model.transform(X_exs[name][loc])
+
+# --------------------------
+# Decoding
+# --------------------------
+
+decoded_color = {}
+
+tuning_curves_adn = nap.compute_tuning_curves(
+        spikes[spikes.location=='adn'],
+        angle,
+        bins=120,
+        range=(0, 2*np.pi)
+)
+for name, epochs in zip(
+        [
+            'wak',
+            'sws',
+            'rem'
+        ],
+        [
+            newwake_ep,
+            sws_ep,
+            rem_ep
+        ]):
+    decoded, P = nap.decode_bayes(
+        tuning_curves=tuning_curves_adn,
+        data=spikes[spikes.location=="adn"].restrict(epochs),
+        epochs=epochs,
+        bin_size=bin_sizes[name],
+        sliding_window_size=4,
+    )
+    decoded_color[name] = {}
+    for loc in ["adn", "lmn"]:
+        if name == 'sws':
+            decoded_color[name][loc] = getRGB(decoded, epochs, bin_size=bin_sizes[name])[idxs[name][loc]]
+        else:
+            decoded_color[name][loc] = getRGB(decoded, epochs, bin_size=bin_sizes[name])
+
+
+# colors = {"wak": getRGB(angle, newwake_ep, bin_size=bin_sizes['wak']),
+#           "sws": decoded_color["sws"],
+#             "rem": decoded_color["rem"]
+#             }
+colors = decoded_color
 
 
 
-
-
-
-colors = getRGB(angle, angle.time_support.loc[[0]], bin_size=bin_sizes['wake'])
-
-
+# Save data
+datatosave = {
+    'proj': proj,
+    # 'proj_ex': proj_ex,
+    'colors': colors
+}
+dropbox_path = os.path.expanduser("~") + "/Dropbox/LMNphysio/data"
+cPickle.dump(datatosave, open(os.path.join(dropbox_path, "projections_KPCA_LMN_ADN_v2.pickle"), "wb"))
 
 #%%
 
 
-# # --------------------------
-# # Tuning curves LMN and ADN
-# # --------------------------
-# fig, axes = plt.subplots(6, 6, figsize=(12, 12), subplot_kw={'projection': 'polar'})
-# axes = axes.flatten()
-# count = 0
-# for i, loc in enumerate(['adn', 'lmn']):
-#     for j, n in enumerate(groups[loc].index):
-#         ax = axes[count]
-#         color = 'b' if loc == 'lmn' else 'r'
-#         ax.plot(tuning_curves[n], color=color)
-#         count += 1
-#
-# # plt.suptitle("Tuning Curves LMN and ADN")
-# # plt.tight_layout()
-# # plt.show()
+# --------------------------
+# Tuning curves LMN and ADN
+# --------------------------
+fig, axes = plt.subplots(5, 6, figsize=(12, 12), subplot_kw={'projection': 'polar'})
+axes = axes.flatten()
+count = 0
+for i, loc in enumerate(['adn', 'lmn']):
+    for j, n in enumerate(groups[loc].index):
+        ax = axes[count]
+        color = 'b' if loc == 'lmn' else 'r'
+        h = np.rad2deg(tuning_curves[n].idxmax())
+        color = hsluv.hsluv_to_rgb([h, 100, 50])
+        ax.plot(tuning_curves[n], color=color)
+        ax.fill_between(
+            tuning_curves[n].index,
+            0,
+            tuning_curves[n].values,
+            color=color,
+            alpha=0.5
+        )
+        count += 1
+        ax.set_title(loc + f" {j} {spikes.SI[n].round(2)}")
+        ax.set_xticks([])
+        ax.set_yticks([])
+
+# plt.suptitle("Tuning Curves LMN and ADN")
+# plt.tight_layout()
+# plt.show()
 #%%
 # --------------------------
 # Scatter plots of projections
@@ -215,30 +317,29 @@ colors = getRGB(angle, angle.time_support.loc[[0]], bin_size=bin_sizes['wake'])
 fig = plt.figure(figsize=(12, 5))
 gs = GridSpec(2, 3, wspace=0.3, hspace=0.3)
 
-for j, name in enumerate(['wake', 'rem', 'sws']):
+for j, name in enumerate(['wak', 'rem', 'sws']):
     for i, loc in enumerate(['adn', 'lmn']):
         ax = fig.add_subplot(gs[i, j])
         Y = proj[name][loc]
 
-        if name == 'wake':
-            ax.scatter(Y[:, 0], Y[:, 1], c=colors, s=1, alpha=0.7)
-        else:
-            ax.scatter(Y[:, 0], Y[:, 1], s=1, alpha=0.7)
 
-        ax.plot(
-            proj_ex[name][loc][:, 0],
-            proj_ex[name][loc][:, 1],
-            'o',
-            color='black',
-            markersize=5,
-            markeredgecolor='white',
-            markeredgewidth=0.5,
-        )
+        ax.scatter(Y[:, 0], Y[:, 1], c=colors[name][loc], s=0.1, alpha=0.7)
+
+        # ax.plot(
+        #     proj_ex[name][loc][:, 0],
+        #     proj_ex[name][loc][:, 1],
+        #     'o',
+        #     color='black',
+        #     markersize=5,
+        #     markeredgecolor='white',
+        #     markeredgewidth=0.5,
+        # )
 
         ax.set_title(f"{loc} {name}")
 
 plt.suptitle("Projections Scatter Plots")
 plt.savefig(os.path.expanduser("~/Dropbox/LMNphysio/data/projections_scatter_KPCA_v2.png"), dpi=300)
+
 
 #%%
 # --------------------------
@@ -247,32 +348,33 @@ plt.savefig(os.path.expanduser("~/Dropbox/LMNphysio/data/projections_scatter_KPC
 fig = plt.figure(figsize=(12, 5))
 gs = GridSpec(2, 3, wspace=0.3, hspace=0.3)
 
-for j, name in enumerate(['wake', 'rem', 'sws']):
+for j, name in enumerate(['wak', 'rem', 'sws']):
     for i, loc in enumerate(['adn', 'lmn']):
         ax = fig.add_subplot(gs[i, j])
         Y = proj[name][loc]
         x = Y[:, 0]
         y = Y[:, 1]
-        bins = [np.linspace(-1.5, 1.5, 50), np.linspace(-1.5, 1.5, 50)]
+        bins = [np.linspace(-1.2, 1.2, 50), np.linspace(-1.2, 1.2, 50)]
         H, xedges, yedges = np.histogram2d(x, y, bins=bins, density=True)
+        H = np.log(1 + H)
         Hsmooth = gaussian_filter(H, sigma=2.0)
 
         img = ax.imshow(
             Hsmooth.T,
             origin="lower",
             extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]],
-            aspect="auto",
+            aspect="equal",
             cmap="turbo"
         )
-        ax.plot(
-            proj_ex[name][loc][:, 0],
-            proj_ex[name][loc][:, 1],
-            'o',
-            color='black',
-            markersize=5,
-            markeredgecolor='white',
-            markeredgewidth=0.5,
-        )
+        # ax.plot(
+        #     proj_ex[name][loc][:, 0],
+        #     proj_ex[name][loc][:, 1],
+        #     'o',
+        #     color='black',
+        #     markersize=5,
+        #     markeredgecolor='white',
+        #     markeredgewidth=0.5,
+        # )
 
         plt.colorbar(img, ax=ax)
         ax.set_title(f"{loc} {name}")

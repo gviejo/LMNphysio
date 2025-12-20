@@ -108,14 +108,21 @@ def computeAngularVelocity(angle, ep, bin_size):
     return velocity
 
 
-def getRGB(angle, ep, bin_size):
+def getRGB(angle, ep, bin_size, S=100, V=50):
     tmp = np.unwrap(angle.values)
     uangle = nap.Tsd(t=angle.index.values, d=tmp, time_support=angle.time_support)
     uangle = uangle.bin_average(bin_size, ep)
+    if np.any(np.isnan(uangle.values)):
+        tmp2 = uangle.dropna()
+        uangle = tmp2.interpolate(uangle, ep)
+
     angle2 = nap.Tsd(t=uangle.index.values, d=uangle.values%(2*np.pi), time_support=uangle.time_support)
     H = angle2.values/(2*np.pi)
-    HSV = np.vstack((H, np.ones_like(H), np.ones_like(H))).T
-    RGB = hsv_to_rgb(HSV)    
+    # HSV = np.vstack((H, np.ones_like(H), np.ones_like(H))).T
+    # RGB = hsv_to_rgb(HSV)
+    import hsluv
+    H *= 360
+    RGB = np.array([hsluv.hsluv_to_rgb([h, S, V]) for h in H])
     return RGB
 
 def getBinnedAngle(angle, ep, bin_size):

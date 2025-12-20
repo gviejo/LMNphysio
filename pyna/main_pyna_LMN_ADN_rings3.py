@@ -10,10 +10,7 @@ import numpy as np
 import pandas as pd
 import pynapple as nap
 import nwbmatic as ntm
-from scipy.linalg import expm
 from scipy.ndimage import gaussian_filter
-from sklearn.neighbors import kneighbors_graph
-from sklearn.utils._random import sample_without_replacement
 from umap import UMAP
 
 from functions import *
@@ -27,7 +24,7 @@ from matplotlib.gridspec import GridSpec
 from sklearn.manifold import Isomap, MDS
 from sklearn.decomposition import PCA, KernelPCA
 import warnings
-
+import _pickle as cPickle
 
 
 warnings.filterwarnings("ignore")
@@ -43,162 +40,169 @@ elif os.path.exists('/media/guillaume/Raid2'):
 elif os.path.exists('/Users/gviejo/Data'):
     data_directory = '/Users/gviejo/Data'
 
-path = os.path.join(data_directory, 'LMN-ADN/A5011/A5011-201014A')
-# path = os.path.join(data_directory, 'LMN-ADN/A5043/A5043-230301A')
 
-basename = os.path.basename(path)
-data = nap.load_file(path + "/kilosort4/" + basename+".nwb")
-
-spikes = data['units']
-angle = data['ry']
-epochs = data['epochs']
-wake_ep = epochs[epochs.tags=="wake"]
-sleep_ep = epochs[epochs.tags=="sleep"]
-sws_ep = data['sws']
-rem_ep = data['rem']
-
-tuning_curves = nap.compute_1d_tuning_curves(spikes, angle, 120, minmax=(0, 2*np.pi))
-tuning_curves = smoothAngularTuningCurves(tuning_curves)
-
-SI = nap.compute_1d_mutual_info(tuning_curves, angle, angle.time_support.loc[[0]], minmax=(0,2*np.pi))
-spikes.set_info(SI)
-
-spikes = spikes[spikes.SI>0.1]
-
-# CHECKING HALF EPOCHS
-wake2_ep = splitWake(angle.time_support.loc[[0]])
-tokeep2 = []
-stats2 = []
-tcurves2 = []
-for i in range(2):
-    tcurves_half = nap.compute_1d_tuning_curves(
-        spikes, angle, 120, minmax=(0, 2*np.pi),
-        ep = wake2_ep[i]
-        )
-    tcurves_half = smoothAngularTuningCurves(tcurves_half, 20, 4)
-
-    tokeep, stat = findHDCells(tcurves_half)
-    tokeep2.append(tokeep)
-    stats2.append(stat)
-    tcurves2.append(tcurves_half)
-tokeep = np.intersect1d(tokeep2[0], tokeep2[1])
-
-spikes = spikes[tokeep]
-
-groups = spikes.getby_category('location')
-
-groups = {
-    'lmn': groups['lmn'],
-    'adn': groups['adn']
-}
+datasets = np.genfromtxt(os.path.join(data_directory,'datasets_LMN_ADN.list'), delimiter = '\n', dtype = str, comments = '#')
 
 
-X_ = {}
-X_exs = {}
-models = {}
 
-bin_sizes = {
-    "wake": 0.2,
-    "rem": 0.2,
-    "sws": 0.02
-}
+# results will hold projections and colors per session basename
+results = {}
 
-exs = {
-    "wake": nap.IntervalSet(9604.5, 9613.7),
-    "sws": nap.IntervalSet(13876, 13880.5),
-    "rem": nap.IntervalSet(15710.1, 15720.4)
+# Load sessions from datasets
+sessions = datasets
+
+# iterate sessions and compute projections/colors like before
+for sess in sessions:
+    path = os.path.join(data_directory, sess)
+    basename = os.path.basename(path)
+    data = nap.load_file(path + "/kilosort4/" + basename+".nwb")
+
+    spikes = data['units']
+    angle = data['ry']
+    epochs = data['epochs']
+    wake_ep = epochs[epochs.tags=="wak"]
+    sleep_ep = epochs[epochs.tags=="sleep"]
+    sws_ep = data['sws']
+    rem_ep = data['rem']
+
+    x = data['x']
+    z = data['z']
+    position = nap.TsdFrame(
+        t=x.index,
+        d=np.vstack((x.values, z.values)).T,
+        columns=['x', 'z'],
+        time_support=x.time_support
+    )
+
+    velocity = computeLinearVelocity(position[['x', 'z']], position.time_support.loc[[0]], 0.2)
+    newwake_ep = velocity.threshold(0.004).time_support
+
+
+    tuning_curves = nap.compute_1d_tuning_curves(spikes, angle, 120, minmax=(0, 2*np.pi))
+    tuning_curves = smoothAngularTuningCurves(tuning_curves)
+
+    SI = nap.compute_1d_mutual_info(tuning_curves, angle, angle.time_support.loc[[0]], minmax=(0,2*np.pi))
+    spikes.set_info(SI)
+
+    spikes = spikes[spikes.SI>0.1]
+
+    # CHECKING HALF EPOCHS
+    wake2_ep = splitWake(angle.time_support.loc[[0]])
+    tokeep2 = []
+    stats2 = []
+    tcurves2 = []
+    for i in range(2):
+        tcurves_half = nap.compute_1d_tuning_curves(
+            spikes, angle, 120, minmax=(0, 2*np.pi),
+            ep = wake2_ep[i]
+            )
+        tcurves_half = smoothAngularTuningCurves(tcurves_half, 20, 4)
+
+        tokeep, stat = findHDCells(tcurves_half)
+        tokeep2.append(tokeep)
+        stats2.append(stat)
+        tcurves2.append(tcurves_half)
+    tokeep = np.intersect1d(tokeep2[0], tokeep2[1])
+
+    spikes = spikes[tokeep]
+
+    groups = spikes.getby_category('location')
+    groups = {
+        'lmn': groups['lmn'],
+        'adn': groups['adn']
     }
+    if (len(groups['lmn'])>5) and (len(groups['adn'])>5):
+        X_ = {}
+        X_exs = {}
+        models = {}
+
+        bin_sizes = {
+            "wak": 0.3,
+            "rem": 0.3,
+            "sws": 0.02
+        }
+
+        # --------------------------
+        # Binning, smoothing, normalization
+        # --------------------------
+        for name, epochs_loop in zip(
+                [
+                    'wak',
+                    'sws',
+                    'rem'
+                ],
+                [
+                    newwake_ep,
+                    sws_ep.intersect(sleep_ep[0]),
+                    rem_ep
+                ]):
+
+            X_[name] = {}
+            # X_exs[name] = {}
+
+            for loc in groups.keys():
+
+                X = groups[loc].count(bin_sizes[name], epochs)
+                # X = np.sqrt(groups[loc].count(bin_sizes[name], epochs))
+                # X = np.log(1+groups[loc].count(bin_sizes[name], epochs))
+                X = X / X.max(0)
+                X = X.smooth(bin_sizes[name] * 3, norm=False)
+                # X = X - X.mean(0)
+                # X = X / X.std(0)
+                # X = X/X.max(0)
+                # Dropping empty bins for sleep
+                if name == 'sws' or name == 'rem':
+                    # threshold = np.percentile(X.sum(1), 90)
+                    # X = X[X.sum(1)>threshold]
+                    # print(np.percentile(X.mean(1), 50))
+                    thr = np.percentile(X.mean(1), 50)
+                    X = X[X.mean(1) > thr]
+                    # Xex = Xex[Xex.mean(1) > thr]
+
+                X = X - X.mean(0)
+                X = X / X.std(0)
+
+                X_[name][loc] = X
+                # X_exs[name][loc] = X.restrict(exs[name])
+
+        # --------------------------
+        # Dimensionality reduction
+        # --------------------------
+
+        proj = {"wak": {}, "sws": {}, "rem": {}}
+
+        for loc in ["adn", "lmn"]:
+
+            model = KernelPCA(n_components=2, kernel='cosine')
+
+            # fit on wak activity
+            tmp = X_['wak'][loc].values
+            model.fit(tmp)
+
+            # transform all epochs
+            for name in ['wak', 'sws', 'rem']:
+                proj[name][loc] = model.transform(X_[name][loc])
 
 
-# %%
-# --------------------------
-# Dimensionality reduction
-# --------------------------
-def get_X(data, bin_size, epochs, q_threshold=None):
-    X = data.count(bin_size, epochs)
-    X = np.sqrt(X.smooth(bin_size*4, norm=False))
-    X = X - X.mean(0)
-    X = X / X.std(0)
-    if q_threshold is not None:
-        thr = np.percentile(X.mean(1), q_threshold)
-        X = X[X.mean(1) > thr]
+        colors = getRGB(angle, newwake_ep, bin_size=bin_sizes['wak'])
 
-    # Y = PCA(n_components=3).fit_transform(X.values)
-    # K = diffusion_kernel(X.values, n_neighbors=15, t=1.0)
-    # return nap.TsdFrame(t=X.index, d=K, time_support=X.time_support)
-    return X
-
-proj = {"wake": {}, "sws": {}, "rem": {}}
-proj_ex = {"wake": {}, "sws": {}, "rem": {}}
-
-for loc in ["adn", "lmn"]:
-
-    # Wake + REM + SWS
-    allX = {}
-    for name, epochs, q_thr in zip(
-            ['wake', 'rem', 'sws'],
-            [angle.time_support,
-             rem_ep.union(angle.time_support),
-             sws_ep.union(nap.IntervalSet(angle.time_support.start[0], angle.time_support.start[0] + 60 * 10))],
-            [None, None, 95]):
-
-        X = get_X(groups[loc], bin_sizes[name], epochs, q_threshold=q_thr)
-
-        allX[name] = X
-
-    X = []
-    for name in ['wake', 'rem', 'sws']:
-        # Sample 10000 points for fitting
-        n_samples = min(10000, allX[name].shape[0])
-        sample_indices = sample_without_replacement(allX[name].shape[0], n_samples, random_state=42)
-        X_sampled = allX[name].values[sample_indices]
-
-        X.append(X_sampled)
-
-    X = np.vstack(X)
-
-    model = KernelPCA(n_components=2, kernel='cosine')
-    model.fit(X)
-
-    # TRANSFORMATIONS
-    for name in ['wake', 'rem', 'sws']:
-        X = allX[name]
-        proj[name][loc] = model.transform(X.values)
-        proj_ex[name][loc] = model.transform(X.restrict(exs[name]).values)
-
-    #
-    # # Wake
-    # X = get_X(groups[loc], bin_sizes['wake'], angle.time_support)
-    #
-    # model = KernelPCA(n_components=2, kernel='cosine')
-    # model.fit(X.values)
-    # proj['wake'][loc] = model.transform(X.values)
-    # proj_ex['wake'][loc] = model.transform(X.restrict(exs['wake']).values)
-    #
-    # # Wake + REM
-    # X = get_X(groups[loc], bin_sizes['rem'], rem_ep.union(angle.time_support))
-    # model = KernelPCA(n_components=2, kernel='cosine')
-    # model.fit(X.values)
-    # proj['rem'][loc] = model.transform(X.values)
-    # proj_ex['rem'][loc] = model.transform(X.restrict(exs['rem']).values)
-    #
-    # # Wake + SWS
-    # ep = sws_ep.union(nap.IntervalSet(angle.time_support.start[0], angle.time_support.start[0] + 60 * 10))
-    # X = get_X(groups[loc], bin_sizes['sws'], ep, q_threshold=95)
-    # model = KernelPCA(n_components=2, kernel='cosine')
-    # model.fit(X.values)
-    # proj['sws'][loc] = model.transform(X.values)
-    # proj_ex['sws'][loc] = model.transform(X.restrict(exs['sws']).values)
+        # store session results
+        results[basename] = {
+            'proj': proj,
+            'colors': colors,
+        }
 
 
-
-
-
-colors = getRGB(angle, angle.time_support.loc[[0]], bin_size=bin_sizes['wake'])
-
-
-
-#%%
+# # Save data
+# datatosave = {
+#     'proj': proj,
+#     'proj_ex': proj_ex,
+#     'colors': colors
+# }
+# dropbox_path = os.path.expanduser("~") + "/Dropbox/LMNphysio/data"
+# cPickle.dump(datatosave, open(os.path.join(dropbox_path, "projections_KPCA_LMN_ADN_v2.pickle"), "wb"))
+#
+# #%%
 
 
 # # --------------------------
@@ -218,76 +222,71 @@ colors = getRGB(angle, angle.time_support.loc[[0]], bin_size=bin_sizes['wake'])
 # # plt.tight_layout()
 # # plt.show()
 #%%
+# # --------------------------
+# # Scatter plots of projections (combined sessions)
+# # --------------------------
+session_names = list(results.keys())
+n_sessions = len(session_names)
+# fig = plt.figure(figsize=(5, 50))
+# gs = GridSpec(2, 3 * n_sessions, wspace=0.3, hspace=0.3)
+#
+# for s_idx, sname in enumerate(session_names):
+#     proj = results[sname]['proj']
+#     colors = results[sname]['colors']
+#     for j, name in enumerate(['wak', 'rem', 'sws']):
+#         for i, loc in enumerate(['adn', 'lmn']):
+#             ax = fig.add_subplot(gs[i, j + s_idx * 3])
+#             Y = proj[name][loc]
+#
+#             if name == 'wak':
+#                 ax.scatter(Y[:, 0], Y[:, 1], c=colors, s=1, alpha=0.7)
+#             else:
+#                 ax.scatter(Y[:, 0], Y[:, 1], s=1, alpha=0.7)
+#
+#             ax.set_title(f"{sname} {loc} {name}")
+#
+# plt.suptitle("Projections Scatter Plots (combined sessions)")
+# plt.savefig("/mnt/home/gviejo/Dropbox/LMNphysio/data/projections_scatter_KPCA_all.pdf", dpi=100, bbox_inches='tight')
+# plt.close()
+#
+# #%%
 # --------------------------
-# Scatter plots of projections
+# Histogram (2D) of projections (combined sessions)
 # --------------------------
-fig = plt.figure(figsize=(12, 5))
-gs = GridSpec(2, 3, wspace=0.3, hspace=0.3)
+session_names = list(results.keys())
+fig = plt.figure(figsize=(10, 100))
+# Outer GridSpec: one row per session with spacing between sessions
+gs_outer = GridSpec(n_sessions, 1, hspace=0.5, figure=fig)
 
-for j, name in enumerate(['wake', 'rem', 'sws']):
-    for i, loc in enumerate(['adn', 'lmn']):
-        ax = fig.add_subplot(gs[i, j])
-        Y = proj[name][loc]
+for s_idx, sname in enumerate(session_names):
+    # Inner GridSpec: 2x3 grid for each session with tight row spacing
+    gs_inner = gs_outer[s_idx].subgridspec(2, 3, wspace=0.3, hspace=0.1)
 
-        if name == 'wake':
-            ax.scatter(Y[:, 0], Y[:, 1], c=colors, s=1, alpha=0.7)
-        else:
-            ax.scatter(Y[:, 0], Y[:, 1], s=1, alpha=0.7)
+    proj = results[sname]['proj']
+    for j, name in enumerate(['wak', 'rem', 'sws']):
+        for i, loc in enumerate(['adn', 'lmn']):
+            ax = fig.add_subplot(gs_inner[i, j])
+            Y = proj[name][loc]
+            x = Y[:, 0]
+            y = Y[:, 1]
+            bins = [np.linspace(-1.2, 1.2, 50), np.linspace(-1.2, 1.2, 50)]
+            H, xedges, yedges = np.histogram2d(x, y, bins=bins, density=True)
+            H = np.log(1 + H)
+            Hsmooth = gaussian_filter(H, sigma=2.0)
 
-        ax.plot(
-            proj_ex[name][loc][:, 0],
-            proj_ex[name][loc][:, 1],
-            'o',
-            color='black',
-            markersize=5,
-            markeredgecolor='white',
-            markeredgewidth=0.5,
-        )
+            img = ax.imshow(
+                Hsmooth.T,
+                origin="lower",
+                extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]],
+                aspect="equal",
+                cmap="turbo"
+            )
 
-        ax.set_title(f"{loc} {name}")
+            # plt.colorbar(img, ax=ax)
+            ax.set_title(f"{sname} {loc} {name}")
 
-plt.suptitle("Projections Scatter Plots")
-plt.savefig(os.path.expanduser("~/Dropbox/LMNphysio/data/projections_scatter_KPCA_v3.png"), dpi=300)
-
-#%%
-# --------------------------
-# Histogram (2D) of projections
-# --------------------------
-fig = plt.figure(figsize=(12, 5))
-gs = GridSpec(2, 3, wspace=0.3, hspace=0.3)
-
-for j, name in enumerate(['wake', 'rem', 'sws']):
-    for i, loc in enumerate(['adn', 'lmn']):
-        ax = fig.add_subplot(gs[i, j])
-        Y = proj[name][loc]
-        x = Y[:, 0]
-        y = Y[:, 1]
-        bins = [np.linspace(-1.5, 1.5, 50), np.linspace(-1.5, 1.5, 50)]
-        H, xedges, yedges = np.histogram2d(x, y, bins=bins, density=True)
-        Hsmooth = gaussian_filter(H, sigma=2.0)
-
-        img = ax.imshow(
-            Hsmooth.T,
-            origin="lower",
-            extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]],
-            aspect="auto",
-            cmap="turbo"
-        )
-        ax.plot(
-            proj_ex[name][loc][:, 0],
-            proj_ex[name][loc][:, 1],
-            'o',
-            color='black',
-            markersize=5,
-            markeredgecolor='white',
-            markeredgewidth=0.5,
-        )
-
-        plt.colorbar(img, ax=ax)
-        ax.set_title(f"{loc} {name}")
-
-plt.suptitle("Histogram of Projections")
-plt.savefig(os.path.expanduser("~/Dropbox/LMNphysio/data/projections_hist_KPCA_v3.png"), dpi=300)
-plt.show()
+plt.suptitle("Histogram of Projections (combined sessions)")
+plt.savefig("/mnt/home/gviejo/Dropbox/LMNphysio/data/projections_histogram_KPCA_all.pdf", dpi=100, bbox_inches='tight')
+plt.close()
 
 #%%
