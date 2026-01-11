@@ -36,14 +36,12 @@ elif os.path.exists('/media/guillaume/Raid2'):
 elif os.path.exists('/Users/gviejo/Data'):
     data_directory = '/Users/gviejo/Data'
 
-# path = os.path.join(data_directory, 'LMN-adn/A3019/A3019-220630A')
-path = os.path.join(data_directory, 'LMN-ADN/A5011/A5011-201014A')
+path = os.path.join(data_directory, 'LMN-PSB/A3019/A3019-220701A')
+# path = os.path.join(data_directory, 'LMN-ADN/A5011/A5011-201014A')
 
 
 basename = os.path.basename(path)
 data = nap.load_file(path + "/kilosort4/" + basename+".nwb")
-
-
 spikes = data['units']
 angle = data['ry']
 epochs = data['epochs']
@@ -56,6 +54,8 @@ rem_ep = data['rem']
 # sws_ep = sws_ep.intersect(sleep_ep[0])
 
 
+
+
 up_ep = read_neuroscope_intervals(path, basename, 'up')
 down_ep = read_neuroscope_intervals(path, basename, 'down')
 
@@ -65,13 +65,13 @@ tuning_curves = smoothAngularTuningCurves(tuning_curves)
 SI = nap.compute_1d_mutual_info(tuning_curves, angle, angle.time_support.loc[[0]], minmax=(0,2*np.pi))
 spikes.set_info(SI)
 
-adn_idx = spikes.SI[spikes.location == 'adn'] > 0.1
-adn_idx = adn_idx[adn_idx].index
+psb_idx = spikes.SI[spikes.location == 'psb'] > 0.3
+psb_idx = psb_idx[psb_idx].index
 
-lmn_idx = spikes.SI[spikes.location == 'lmn'] > 0.3
+lmn_idx = spikes.SI[spikes.location == 'lmn'] > 0.6
 lmn_idx = lmn_idx[lmn_idx].index
 
-tokeep = np.hstack((adn_idx, lmn_idx))
+tokeep = np.hstack((psb_idx, lmn_idx))
 
 spikes = spikes[tokeep]
 #
@@ -100,7 +100,7 @@ groups = spikes.getby_category('location')
 
 groups = {
     'lmn': groups['lmn'],
-    'adn': groups['adn']
+    'psb': groups['psb']
 }
 
 # --------------------------
@@ -126,8 +126,13 @@ idxs = {}
 bin_sizes = {
     "wak": 0.3,
     "rem": 0.1,
-    "sws": 0.03,
+    "sws": 0.02,
 }
+
+# tmp = groups['lmn'].restrict(sws_ep).count(bin_sizes['sws'], sws_ep).sum(1).smooth(bin_sizes['sws'] * 3, norm=False)
+# thr = np.percentile(tmp, 75)
+# sws_ep = tmp.threshold(thr).time_support
+# sws_ep = sws_ep.merge_close_intervals(bin_sizes['sws']*4)
 
 for name, epochs in zip(
         [
@@ -143,8 +148,8 @@ for name, epochs in zip(
     idxs[name] = {}
 
     for loc in groups.keys():
-        # X = groups[loc].count(bin_sizes[name], epochs)
         X = np.sqrt(groups[loc].count(bin_sizes[name], epochs))
+
 
         # X = np.log(1+groups[loc].count(bin_sizes[name], epochs))
         # X = X / X.max(0)
@@ -162,12 +167,12 @@ for name, epochs in zip(["up", "down"], [up_ep, down_ep]):
     for loc in groups.keys():
         X_[name][loc] = X_['sws'][loc].restrict(epochs)
 
-# # Selecting same indices for lmn and adn
-# thr = np.percentile(X_['sws']['lmn'].mean(1), 50)
-# idxs['sws']['adn'] = (X_['sws']['lmn'].mean(1) > thr).values
-# idxs['sws']['lmn'] = idxs['sws']['adn']
-#
-# X_['sws']['adn'] = X_['sws']['adn'][idxs['sws']['adn']]
+# # Selecting same indices for lmn and psb
+# thr = np.percentile(X_['sws']['lmn'].mean(1), 25)
+# idxs['sws']['psb'] = (X_['sws']['lmn'].mean(1) > thr).values
+# idxs['sws']['lmn'] = idxs['sws']['psb']
+
+# X_['sws']['psb'] = X_['sws']['psb'][idxs['sws']['psb']]
 # X_['sws']['lmn'] = X_['sws']['lmn'][idxs['sws']['lmn']]
 
 # %%
@@ -178,7 +183,7 @@ for name, epochs in zip(["up", "down"], [up_ep, down_ep]):
 proj = {"wak": {}, "sws": {}, "up": {}, "down": {}}
 
 
-for loc in ["adn", "lmn"]:
+for loc in ['psb', "lmn"]:
 
     model = KernelPCA(n_components=2, kernel='cosine')
     # model = PCA(n_components=2)
@@ -236,12 +241,12 @@ for name, epochs in zip(
 
 
 # --------------------------
-# Tuning curves LMN and adn
+# Tuning curves LMN and psb
 # --------------------------
-fig, axes = plt.subplots(10, 6, figsize=(12, 12), subplot_kw={'projection': 'polar'})
+fig, axes = plt.subplots(6, 10, figsize=(12, 12), subplot_kw={'projection': 'polar'})
 axes = axes.flatten()
 count = 0
-for i, loc in enumerate(['adn', 'lmn']):
+for i, loc in enumerate(['psb', 'lmn']):
     for j, n in enumerate(groups[loc].index):
         ax = axes[count]
         color = 'b' if loc == 'lmn' else 'r'
@@ -281,7 +286,10 @@ for j, name in enumerate(['wak', 'sws']):
             ax.scatter(Y[:, 0], Y[:, 1], color=colors[name], s=0.5, alpha=0.7)
         else:
 
-            clrs = np.sqrt(groups['adn'].count(bin_sizes['sws'], sws_ep).sum(1).smooth(bin_sizes['sws'] * 1))
+            # clrs = np.sqrt(groups['psb'].count(bin_sizes['sws'], sws_ep).sum(1).smooth(bin_sizes['sws'] * 1))
+            clrs = np.log(1+groups['psb'].count(bin_sizes['sws'], sws_ep).sum(1).smooth(bin_sizes['sws'] * 3))
+            # clrs = np.tanh((clrs.values - clrs.mean())/clrs.std())
+            # clrs = clrs>1
             # clrs = (clrs - clrs.mean()) / clrs.std()
             # clrs = np.tanh(clrs.values)
             # # Y = proj[name][loc]
@@ -293,19 +301,31 @@ for j, name in enumerate(['wak', 'sws']):
             norm = matplotlib.colors.Normalize(vmin=clrs.min(), vmax=clrs.max())
             clrs = cmap(norm(clrs))
 
+
             x = Y[:, 0]
             y = Y[:, 1]
 
-            rng = np.random.default_rng(42)
+
+            rng = np.random.default_rng(0)
             idx2 = np.sort(rng.choice(np.arange(x.shape[0]), size=2000, replace=False))
 
-            scatter(x[idx2], y[idx2], c=clrs[idx2], s=15, alpha=0.7)
-            # show()
+            scatter(x[idx2], y[idx2], c=clrs[idx2], s=20, alpha=1)
+
 
         ax.set_title(f"{loc} {name}")
 
-plt.suptitle("Projections Scatter Plots")
+
+plt.savefig(os.path.expanduser("~/Dropbox/LMNphysio/data/projections_hist_KPCA_PSB_LMN_0.png"), dpi=300)
+
 # plt.savefig(os.path.expanduser("~/Dropbox/LMNphysio/data/projections_scatter_KPCA_v2.png"), dpi=300)
+
+# Y_up = proj['up']['lmn']
+# Y_down = proj['down']['lmn']
+# plt.scatter(Y_up[:, 0], Y_up[:, 1], c='blue', s=1, alpha=0.5)
+# plt.scatter(Y_down[:, 0], Y_down[:, 1], c='red', s=1, alpha=0.5)
+#
+#
+# plt.show()
 
 
 # %%
@@ -316,7 +336,7 @@ fig = plt.figure(figsize=(12, 5))
 gs = GridSpec(2, 4, wspace=0.3, hspace=0.3)
 
 for j, name in enumerate(['wak', 'sws', 'up', 'down']):
-    for i, loc in enumerate(['adn', 'lmn']):
+    for i, loc in enumerate(['psb', 'lmn']):
         ax = fig.add_subplot(gs[i, j])
         Y = proj[name][loc]
         x = Y[:, 0]
@@ -346,9 +366,106 @@ for j, name in enumerate(['wak', 'sws', 'up', 'down']):
         plt.colorbar(img, ax=ax)
         ax.set_title(f"{loc} {name}")
 
-plt.suptitle("Histogram of Projections")
-# plt.savefig(os.path.expanduser("~/Dropbox/LMNphysio/data/projections_hist_KPCA_v2.png"), dpi=300)
+
+plt.savefig(os.path.expanduser("~/Dropbox/LMNphysio/data/projections_hist_KPCA_PSB_LMN_1.png"), dpi=300)
+
+
+#%%
+# --------------------------
+# Histogram (2D) of projections with different psb rate threshold
+# --------------------------
+fig = plt.figure(figsize=(12, 5))
+gs = GridSpec(2, 5, wspace=0.3, hspace=0.3)
+
+name = 'sws'
+loc = 'lmn'
+Y = proj[name][loc]
+COL = colors[name]
+psbrate = np.log(1 + groups['psb'].count(bin_sizes['sws'], sws_ep).sum(1).smooth(bin_sizes['sws'] * 3))
+# psbrate = np.tanh((psbrate.values - psbrate.mean()))
+thresholds = [np.percentile(psbrate, p) for p in [0, 25, 50, 75, 90]]
+for j, thr in enumerate(thresholds):
+
+    idx = psbrate >= thr
+    x = Y[idx, 0]
+    y = Y[idx, 1]
+    c = COL[idx]
+
+    ax = fig.add_subplot(gs[0, j])
+    bins = [np.linspace(-1.2, 1.2, 50), np.linspace(-1.2, 1.2, 50)]
+    H, xedges, yedges = np.histogram2d(x, y, bins=bins, density=True)
+    # H = np.log(1 + H)
+    Hsmooth = gaussian_filter(H, sigma=2.0)
+
+    img = ax.imshow(
+        Hsmooth.T,
+        origin="lower",
+        extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]],
+        aspect="equal",
+        cmap="turbo"
+    )
+    plt.colorbar(img, ax=ax)
+    ax.set_title(f"PSB rate >= {thr.round(2)}")
+
+    ax = fig.add_subplot(gs[1, j])
+    rng = np.random.default_rng(42)
+    idx2 = np.sort(rng.choice(np.arange(x.shape[0]), size=2000, replace=False))
+
+    scatter(x[idx2], y[idx2], c=c[idx2], s=10, alpha=0.5)
+
+
+plt.savefig(os.path.expanduser("~/Dropbox/LMNphysio/data/projections_hist_KPCA_PSB_LMN_2.png"), dpi=300)
+
+
+#%%
+# --------------------------
+# Histogram (2D) of projections with different psb rate threshold
+# --------------------------
+fig = plt.figure(figsize=(12, 5))
+gs = GridSpec(2, 5, wspace=0.3, hspace=0.3)
+
+name = 'sws'
+loc = 'lmn'
+Y = proj[name][loc]
+COL = colors[name]
+psbrate = np.log(1 + groups['psb'].count(bin_sizes['sws'], sws_ep).sum(1).smooth(bin_sizes['sws'] * 3))
+# psbrate = np.tanh((psbrate.values - psbrate.mean()))
+thresholds = [np.percentile(psbrate, p) for p in [0, 33, 66, 100]]
+
+idx_ = np.digitize(psbrate.values, bins=thresholds) - 1
+
+for j, k in enumerate(range(len(thresholds)-1)):
+
+    idx = idx_ == k
+
+    x = Y[idx, 0]
+    y = Y[idx, 1]
+    c = COL[idx]
+
+    ax = fig.add_subplot(gs[0, j])
+    bins = [np.linspace(-1.2, 1.2, 50), np.linspace(-1.2, 1.2, 50)]
+    H, xedges, yedges = np.histogram2d(x, y, bins=bins, density=True)
+    # H = np.log(1 + H)
+    Hsmooth = gaussian_filter(H, sigma=2.0)
+
+    img = ax.imshow(
+        Hsmooth.T,
+        origin="lower",
+        extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]],
+        aspect="equal",
+        cmap="turbo"
+    )
+    plt.colorbar(img, ax=ax)
+    ax.set_title(f"PSB rate >= {thr.round(2)}")
+
+    ax = fig.add_subplot(gs[1, j])
+    rng = np.random.default_rng(42)
+    idx2 = np.sort(rng.choice(np.arange(x.shape[0]), size=2000, replace=False))
+
+    scatter(x[idx2], y[idx2], c=c[idx2], s=10, alpha=0.5)
+
+plt.savefig(os.path.expanduser("~/Dropbox/LMNphysio/data/projections_hist_KPCA_PSB_LMN_3.png"), dpi=300)
 
 plt.show()
 
-#%%
+# %%
