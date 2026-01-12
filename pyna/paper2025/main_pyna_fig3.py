@@ -187,26 +187,22 @@ markers = ["d", "o", "v"]
 
 fig = figure(figsize=figsize(1))
 
-outergs = GridSpec(2, 1, hspace=0.3, height_ratios=[0.1, 0.2])
+outergs = GridSpec(2, 1, hspace=0.3, height_ratios=[0.1, 0.4])
 
 names = {'psb': "PSB", 'lmn': "LMN"}
 epochs = {'wak': 'Wakefulness', 'sws': 'Non-REM sleep'}
 
 
-#####################################
-#####################################
-# OPTO
-#####################################
-#####################################
-gs_bottom = gridspec.GridSpecFromSubplotSpec(
-    1, 2, subplot_spec=outergs[1, 0], width_ratios=[0.1, 0.9], wspace=0.2
+gs_top = gridspec.GridSpecFromSubplotSpec(
+    1, 2, subplot_spec=outergs[0, 0], width_ratios=[0.1, 0.9], wspace=0.2
 )
+
 
 #####################################
 # OPTO DIAGRAM
 #####################################
-gs1 = gridspec.GridSpecFromSubplotSpec(2, 1, gs_bottom[0, 0],
-                                       height_ratios=[0.2, 0.6]
+gs1 = gridspec.GridSpecFromSubplotSpec(1, 1, gs_top[0, 0],
+                                       # height_ratios=[0.2, 0.6]
                                        )
 
 ax = subplot(gs1[0, 0])
@@ -286,14 +282,25 @@ ax.plot(0.68, y_lmn + (y_pos - y_lmn) / 2, 'x', color=COLOR, markersize=4)
 
 ax.set_title("VGAT-Cre\nAAV8-syn-FLEX-ChrimsonR", fontsize=fontsize - 1)
 
+
+
+#####################################
+#####################################
+# OPTO
+#####################################
+#####################################
+gs_bottom = gridspec.GridSpecFromSubplotSpec(
+    1, 1, subplot_spec=outergs[1, 0], #width_ratios=[0.1, 0.9], wspace=0.2
+)
+
 #####################################
 # Examples LMN IPSILATERAL
 #####################################
 st = 'lmn'
 
-gs2 = gridspec.GridSpecFromSubplotSpec(2, 4, gs_bottom[0, 1],
-                                       hspace=0.75, wspace=0.9,
-                                       width_ratios=[0.5, 0.4, 0.7, 0.3]
+gs2 = gridspec.GridSpecFromSubplotSpec(2, 4, gs_bottom[0, 0],
+                                       hspace=0.6, wspace=0.8,
+                                       width_ratios=[0.7, 0.4, 0.55, 0.4]
                                        )
 
 exs = [
@@ -316,8 +323,8 @@ for i, (s, ex, name) in enumerate(exs):
     subplot(gs2_ex[0, 0])
     simpleaxis(gca())
 
-    ms = [0.7, 0.9]
-    plot(spikes.to_tsd("order").restrict(ex), '|', color=colors[st], markersize=ms[i], mew=0.25)
+    ms = [1.0, 1.0]
+    plot(spikes.to_tsd("order").restrict(ex), '|', color=colors[st], markersize=ms[i], mew=0.5)
 
     s, e = opto_ep.intersect(ex).values[0]
     rect = patches.Rectangle((s, len(spikes) + 1), width=e - s, height=1,
@@ -514,7 +521,7 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
         ################
         # CHRIMSON VS TDTOMATO
         ################
-        gs_corr3 = gridspec.GridSpecFromSubplotSpec(2, 2, gs2[i, 2:],
+        gs_corr3 = gridspec.GridSpecFromSubplotSpec(2, 2, gs2[i, 2:], width_ratios=[0.4, 0.5],
                                                     hspace=0.6, wspace=0.05)
 
         #
@@ -859,7 +866,7 @@ for i, f in enumerate(['OPTO_WAKE', 'OPTO_SLEEP']):
 
             print("Wilcoxon tc", str(i), zw, p, len(df))
 
-outergs.update(top=0.95, bottom=0.06, right=0.98, left=0.05)
+outergs.update(top=0.95, bottom=0.06, right=0.98, left=0.08)
 
 savefig(
     os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2025/fig3.pdf",

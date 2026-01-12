@@ -61,7 +61,7 @@ def figsize(scale):
     golden_mean = (np.sqrt(5.0) - 1.0) / 2  # Aesthetic ratio (you could change this)
     # fig_width = fig_width_pt*inches_per_pt*scale    # width in inches
     fig_width = 6
-    fig_height = fig_width * golden_mean * 0.8  # height in inches
+    fig_height = fig_width * golden_mean * 1.1  # height in inches
     fig_size = [fig_width, fig_height]
     return fig_size
 
@@ -152,13 +152,13 @@ markers = ["d", "o", "v"]
 
 fig = figure(figsize=figsize(1))
 
-outergs = GridSpec(1, 2, hspace=0.4, width_ratios=[0.2, 0.6])
+outergs = GridSpec(2, 1, hspace=0.4, height_ratios=[0.1, 0.4])
 
 names = {'adn': "ADN", 'lmn': "LMN"}
 epochs = {'wak': 'Wake', 'sws': 'Sleep'}
 
 gs_top = gridspec.GridSpecFromSubplotSpec(
-    2, 1, subplot_spec=outergs[0, 0], height_ratios=[0.3, 0.8], wspace=0.3
+    1, 3, subplot_spec=outergs[0, 0], #height_ratios=[0.3, 0.8], wspace=0.3
 )
 
 #####################################
@@ -235,9 +235,9 @@ for i, x_position in enumerate(x_positions):
 
 #################
 
-gs_histo = gridspec.GridSpecFromSubplotSpec(
-    3, 1, subplot_spec=gs_top[1, 0]
-)
+# gs_histo = gridspec.GridSpecFromSubplotSpec(
+#     3, 1, subplot_spec=gs_top[1, 0]
+# )
 
 # subplot(gs_histo[0,0])
 # noaxis(gca())
@@ -263,50 +263,57 @@ gs_histo = gridspec.GridSpecFromSubplotSpec(
 # yticks([])
 
 
-# ##########################################
-# # ADN OPTO
-# ##########################################
 
+###########################################
+# BOTTOM PANELS
+###########################################
 gs_bottom = gridspec.GridSpecFromSubplotSpec(
-    2, 1, subplot_spec=outergs[0, 1], hspace=0.4
+    2, 1, subplot_spec=outergs[1, 0], hspace=0.4
 )
-
-ranges = (-0.9, 0, 1, 1.9)
-
-data = cPickle.load(open(os.path.expanduser("~/Dropbox/LMNphysio/data/OPTO_SLEEP.pickle"), 'rb'))
-allr = data['allr']
-corr = data['corr']
-change_fr = data['change_fr']
-allfr = data['allfr']
-baseline = data['baseline']
-
-st = 'adn'
-
-titles = ['Ipsilateral', 'Bilateral']
 
 exs = {
     'wak': {
-        'ipsi': ("B3700/B3704/B3704-240609A", nap.IntervalSet(5130, 5232)),
-        "bilateral": ("B2800/B2810/B2810-240925B", nap.IntervalSet(8269, 8379))
+        'ipsi': ("B3700/B3704/B3704-240609A", nap.IntervalSet(5187, 5215)),
+        "bilateral": ("B2800/B2810/B2810-240925B", nap.IntervalSet(8311, 8337))
     },
     'sws': {
         "ipsi": ("B3700/B3704/B3704-240608A", nap.IntervalSet(4112.6, 4115.5)),
         "bilateral": ("B2800/B2809/B2809-240904B", nap.IntervalSet(4104.95, 4108.0))
     }
 }
+# ##########################################
+# # ADN OPTO iPSILATERAL SLEEP
+# ##########################################
 
-for i, f in enumerate(['ipsi', 'bilateral']):
+titles = ["Wakefulness", "Non-REM sleep"]
 
-    orders = ('adn', 'opto', f, 'opto')
+st = 'adn'
+f = "ipsi"
+orders = ('adn', 'opto', f, 'opto')
+
+for i, ranges, name in zip(
+        [0, 1],
+        [(-8,0,10,18), (-0.8, 0, 1, 1.8)],
+        ["WAKE", "SLEEP"]):
+
+
+    data = cPickle.load(open(os.path.expanduser(f"~/Dropbox/LMNphysio/data/OPTO_{name}.pickle"), 'rb'))
+    allr = data['allr']
+    corr = data['corr']
+    change_fr = data['change_fr']
+    allfr = data['allfr']
+    baseline = data['baseline']
+
+
 
     gs_corr = gridspec.GridSpecFromSubplotSpec(1, 3, gs_bottom[i, 0],
-                                               wspace=0.6, width_ratios=[0.5, 0.4, 0.5])
+                                               wspace=0.6, width_ratios=[0.5, 0.3, 0.4])
 
     ####################
     # EXAMPLE
     ####################
 
-    s, ex = exs['sws'][f]
+    s, ex = exs[['wak', 'sws'][i]][f]
 
     path = os.path.join(data_directory, "OPTO", s)
 
@@ -334,14 +341,15 @@ for i, f in enumerate(['ipsi', 'bilateral']):
     gca().add_patch(rect)
     [axvline(t, color=COLOR, linewidth=0.1, alpha=0.5) for t in [s, e]]
 
-    ylim(0, len(spikes) + 2)
+    ylim(-1, len(spikes) + 2)
     xlim(ex.start[0], ex.end[0])
     xticks([])
     yticks([0, len(spikes) - 1], [1, len(spikes)])
     gca().spines['left'].set_bounds(0, len(spikes) - 1)
     gca().spines['bottom'].set_bounds(s, e)
     ylabel("Neurons")
-    title("Non-REM sleep")
+    # title("Non-REM sleep")
+    title(titles[i])
 
     #
     exex = nap.IntervalSet(ex.start[0] - 10, ex.end[0] + 10)
@@ -353,7 +361,10 @@ for i, f in enumerate(['ipsi', 'bilateral']):
                                                  ep=position.time_support.loc[[0]])
     tuning_curves = smoothAngularTuningCurves(tuning_curves)
 
-    da, P = nap.decode_1d(tuning_curves, spikes.count(0.01, exex).smooth(0.02, size_factor=10), exex, 0.01)
+    if i == 0:
+        da, P = nap.decode_1d(tuning_curves, spikes.count(0.05, exex).smooth(0.1, size_factor=10), exex, 0.01)
+    else:
+        da, P = nap.decode_1d(tuning_curves, spikes.count(0.01, exex).smooth(0.02, size_factor=10), exex, 0.01)
 
     # p = spikes.count(0.01, exex).smooth(0.04, size_factor=20)
     # d=np.array([p.loc[i] for i in spikes.index[np.argsort(spikes.order)]]).T
@@ -377,28 +388,44 @@ for i, f in enumerate(['ipsi', 'bilateral']):
 
     yticks([0, 2 * np.pi], [0, 360])
 
-    H = np.sum(P * np.log(P.values), 1)
-    H = H - H.min()
-    H = H / H.max()
-    a_ex = H.threshold(0.1).time_support.intersect(ex)
+    if i == 0:
+        plot(position['ry'].restrict(ex), '.', markersize=0.7, markerfacecolor=COLOR, markeredgecolor=None, markeredgewidth=0)
+    else:
 
-    for s, e in a_ex.values:
-        plot(da.get(s, e), 'o', markersize=0.5, markerfacecolor=COLOR, markeredgecolor=None, markeredgewidth=0)
+        H = np.sum(P * np.log(P.values), 1)
+        H = H - H.min()
+        H = H / H.max()
+        a_ex = H.threshold(0.1).time_support.intersect(ex)
 
-    s, e = opto_ep.intersect(ex).values[0]
+        for s, e in a_ex.values:
+            plot(da.get(s, e), 'o', markersize=0.5, markerfacecolor=COLOR, markeredgecolor=None, markeredgewidth=0)
+
+        s, e = opto_ep.intersect(ex).values[0]
+
     gca().spines['bottom'].set_bounds(s, e)
     xticks([s, e], ['', ''])
 
-    xlabel("1 s", labelpad=-1)
+    if i == 1:
+        xlabel("1 s", labelpad=-1)
+    elif i == 0:
+        xlabel("10 s", labelpad=-1)
+
     ylabel("Direction (°)")  # , labelpad=4)
 
     # Colorbar
-    axip = gca().inset_axes([1.03, 0.0, 0.05, 0.75])
+    axip = gca().inset_axes([1.03, 0.0, 0.02, 0.75])
     noaxis(axip)
     cbar = colorbar(im, cax=axip)
     axip.set_title("P", y=0.8)
 
-    axip.set_yticks([0.0, 0.1], [0, 0.1])
+    if i == 0:
+        axip.set_yticks([0, 0.2], [0, 0.2])
+    else:
+        axip.set_yticks([0.0, 0.1], [0, 0.1])
+
+
+
+
 
     ####################
     # FIRING rate change
@@ -428,7 +455,7 @@ for i, f in enumerate(['ipsi', 'bilateral']):
     xlabel("Opto. time (s)", labelpad=1)
     xlim(ranges[0], ranges[-1])
     # ylim(0.0, 4.0)
-    title(titles[i], fontweight='bold')
+    title(titles[i])#, fontweight='bold')
     xticks([ranges[1], ranges[2]])
     ylim(0, 2)
     ylabel("Norm. rate\n(a.u.)")
@@ -547,7 +574,7 @@ for i, f in enumerate(['ipsi', 'bilateral']):
 
     print("mannwhitneyu across", f, zw, p)
 
-outergs.update(top=0.92, bottom=0.09, right=0.99, left=0.05)
+outergs.update(top=0.92, bottom=0.06, right=0.99, left=0.07)
 
 savefig(
     os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2025/fig4.pdf",

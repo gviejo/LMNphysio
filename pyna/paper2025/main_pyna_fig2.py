@@ -66,7 +66,7 @@ def figsize(scale):
     golden_mean = (np.sqrt(5.0) - 1.0) / 2  # Aesthetic ratio (you could change this)
     # fig_width = fig_width_pt*inches_per_pt*scale    # width in inches
     fig_width = 6
-    fig_height = fig_width * golden_mean * 1.1  # height in inches
+    fig_height = fig_width * golden_mean * 0.9 # height in inches
     fig_size = [fig_width, fig_height]
     return fig_size
 
@@ -185,37 +185,69 @@ markers = ["d", "o", "v"]
 
 fig = figure(figsize=figsize(1))
 
-outergs = GridSpec(2, 1, hspace = 0.3, height_ratios=[0.1, 0.2])
+outergs = GridSpec(2, 1, hspace = 0.5, height_ratios=[0.2, 0.4])
 
 
 names = {'psb':"PSB", 'lmn':"LMN"}
 epochs = {'wak':'Wakefulness', 'sws':'Non-REM sleep'}
 
 gs_top = gridspec.GridSpecFromSubplotSpec(
-    1, 3, subplot_spec=outergs[0, 0], width_ratios=[0.6, 0.4, 0.15], wspace=0.4
+    1, 3, subplot_spec=outergs[0, 0], width_ratios=[0.33, 0.33, 0.33], wspace=0.4
 )
 
 
-# #####################################
-# # Histo
-# #####################################
-# gs_top_left = gridspec.GridSpecFromSubplotSpec(
-#     2, 1, subplot_spec=gs_top[0, 0], hspace=0.5#, height_ratios=[0.5, 0.2, 0.2] 
-# )
+##############################################
+# TUNInG CURVES
+##############################################
+gs_tuning = gridspec.GridSpecFromSubplotSpec(
+    1, 2, subplot_spec=gs_top[0, 2], width_ratios=[1, 1], wspace=0.4
+)
+for i, (g, idx) in enumerate(zip(['psb', 'lmn'], [psb, lmn])):
+
+    gs2 = gridspec.GridSpecFromSubplotSpec(
+        len(idx), 1, subplot_spec=gs_tuning[0, i], hspace=0.1
+    )
+
+    for j, n in enumerate(idx):
+
+        subplot(gs2[j, 0])
+        simpleaxis(gca())
+        h = np.rad2deg(tcurves[n].idxmax())
+        # color = hsluv.hsluv_to_rgb([h, 100, 50])
+        color = colors[g]
+        # plot(tcurves[n], color=color, linewidth=0.5)
+        fill_between(
+            tcurves[n].index.values,
+            np.zeros_like(tcurves[n].values),
+            tcurves[n].values,
+            color=color,
+            alpha=0.8,
+        )
+        if j != len(idx) - 1:
+            xticks([])
+        else:
+            xticks([0, 2 * np.pi], ["0", "360"])
+        yticks([])
+        xlim(0, 2 * np.pi)
+        if j == len(idx) // 2 and i == 0:
+            ylabel("Neurons", rotation=90, labelpad=5)
+
+        if j == 0:
+            title(names[g])
+
+        if j == len(idx) - 1 and i == 1:
+            xlabel("Head Direction (°)", x=-0.3)
 
 
-# subplot(gs_top_left[0,0])
-# noaxis(gca())
-# img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/LMN-PSB-opto.png")
-# imshow(img, aspect="equal")
-# xticks([])
-# yticks([])
+gs_bottom = gridspec.GridSpecFromSubplotSpec(
+    1, 3, subplot_spec=outergs[1, 0], width_ratios=[0.6, 0.4, 0.15], wspace=0.4
+)
 
 #########################
 # Examples LMN PSB raster
 #########################
 gs_raster_ex = gridspec.GridSpecFromSubplotSpec(
-    3, 5, subplot_spec=gs_top[0, 0], width_ratios=[0.12, 0.5, 0.2, 0.5, 0.0], wspace=0.1
+    3, 5, subplot_spec=gs_bottom[0, 0], width_ratios=[0.12, 0.5, 0.2, 0.5, 0.0], wspace=0.1
 )
 
 ms = [0.7, 0.9]
@@ -358,7 +390,7 @@ for i, e in enumerate(['wak', 'sws']):
 # LMN PSB Connections
 #####################################
 gs_con = gridspec.GridSpecFromSubplotSpec(2,1, 
-    subplot_spec = gs_top[0,1],  hspace = 0.7, wspace=0.2,
+    subplot_spec = gs_bottom[0,1],  hspace = 0.7, wspace=0.2,
     height_ratios=[0.1, 0.2]
     )
 
@@ -496,7 +528,7 @@ pearson = data['pearson']
 frates = data['frates']
 baseline = data['baseline']
 
-gs_corr_top = gridspec.GridSpecFromSubplotSpec(2,1, gs_top[0,2], hspace=0.7, wspace=0.2)
+gs_corr_top = gridspec.GridSpecFromSubplotSpec(2,1, gs_bottom[0,2], hspace=0.7, wspace=0.2)
 
 subplot(gs_corr_top[0,0])
 simpleaxis(gca())
@@ -573,7 +605,7 @@ print("wilcoxon across", zw, p, len(tmp))
 
 
 
-outergs.update(top=0.95, bottom=0.06, right=0.98, left=0.05)
+outergs.update(top=0.95, bottom=0.08, right=0.98, left=0.05)
 
 
 savefig(
