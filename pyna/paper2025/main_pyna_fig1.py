@@ -7,7 +7,7 @@
 import numpy as np
 import pandas as pd
 import pynapple as nap
-from matplotlib.colors import ListedColormap, LinearSegmentedColormap
+from matplotlib.colors import ListedColormap, LinearSegmentedColormap, rgb_to_hsv
 
 from matplotlib.pyplot import *
 import matplotlib.pyplot as plt
@@ -379,7 +379,10 @@ y = pos_restricted['y'].values  # Using y as the vertical dimension
 z = pos_restricted['z'].values
 
 # Color based on head direction
-RGB = np.array([hsluv.hsluv_to_rgb([h, 100, 50]) for h in np.rad2deg(pos_restricted['ry'].values)])
+cmap = plt.get_cmap('twilight')
+angles_normalized = (pos_restricted['ry'].values % (2 * np.pi)) / (2 * np.pi)
+RGB = cmap(angles_normalized)[:, :3]
+# RGB = np.array([hsluv.hsluv_to_rgb([h, 100, 50]) for h in np.rad2deg(pos_restricted['ry'].values)])
 
 # Plot 3D trajectory
 ax.scatter(x, z, np.zeros_like(x), s=0.6, c=RGB, edgecolors='none')
@@ -439,9 +442,14 @@ theta = np.linspace(0, 2*np.pi, 360)
 r = np.linspace(0.7, 1.0, 2)  # Inner to outer radius
 T, R = np.meshgrid(theta, r)
 
-# Create color array
-colors_ = np.array([[hsluv.hsluv_to_rgb([np.rad2deg(t) % 360, 100, 50])
-                    for t in theta] for _ in r])
+# # Create color array
+# colors_ = np.array([[hsluv.hsluv_to_rgb([np.rad2deg(t) % 360, 100, 50])
+#                     for t in theta] for _ in r])
+# Normalize angles from radians to [0, 1] range
+theta_normalized = (theta % (2 * np.pi)) / (2 * np.pi)
+# Get RGB colors from the colormap
+colors_ = np.array([[cmap(t)[:3] for t in theta_normalized] for _ in r])
+
 
 # Plot
 ax_inset.pcolormesh(T, R, np.zeros_like(T), color=colors_.reshape(-1, 3),
@@ -615,6 +623,13 @@ for j, g in enumerate(['lmn', 'adn']):
     y = Y[idx, 1]
     clr = colors_proj[e][g][idx]
 
+    # # Converting to twilight
+    cmap = plt.cm.twilight
+    HSV = rgb_to_hsv(clr)
+    H = HSV[:, 0]
+    RGB = np.array([cmap(h)[:3] for h in H])
+    clr = RGB
+
     scatter(x, y, c=clr, s=1, alpha=1, edgecolors='none')
 
     ax = gca()
@@ -725,6 +740,13 @@ for j, g in enumerate(['lmn', 'adn']):
     x = Y[idx, 0]
     y = Y[idx, 1]
     clr = colors_proj[e][g][idx]
+
+    # # Converting to twilight
+    cmap = plt.cm.twilight
+    HSV = rgb_to_hsv(clr)
+    H = HSV[:, 0]
+    RGB = np.array([cmap(h)[:3] for h in H])
+    clr = RGB
 
     scatter(x, y, c=clr, s=1, alpha=1, edgecolors='none')
 
