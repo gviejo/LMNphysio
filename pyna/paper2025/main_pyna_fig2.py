@@ -34,7 +34,7 @@ import _pickle as cPickle
 import os
 import sys
 
-from scipy.ndimage import gaussian_filter
+from scipy.ndimage import gaussian_filter, gaussian_filter1d
 
 try:
     from functions import *
@@ -172,7 +172,8 @@ lmn = list(data['lmn'])
 psb = list(data['psb'])
 
 exs = {'wak':nap.IntervalSet(start = 9975, end = 9987, time_units='s'),
-    'sws':nap.IntervalSet(start = 5800.0, end = 5802.5, time_units = 's')
+        # 'sws':nap.IntervalSet(start = 5800.0, end = 5802.5, time_units = 's')
+       'sws': nap.IntervalSet(start = 5342.7, end = 5343.9, time_units = 's')
     }
 
 
@@ -240,14 +241,14 @@ for i, (g, idx) in enumerate(zip(['psb', 'lmn'], [psb, lmn])):
 
 
 gs_bottom = gridspec.GridSpecFromSubplotSpec(
-    1, 3, subplot_spec=outergs[1, 0], width_ratios=[0.6, 0.4, 0.15], wspace=0.4
+    1, 3, subplot_spec=outergs[1, 0], width_ratios=[0.4, 0.6, 0.15], wspace=0.4
 )
 
 #########################
 # Examples LMN PSB raster
 #########################
 gs_raster_ex = gridspec.GridSpecFromSubplotSpec(
-    3, 5, subplot_spec=gs_bottom[0, 0], width_ratios=[0.12, 0.5, 0.2, 0.5, 0.0], wspace=0.1
+    3, 5, subplot_spec=gs_bottom[0, 1], width_ratios=[0.12, 0.5, 0.15, 0.5, 0.0], wspace=0.1
 )
 
 ms = [0.7, 0.9]
@@ -260,7 +261,8 @@ for i, (st, idx) in enumerate(zip(['psb', 'lmn'], [psb, lmn])):
         plot(spikes[idx].to_tsd(np.argsort(idx)).restrict(exs[e]), 
             '|', 
             color=colors[st], 
-            markersize=ms[i], mew=0.5)
+            markersize=1.7,
+             mew=0.5)
 
         if j == 0:
             yticks([len(idx)-1], [len(idx)])
@@ -353,9 +355,9 @@ for i, e in enumerate(['wak', 'sws']):
         legend(
                 handlelength=1,                
                 loc="center",
-                bbox_to_anchor=(0.0, -0.5, 0.5, 0.5),
+                bbox_to_anchor=(-0.1, -0.5, 0.5, 0.5),
                 framealpha=0,
-                markerscale=4
+                markerscale=4,
             )
 
 
@@ -381,7 +383,7 @@ for i, e in enumerate(['wak', 'sws']):
     # if i == 0:
     #     axip.set_yticks([0, 0.4], [0, 0.4])
     if i == 1:
-        axip.set_yticks([0.03, 0.05])
+        axip.set_yticks([0.04, 0.05])
     elif i== 0:
         axip.set_yticks([0, 0.1])
 
@@ -389,9 +391,9 @@ for i, e in enumerate(['wak', 'sws']):
 #####################################
 # LMN PSB Connections
 #####################################
-gs_con = gridspec.GridSpecFromSubplotSpec(2,1, 
-    subplot_spec = gs_bottom[0,1],  hspace = 0.7, wspace=0.2,
-    height_ratios=[0.1, 0.2]
+gs_con = gridspec.GridSpecFromSubplotSpec(1,2,
+    subplot_spec = gs_bottom[0,0],  hspace = 0.7, wspace=0.2,
+    width_ratios = [0.1, 0.4]
     )
 
 data = cPickle.load(open(os.path.expanduser("~/Dropbox/LMNphysio/data/CC_LMN-PSB.pickle"), 'rb'))
@@ -414,13 +416,13 @@ exn = [
 
 p = exn[0]
 # for i, p in enumerate(exn):
-gs_tc2 = gridspec.GridSpecFromSubplotSpec(1,5, gs_con[0,0],
-    width_ratios=[0.1, 0.05, 0.1, 0.2, 0.1], wspace=0.1, hspace=0.05
+gs_tc2 = gridspec.GridSpecFromSubplotSpec(5,1, gs_con[0,0],
+    height_ratios=[0.1, 0.03, 0.1, 0.0, 0.1], wspace=0.1, hspace=0.05
     )
 
 # TUNING CURVES
 for j, name, n in zip([0, 2], ['psb', 'lmn'], np.array(exn[0])):
-    subplot(gs_tc2[0, j], projection='polar')
+    subplot(gs_tc2[j, 0], projection='polar')
     fill_between(alltc.index.values, np.zeros(len(alltc)), alltc[n].values, color=colors[name])
     if i == 0: title(name.upper())
     xticks([0, np.pi/2, np.pi, 3*np.pi/2], ['', '', '', ''])
@@ -428,17 +430,17 @@ for j, name, n in zip([0, 2], ['psb', 'lmn'], np.array(exn[0])):
     title(name.upper(), pad=2)
 
 # Arrow
-subplot(gs_tc2[0,1])
+subplot(gs_tc2[1,0])
 noaxis(gca())
 annotate(
-'', xy=(1, 0.5), xytext=(0, 0.5),
+'', xy=(0.5, 0), xytext=(0.5, 1),
 arrowprops=dict(arrowstyle='->',lw=0.5, color=COLOR)#, headwidth=5, headlength=7.5)
 )
 xlim(0, 1)
 ylim(0, 1)
 
 # CC
-subplot(gs_tc2[0,4])
+subplot(gs_tc2[4,0])
 simpleaxis(gca())
 tmp = allcc['sws'][p].loc[-0.02:0.02]
 x = tmp.index.values
@@ -458,11 +460,11 @@ print(tmp.idxmax())
 ####################################
 # Hist PSB connections
 ###################################
-gs_con2 = gridspec.GridSpecFromSubplotSpec(2,2, gs_con[1,0],
-    hspace=0.5, wspace=0.95
+gs_con2 = gridspec.GridSpecFromSubplotSpec(4,2, gs_con[0,1],
+    hspace=0.3, wspace=0.2, height_ratios=[0.2, 0.2, 0.15, 0.4], width_ratios=[0.2, 0.9]
     )
 
-subplot(gs_con2[0,0])
+subplot(gs_con2[0,1])
 simpleaxis(gca())
 
 for peak in [pospeak, negpeak]:
@@ -475,7 +477,7 @@ axvspan(0.002, 0.008, alpha=0.2, linewidth=0)
 xlim(-0.02, 0.02)
 title("$Z_{PSB/LMN} > 3$", pad=4)
 
-subplot(gs_con2[1,0])
+subplot(gs_con2[1,1])
 simpleaxis(gca())
 zcc = zcc.apply(lambda x: gaussian_filter1d(x, sigma=1))
 a = zcc[order].loc[0.002:0.008].idxmax().sort_values().index
@@ -488,37 +490,87 @@ ylabel("Lag > 0")
 
 
 # Colorbar
-axip = gca().inset_axes([1.05, 0.0, 0.08, 1])
+axip = gca().inset_axes([1.03, 0.0, 0.05, 0.8])
 noaxis(axip)
 cbar = colorbar(im, cax=axip)
-axip.set_title("z", y=0.75)
+axip.set_title("z", y=0.8)
 axip.set_yticks([0, 3])
 
 ####################################
 # Angular differences
 ###################################
-subplot(gs_con2[1,1])#, projection='polar')
+# subplot(gs_con2[3,1])#, projection='polar')
 # gca().set_theta_zero_location('N')
-simpleaxis(gca())
-num_bins = 32
-bins = np.linspace(-np.pi, np.pi, num_bins + 1)
+# simpleaxis(gca())
 
-# hist(angdiff[order], bins=bins, histtype="stepfilled", facecolor="dimgray", edgecolor="dimgray")
+gs_cc2 = gridspec.GridSpecFromSubplotSpec(
+    1, 3, subplot_spec=gs_con2[3, 1], wspace=0.7, hspace=0.1, width_ratios=[0.01, 1, 1]
+)
 
-counts, bin_edges = np.histogram(angdiff[order], bins=bins)
-counts = (counts/counts.sum())*100
-widths = np.diff(bin_edges)
-angles = bin_edges[:-1] + widths / 2  # bin centers
-# bars = gca().bar(angles, counts, width=widths, bottom=0.0, align='center', linewidth=0, color=COLOR)
-fill_between(angles, counts, 0, step="mid", facecolor=COLOR, edgecolor=COLOR, linewidth=0.1)
+data = cPickle.load(open(os.path.join(dropbox_path, 'CC_LMN-PSB.pickle'), 'rb'))
 
-# # simpleaxis(gca())
-# hist(angdiff[order], bins =np.linspace(0, np.pi, 20), color=COLOR)
-xlim(-np.pi, np.pi)
-xticks([-np.pi, 0, np.pi], ["-180", "0", "180"])
-xlabel("Ang. offset")
-ylabel("Prop. (%)")
-title(r"$PSB \rightarrow LMN$")
+def get_zscore(cc, w=0.02):
+    # Smoothing with big gaussian
+    sigma = int(w/np.median(np.diff(cc.index.values)))+1
+    df = cc.apply(lambda col: gaussian_filter1d(col, sigma=sigma))
+
+    # Zscoring
+    tmp = cc - df
+    zcc = tmp/tmp.std(0)
+    return zcc
+
+index = data['pospeak'].index.values
+zcc = {"wak":get_zscore(data['allcc']['wak']), "sws":get_zscore(data['allcc']['sws'])}
+
+short_epochs = {'wak': 'Wake', 'sws': 'Sleep'}
+
+for i, k in enumerate(['wak', 'sws']):
+    subplot(gs_cc2[0, i + 1])
+    simpleaxis(gca())
+
+    m = zcc[k][index].mean(1).loc[-0.02:0.02]
+    s = zcc[k][index].std(1).loc[-0.02:0.02]
+
+    plot(m, color=cmap(i), linewidth=0.5)
+    fill_between(m.index.values, m.values - s.values, m.values + s.values,
+                 alpha=0.2, color=cmap(i), linewidth=0)
+    axvline(0, linewidth=0.4, color=COLOR)
+
+    title(short_epochs[k], y=0.9)
+
+    xticks([-0.02, 0, 0.02], [-20, 0, 20])
+
+    if i == 0:
+        ylabel("Norm. corr. (Z)")
+        # text(-0.3, 1.01, "Norm. xcorr PSB-LMN", transform=gca().transAxes)
+        # gca().spines['bottom'].set_visible(False)
+        # xticks([])
+        # yticks([0, 3])
+        xlabel("Time lag (ms)", x=1.0)
+
+        # ylim(gca().get_ylim()[0], 2)
+
+
+#
+# num_bins = 32
+# bins = np.linspace(-np.pi, np.pi, num_bins + 1)
+#
+# # hist(angdiff[order], bins=bins, histtype="stepfilled", facecolor="dimgray", edgecolor="dimgray")
+#
+# counts, bin_edges = np.histogram(angdiff[order], bins=bins)
+# counts = (counts/counts.sum())*100
+# widths = np.diff(bin_edges)
+# angles = bin_edges[:-1] + widths / 2  # bin centers
+# # bars = gca().bar(angles, counts, width=widths, bottom=0.0, align='center', linewidth=0, color=COLOR)
+# fill_between(angles, counts, 0, step="mid", facecolor=COLOR, edgecolor=COLOR, linewidth=0.1)
+#
+# # # simpleaxis(gca())
+# # hist(angdiff[order], bins =np.linspace(0, np.pi, 20), color=COLOR)
+# xlim(-np.pi, np.pi)
+# xticks([-np.pi, 0, np.pi], ["-180", "0", "180"])
+# xlabel("Ang. offset")
+# ylabel("Prop. (%)")
+# title(r"$PSB \rightarrow LMN$")
 
 ####################################
 # CORR LMN_PSB
@@ -605,7 +657,7 @@ print("wilcoxon across", zw, p, len(tmp))
 
 
 
-outergs.update(top=0.95, bottom=0.08, right=0.98, left=0.05)
+outergs.update(top=0.95, bottom=0.08, right=0.98, left=0.06)
 
 
 savefig(

@@ -37,7 +37,7 @@ path = os.path.join(data_directory, "LMN-PSB/A3019/A3019-220701A")
 # data = nap.load_session(path, 'neurosuite')
 basename = os.path.basename(path)
 # filepath = os.path.join(path, "pynapplenwb", basename + ".nwb") 
-filepath = os.path.join(path, "kilosort4", basename + ".nwb")
+filepath = os.path.join(path, "kilosort4_bk", basename + ".nwb")
 
 nwb = nap.load_file(filepath)
 
@@ -68,6 +68,8 @@ nwb.close()
 
 up_ep = read_neuroscope_intervals(path, basename, 'up')
 down_ep = read_neuroscope_intervals(path, basename, 'down')
+
+down_ep = down_ep.drop_short_intervals(0.02).drop_long_intervals(0.7)
 
 
 # waveforms = nwb.nwb.units.to_dataframe()['waveform_mean']
@@ -170,6 +172,7 @@ plot(angle)
 title("wake")
 # plot(angle_wak, '--')
 subplot(311, sharex = ax)
+title("wake")
 for i,n in enumerate(psb):
     plot(spikes[n].restrict(wake_ep).fillna(i), '|', 
         markersize = 10, color='grey', alpha=0.5)
@@ -187,12 +190,20 @@ axvspan(exs['wak'].start[0], exs['wak'].end[0], alpha=0.5)
 
 # sys.exit()
 # sws_ep = sws_ep[np.argmax(sws_ep.end-sws_ep.start)]
-up_ep = up_ep.intersect(sws_ep[13])
-down_ep = down_ep.intersect(sws_ep[13])
+
 
 
 mua = spikes[psb2].to_tsd().count(0.01, sws_ep)
-mua = mua.smooth(0.04, size_factor=20)
+mua = mua.smooth(0.02, size_factor=20)
+
+tmua = (mua - mua.mean())/mua.std()
+
+down_ep = tmua.threshold(np.percentile(tmua.values, 20), 'below').time_support.drop_short_intervals(0.02).drop_long_intervals(0.7).merge_close_intervals(0.02)
+up_ep = sws_ep.set_diff(down_ep)
+
+up_ep = up_ep.intersect(sws_ep[13])
+down_ep = down_ep.intersect(sws_ep[13])
+
 
 # sws
 figure()
@@ -202,7 +213,11 @@ plot(mua.restrict(up_ep), 'o', color='red')
 plot(mua.restrict(down_ep), 'o', color='green')
 for s, e in down_ep.values:
     axvspan(s, e, color='green', alpha=0.2)
+for s, e in up_ep.values:
+    axvspan(s, e, color='red', alpha=0.2)
 
+
+title("sws")
 
 subplot(312, sharex=ax)
 title("sws")
@@ -269,8 +284,5 @@ datatosave = { #'wak':angle_wak,
           }
 
 import _pickle as cPickle
-# # cPickle.dump(datatosave, open('../figures/figures_adrien_2022/fig_1_decoding.pickle', 'wb'))
-
-
 filepath = os.path.join(os.path.expanduser("~"), f'Dropbox/LMNphysio/data/DATA_FIG_LMN_PSB_{basename}.pickle')
 cPickle.dump(datatosave, open(filepath, 'wb'))

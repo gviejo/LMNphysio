@@ -345,7 +345,7 @@ datatosave = {
     "negpeak":zcc[counter].loc[-0.008:-0.002].idxmax(),
     "order":order,
     "counter":counter,
-    "zcc":zcc
+    'zcc':{"wak":get_zscore(allcc['wak']),"sws":get_zscore(allcc['sws'])},
     }
 
 dropbox_path = os.path.expanduser("~/Dropbox/LMNphysio/data")

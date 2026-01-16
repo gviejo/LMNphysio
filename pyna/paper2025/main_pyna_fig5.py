@@ -2,7 +2,7 @@
 # @Author: Guillaume Viejo
 # @Date:   2022-03-03 14:52:09
 # @Last Modified by:   Guillaume Viejo
-# @Last Modified time: 2025-08-01 11:08:46
+# @Last Modified time: 2025-07-28 11:30:36
 import numpy as np
 import pandas as pd
 import pynapple as nap
@@ -18,6 +18,7 @@ import matplotlib.font_manager as font_manager
 import matplotlib.patches as patches
 from matplotlib.patches import FancyArrow, FancyArrowPatch
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+from scipy.optimize import curve_fit
 
 from scipy.stats import zscore
 
@@ -37,9 +38,9 @@ try:
     from functions import *
 except ModuleNotFoundError:
     import sys
-
     sys.path.append("../")
     from functions import *
+
 
 if os.path.exists("/mnt/Data/Data/"):
     data_directory = "/mnt/Data/Data"
@@ -55,13 +56,15 @@ else:
     data_directory = "~"
 
 
+
+
 def figsize(scale):
     fig_width_pt = 483.69687  # Get this from LaTeX using \the\textwidth
     inches_per_pt = 1.0 / 72.27  # Convert pt to inch
     golden_mean = (np.sqrt(5.0) - 1.0) / 2  # Aesthetic ratio (you could change this)
     # fig_width = fig_width_pt*inches_per_pt*scale    # width in inches
     fig_width = 6
-    fig_height = fig_width * golden_mean * 1.1  # height in inches
+    fig_height = fig_width * golden_mean * 0.56  # height in inches
     fig_size = [fig_width, fig_height]
     return fig_size
 
@@ -100,6 +103,7 @@ fontsize = 6.0
 COLOR = (0.25, 0.25, 0.25)
 cycle = rcParams['axes.prop_cycle'].by_key()['color'][5:]
 
+# rcParams["font.family"] = 'Liberation Sans'
 rcParams["font.family"] = 'sans-serif'
 rcParams["font.size"] = fontsize
 rcParams["text.color"] = COLOR
@@ -133,16 +137,20 @@ cmap = plt.get_cmap("Set2")
 
 # COmputing tests
 map_significance = {
-    1: "n.s.",
-    2: "*",
-    3: "**",
-    4: "***"
+    1:"n.s.",
+    2:"*",
+    3:"**",
+    4:"***"
 }
+
 
 ###############################################################################################
 # LOADING DATA
 ###############################################################################################
 dropbox_path = os.path.expanduser("~") + "/Dropbox/LMNphysio/data"
+
+
+
 
 ###############################################################################################################
 # PLOT
@@ -152,429 +160,467 @@ markers = ["d", "o", "v"]
 
 fig = figure(figsize=figsize(1))
 
-outergs = GridSpec(2, 1, hspace=0.4, height_ratios=[0.1, 0.4])
+outergs = GridSpec(1, 1, hspace = 0.6)#, height_ratios=[0.5,0.5])
 
-names = {'adn': "ADN", 'lmn': "LMN"}
-epochs = {'wak': 'Wake', 'sws': 'Sleep'}
 
-gs_top = gridspec.GridSpecFromSubplotSpec(
-    1, 3, subplot_spec=outergs[0, 0], #height_ratios=[0.3, 0.8], wspace=0.3
-)
+names = {'adn':"ADN", 'lmn':"LMN"}
+epochs = {'wak':'Wake', 'sws':'Sleep'}
+
+Epochs = ['Wake', 'Sleep']
+
+
+
+gs_top = gridspec.GridSpecFromSubplotSpec(1,3, outergs[0,0],
+                                          hspace = 0.45, wspace = 0.5, width_ratios=[0.3, 0.4, 0.2])
+
 
 #####################################
-# HISTO
+# Example
 #####################################
-
-subplot(gs_top[0, 0])
-
-axvline(0, linewidth=0.5, linestyle='--', color=COLOR)
-text(0.5, 1.0, 'Midline', ha='center', bbox=dict(facecolor=None, edgecolor=None, alpha=0), transform=gca().transAxes)
-
-box_width, box_height = 0.75, 0.4
-y_positions = [1, 2, 3]
-x_positions = [-0.6, 0.6]
-
-box_colors = [colors[st] for st in ['lmn', 'adn', 'psb']]
-ax = gca()
-ax.set_xlim(-2, 2)
-ax.set_ylim(0.5, 3.5)
-# ax.set_aspect('equal')
-ax.axis('off')
-
-# Draw boxes
-for i, x in enumerate(x_positions):
-    for j, y in enumerate(y_positions):
-        ax.text(x, y, ['LMN', 'ADN', 'PSB'][j],
-                ha='center', va='center',
-                bbox=dict(facecolor=box_colors[j], edgecolor=box_colors[j], boxstyle="round,pad=0.3")
-                )
-
-# Draw reversed vertical arrows using FancyArrow (Box 3 → 2 → 1)
-for i in range(2):
-    start_y = y_positions[i]
-    for j in range(2):
-        annotate("", (x_positions[j], y_positions[i + 1]), (x_positions[j], y_positions[i] + box_height / 2),
-                 arrowprops=dict(arrowstyle="simple", facecolor='gray', fc="gray", lw=0)
-                 )
-
-annotate("", (x_positions[1], y_positions[1] - box_height / 2), (x_positions[0], y_positions[0] + box_height / 2),
-         xycoords='data', textcoords='data',
-         arrowprops=dict(arrowstyle="simple", facecolor='gray', fc="gray", lw=0))
-
-annotate("", (x_positions[0], y_positions[1] - box_height / 2), (x_positions[1], y_positions[0] + box_height / 2),
-         xycoords='data', textcoords='data',
-         arrowprops=dict(arrowstyle="simple", facecolor='gray', fc="gray", lw=0))
-
-# Right-angle arrow from Box 1 → Box 3 using FancyArrowPatch
-signs = [1, -1]
-for i, x_position in enumerate(x_positions):
-    x = x_position - (box_width / 2 - 0.1) * signs[i]
-    # annotate("",
-    #     # (x+signs[i]*0.1, y_positions[0]),
-    #     # (x+signs[i]*0.1, y_positions[-1]),
-    #     (0.5, 3),
-    #     (0.5, 1),
-    #     arrowprops=dict(
-    #         arrowstyle="->",
-    #         facecolor='gray',
-    #         fc="gray",
-    #         lw=0,
-    #         connectionstyle=f"bar,fraction=0.3")
-    #         # connectionstyle=f"bar,fraction={0.2*signs[i]}")
-    #     )
-
-    arrow = FancyArrowPatch(
-        posA=(x + signs[i] * 0.1, y_positions[-1]),  # Right of top box
-        posB=(x + signs[i] * 0.1, y_positions[0]),  # Right of bottom box
-        connectionstyle=f"bar,fraction={0.2 * signs[i]}",  # Top down with bend
-        arrowstyle="->,head_length=1,head_width=1",
-        color="gray",
-        linewidth=1,
-    )
-    ax.add_patch(arrow)
-
-#################
-
-# gs_histo = gridspec.GridSpecFromSubplotSpec(
-#     3, 1, subplot_spec=gs_top[1, 0]
-# )
-
-# subplot(gs_histo[0,0])
-# noaxis(gca())
-# img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/LMN-PSB-opto.png")
-# imshow(img, aspect="equal")
-# xticks([])
-# yticks([])
+gs1 = gridspec.GridSpecFromSubplotSpec(4,3, gs_top[0,0],
+                                       hspace = 0.1, wspace = 0.19, width_ratios=[0.2, 0.5, 0.5],
+                                       height_ratios=[0.2,0.2,0.2,0.2]
+                                       )
 
 
-# subplot(gs_histo[1,0])
-# noaxis(gca())
-# img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/A8066_S7_3_2xMerged.png")
-# imshow(img, aspect="equal")
-# xticks([])
-# yticks([])
+dropbox_path = os.path.expanduser("~") + "/Dropbox/LMNphysio/data"
+
+filepath = os.path.join(dropbox_path, "DATA_FIG_LMN_ADN_A5011-201014A.pickle")
+data = cPickle.load(open(filepath, 'rb'))
 
 
-# subplot(gs_histo[2,0])
-# noaxis(gca())
-# img = mpimg.imread(os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/A8066_S7_3_4xMerged.png")
-# imshow(img, aspect="equal")
-# xticks([])
-# yticks([])
+tcurves = data['tcurves']
+angle = data['angle']
+peaks = data['peaks']
+spikes = data['spikes']
+lmn = data['lmn']
+adn = data['adn']
+wake_ep = data['wake_ep']
+sws_ep = data['sws_ep']
 
 
+exs = {'wak':nap.IntervalSet(start = 7587976595.668784, end = 7604189853.273991, time_units='us'),
+       'sws':nap.IntervalSet(start = 15038.3265, end = 15039.4262, time_units = 's')}
+neurons={'adn':adn,'lmn':lmn}
 
-###########################################
-# BOTTOM PANELS
-###########################################
-gs_bottom = gridspec.GridSpecFromSubplotSpec(
-    2, 1, subplot_spec=outergs[1, 0], hspace=0.4
-)
+tokeep = np.sort(np.hstack((adn,lmn)))
+decoded, P = nap.decode_1d(tcurves[tokeep], spikes[tokeep], exs['sws'], 0.01)
 
-exs = {
-    'wak': {
-        'ipsi': ("B3700/B3704/B3704-240609A", nap.IntervalSet(5187, 5215)),
-        "bilateral": ("B2800/B2810/B2810-240925B", nap.IntervalSet(8311, 8337))
-    },
-    'sws': {
-        "ipsi": ("B3700/B3704/B3704-240608A", nap.IntervalSet(4112.6, 4115.5)),
-        "bilateral": ("B2800/B2809/B2809-240904B", nap.IntervalSet(4104.95, 4108.0))
-    }
-}
-# ##########################################
-# # ADN OPTO iPSILATERAL SLEEP
-# ##########################################
+peak = pd.Series(index=tcurves.columns,data = np.array([circmean(tcurves.index.values, tcurves[i].values) for i in tcurves.columns]))
 
-titles = ["Wakefulness", "Non-REM sleep"]
+n_adn = peak[adn].sort_values().index.values[-4]
+n_lmn = peak[lmn].sort_values().index.values[-8]
 
-st = 'adn'
-f = "bilateral"
-orders = ('adn', 'opto', f, 'opto')
-
-for i, ranges, name in zip(
-        [0, 1],
-        [(-8,0,10,18), (-0.8, 0, 1, 1.8)],
-        ["WAKE", "SLEEP"]):
+ex_neurons = [n_adn, n_lmn]
 
 
-    data = cPickle.load(open(os.path.expanduser(f"~/Dropbox/LMNphysio/data/OPTO_{name}.pickle"), 'rb'))
-    allr = data['allr']
-    corr = data['corr']
-    change_fr = data['change_fr']
-    allfr = data['allfr']
-    baseline = data['baseline']
+for j, e in enumerate(['wak', 'sws']):
 
-
-
-    gs_corr = gridspec.GridSpecFromSubplotSpec(1, 3, gs_bottom[i, 0],
-                                               wspace=0.6, width_ratios=[0.5, 0.3, 0.4])
-
-    ####################
-    # EXAMPLE
-    ####################
-
-    s, ex = exs[['wak', 'sws'][i]][f]
-
-    path = os.path.join(data_directory, "OPTO", s)
-
-    spikes, position, wake_ep, opto_ep, sws_ep, tuning_curves = load_opto_data(path, "adn")
-
-    gs_ex = gridspec.GridSpecFromSubplotSpec(2, 1, gs_corr[0, 0], hspace=0.2, height_ratios=[0.6, 0.4])
-
-    subplot(gs_ex[0, 0])
+    subplot(gs1[3,j+1])
     simpleaxis(gca())
+    # gca().spines['bottom'].set_visible(False)
 
-    ms = 2.5 if i == 0 else 5
+    for i, st in enumerate(['adn', 'lmn']):
+        if e == 'wak':
+            angle2 = angle
+        if e == 'sws':
+            angle2 = decoded
 
-    plot(spikes.to_tsd("order").restrict(ex), '|', color=colors[st],
-         markersize=2, mew=0.5
-         )
+        spk = spikes[ex_neurons[i]]
+        isi = nap.Tsd(t = spk.index.values[0:-1], d=np.diff(spk.index.values))
+        idx = angle2.as_series().index.get_indexer(isi.index, method="nearest")
+        isi_angle = pd.Series(index = angle2.index.values, data = np.nan)
+        isi_angle.loc[angle2.index.values[idx]] = isi.values
+        isi_angle = isi_angle.ffill()
 
-    s, e = opto_ep.intersect(ex).values[0]
-    # print(s, e)
-    if i == 0:
-        height = 0.8
-    else:
-        height = 0.8
-    rect = patches.Rectangle((s, len(spikes) + 1 + (1 - height) * i), width=e - s, height=height,
-                             linewidth=0, facecolor=opto_color)
-    gca().add_patch(rect)
-    [axvline(t, color=COLOR, linewidth=0.1, alpha=0.5) for t in [s, e]]
+        isi_angle = nap.Tsd(isi_angle)
+        isi_angle = isi_angle.restrict(exs[e])
 
-    ylim(-1, len(spikes) + 2)
-    xlim(ex.start[0], ex.end[0])
+        # isi_angle = isi_angle.value_from(isi, exs[e])
+        semilogy(isi_angle, '-', color = colors[st], linewidth = 0.5, markersize = 0.5, alpha=1)
+
+    xlim(exs[e].loc[0,'start'], exs[e].loc[0,'end'])
+    ylim(0.001, 10)
+
     xticks([])
-    yticks([0, len(spikes) - 1], [1, len(spikes)])
-    gca().spines['left'].set_bounds(0, len(spikes) - 1)
-    gca().spines['bottom'].set_bounds(s, e)
-    ylabel("Neurons")
-    # title("Non-REM sleep")
-    title(titles[i])
-
-    #
-    exex = nap.IntervalSet(ex.start[0] - 10, ex.end[0] + 10)
-
-    # tuning_curves = tuning_curves[spikes.keys()]
-    # tuning_curves = tuning_curves/tuning_curves.max()
-
-    tuning_curves = nap.compute_1d_tuning_curves(spikes, position['ry'], 24, minmax=(0, 2 * np.pi),
-                                                 ep=position.time_support.loc[[0]])
-    tuning_curves = smoothAngularTuningCurves(tuning_curves)
-
-    if i == 0:
-        da, P = nap.decode_1d(tuning_curves, spikes.count(0.05, exex).smooth(0.1, size_factor=10), exex, 0.01)
+    if j == 0:
+        yticks([0.001, 0.1, 10], [0.001, 0.1, 10])
     else:
-        da, P = nap.decode_1d(tuning_curves, spikes.count(0.01, exex).smooth(0.02, size_factor=10), exex, 0.01)
+        yticks([0.001, 0.1, 10], ["", "", ""])
 
-    # p = spikes.count(0.01, exex).smooth(0.04, size_factor=20)
-    # d=np.array([p.loc[i] for i in spikes.index[np.argsort(spikes.order)]]).T
-    # p = nap.TsdFrame(t=p.t, d=d, time_support=p.time_support)
-    # p = np.sqrt(p / p.max(0))
-    # # p = 100*(p / p.max(0))
 
-    subplot(gs_ex[1, 0])
+    if j == 0:
+        ylabel('ISI (s)')#, rotation =0, y=0.4, labelpad = 15)
+
+    if j == 0:
+        s, e = exs[e].start[0], exs[e].end[0]
+        gca().spines['bottom'].set_bounds(e - 5, e)
+        xticks([e - 5, e], ["", ""])
+        text(e - 2.5, -2.2, s="5 sec.", va="center", ha="center")
+
+    if j == 1:
+        s, e = exs[e].start[0], exs[e].end[0]
+        gca().spines['bottom'].set_bounds(e - 0.4, e)
+        xticks([e - 0.4, e], ["", ""])
+        text(e - 0.2, -2.2, s="0.4 sec.", va="center", ha="center")
+
+
+for i, st in enumerate(['adn', 'lmn']):
+
+    subplot(gs1[i, 0])
     simpleaxis(gca())
-    tmp = P.restrict(ex)
-    d = gaussian_filter(tmp.values, 1)
-    tmp2 = nap.TsdFrame(t=tmp.index.values, d=d)
+    tmp = tcurves[ex_neurons[i]]
+    tmp = tmp / tmp.max()
+    plot(tmp.values, tmp.index.values, linewidth = 1, color = colors[st])
 
-    # im = pcolormesh(tmp2.index.values,
-    #         np.linspace(0, 2*np.pi, tmp2.shape[1]),
-    #         tmp2.values.T, cmap='turbo', antialiased=True)
-
-    im = imshow(tmp2.values.T,
-                extent=(ex.start[0], ex.end[0], 0, 2 * np.pi),
-                aspect='auto', origin='lower', cmap='coolwarm')
-
-    yticks([0, 2 * np.pi], [0, 360])
-
-    if i == 0:
-        plot(position['ry'].restrict(ex), '.', markersize=0.7, markerfacecolor=COLOR, markeredgecolor=None, markeredgewidth=0)
-    else:
-
-        H = np.sum(P * np.log(P.values), 1)
-        H = H - H.min()
-        H = H / H.max()
-        a_ex = H.threshold(0.1).time_support.intersect(ex)
-
-        for s, e in a_ex.values:
-            plot(da.get(s, e), 'o', markersize=0.5, markerfacecolor=COLOR, markeredgecolor=None, markeredgewidth=0)
-
-        s, e = opto_ep.intersect(ex).values[0]
-
-    gca().spines['bottom'].set_bounds(s, e)
-    xticks([s, e], ['', ''])
+    # gca().invert_xaxis()
+    # gca().yaxis.tick_right()
+    gca().spines['left'].set_bounds(0, 2*np.pi)
+    # gca().spines['top'].set_visible(False)
+    yticks([0, 2*np.pi], [0, 360])
+    ylabel(names[st], rotation=0)
+    # xticks([tmp.values.max()], [str(int(tmp.values.max()))])
 
     if i == 1:
-        xlabel("1 s", labelpad=-1)
-    elif i == 0:
-        xlabel("10 s", labelpad=-1)
-
-    ylabel("Direction (°)")  # , labelpad=4)
-
-    # Colorbar
-    axip = gca().inset_axes([1.03, 0.0, 0.02, 0.75])
-    noaxis(axip)
-    cbar = colorbar(im, cax=axip)
-    axip.set_title("P", y=0.8)
-
-    if i == 0:
-        axip.set_yticks([0, 0.2], [0, 0.2])
+        xticks([0, 1], [0, 100])
+        xlabel("Rate (%)")
     else:
-        axip.set_yticks([0.0, 0.1], [0, 0.1])
+        xticks([])
+
+
+    for j, e in enumerate(['wak', 'sws']):
+        subplot(gs1[i,j+1])
+        simpleaxis(gca())
+        ylim(0, 2*np.pi)
+        xticks([])
+        if e == 'wak':
+            tmp = angle.restrict(exs[e])
+            tmp = tmp.as_series().rolling(window=40, win_type='gaussian', center=True, min_periods=1).mean(std=2.0)
+            plot(tmp, linewidth = 1, color = COLOR, label = 'H.D.')
+        if e == 'sws':
+            tmp2 = decoded
+            tmp2 = smoothAngle(tmp2, 2)
+            tmp2 = tmp2.restrict(exs[e])
+            # iset=np.abs(np.gradient(tmp2)).threshold(1.0, method='below').time_support
+            iset = np.abs(tmp2.derivative() / 120).threshold(1.0, method='below').time_support
+            for a, b in iset.values:
+                plot(tmp2.get(a, b), linestyle='-', linewidth=1, color='grey')
+            plot(tmp2.get(a, b), linestyle='-', linewidth=1, color='grey', label="Decoded H.D.")
+
+        if i == 0:
+            title(Epochs[j])
+        n = ex_neurons[i]
+        spk = spikes[n].restrict(exs[e]).index.values
+        #clr = hsluv.hsluv_to_rgb([tcurves[n].idxmax()*180/np.pi,85,45])
+        plot(spk, np.ones_like(spk)*tcurves[n].idxmax(), '|', color = colors[st], markersize = 3, markeredgewidth = 0.4)
+        yticks([])
+        xlim(exs[e].loc[0,'start'], exs[e].loc[0,'end'])
+        if i == 1 and j == 0:
+            # xlabel(str(int(exs[e].tot_length('s')))+' s', horizontalalignment='center')#, x=1.0)
+            s, e = exs[e].start[0], exs[e].end[0]
+            gca().spines['bottom'].set_bounds(e-5,e)
+            xticks([e-5, e], ["", ""])
+            text(e-2.5, -2.2, s="5 sec.", va="center", ha="center")
+
+        elif i == 1 and j == 1:
+            # xlabel(str(int(exs[e].tot_length('s')))+' s', horizontalalignment='center')#, x=1.0)
+            s, e = exs[e].start[0], exs[e].end[0]
+            gca().spines['bottom'].set_bounds(e-0.4,e)
+            xticks([e-0.4, e], ["", ""])
+            text(e-0.2, -2.2, s="0.4 sec.", va="center", ha="center")
+        else:
+            gca().spines['bottom'].set_visible(False)
+
+        # if j == 0:
+        yticks([0, 2*np.pi], [])
+        # ylabel(names[i], rotation=0)
+        if i == 1:
+            if j == 0:
+                legend(handlelength = 1.0, frameon=False, bbox_to_anchor=(0.4, -0.9, 0.5, 0.5))
+            else:
+                legend(handlelength = 1.0, frameon=False, bbox_to_anchor=(0.9, -0.9, 0.5, 0.5))
 
 
 
 
 
-    ####################
-    # FIRING rate change
-    ####################
-    gs_fr = gridspec.GridSpecFromSubplotSpec(2, 1, gs_corr[0, 1], hspace=0.6)
 
-    subplot(gs_fr[0, 0])
+
+
+########################################################################################
+# ISI HD MAPS
+########################################################################################
+data = cPickle.load(open(os.path.join(dropbox_path, 'ALL_LOG_ISI.pickle'), 'rb'))
+logisi = data['logisi']
+frs = data['frs']
+
+pisi = {'adn':cPickle.load(open(os.path.join(dropbox_path, 'PISI_ADN.pickle'), 'rb')),
+        'lmn':cPickle.load(open(os.path.join(dropbox_path, 'PISI_LMN.pickle'), 'rb'))}
+
+
+
+mkrstype = ['-', '--']
+
+gs2 = gridspec.GridSpecFromSubplotSpec(3,4, gs_top[0,1],
+                                       wspace = 0.4, hspace = 0.2,
+                                       height_ratios=[0.1,0.2,0.2], width_ratios=[0.5, 0.5, 0.02, 0.3])
+
+for j, e in enumerate(['wak', 'sws']):
+    subplot(gs2[0,j])
+    simpleaxis(gca())
+    for i, st in enumerate(['adn', 'lmn']):
+        tc = pisi[st]['tc_'+e]
+        tc = tc/tc.max(0)
+        m = tc.mean(1)
+        s = tc.std(1)
+        plot(m, mkrstype[j], label = names[st], color = colors[st], linewidth = 1)
+        fill_between(m.index.values,  m-s, m+s, color = colors[st], alpha = 0.1)
+
+        ylim(0, 1.01)
+        xticks([-np.pi, 0, np.pi], ['', '', ''])
+        xlim(-np.pi, np.pi)
+
+    if j==0:
+        ylabel(r"Rate (%)")
+        yticks([0, 1], [0, 100])
+    else:
+        yticks([0, 1], ['', ''])
+    title(epochs[e])
+    # if j==1:
+    #     legend(handlelength = 0.6, frameon=False, bbox_to_anchor=(1.2, 0.55, 0.5, 0.5))
+
+# Precompute map
+
+pisihd = {}
+minmax = []
+for i, st in enumerate(['adn', 'lmn']):
+    pisihd[st] = {}
+    for j, e in enumerate(['wak', 'sws']):
+        cut = -40
+        bins = pisi[st]['bins'][0:cut]
+        xt = [np.argmin(np.abs(bins - x)) for x in [10**-2, 1]]
+        tmp = pisi[st][e].mean(0)[0:cut]
+        tmp2 = np.hstack((tmp, tmp, tmp))
+        tmp2 = gaussian_filter(tmp2, sigma=(1, 1))
+        tmp3 = tmp2[:,tmp.shape[1]:tmp.shape[1]*2]
+        tmp3 = tmp3/tmp3.sum(0)
+        tmp3 = tmp3*100.0
+        pisihd[st][e] = tmp3
+        minmax.append([np.min(tmp3), np.max(tmp3)])
+minmax = np.array(minmax)
+
+for i, st in enumerate(['adn', 'lmn']):
+
+    for j, e in enumerate(['wak', 'sws']):
+        subplot(gs2[i+1,j])
+
+        im = imshow(pisihd[st][e], cmap = 'bwr',
+                    aspect= 'auto', origin='lower')
+
+        yticks(xt, ['',''])
+
+        if i == 0:
+            xticks([0, tmp3.shape[1]//2, tmp3.shape[1]-1], ['', '', ''])
+        if i == 1:
+            xticks([0, tmp3.shape[1]//2, tmp3.shape[1]-1], ['-180', '0', '180'])
+            xlabel('Centered HD')
+
+        if j == 1:
+            yticks(xt, ['', ''])
+            # ylabel(names[st], rotation=0, labelpad=8)
+            # text(names[st], 1, 0.5)
+        if j == 0:
+            yticks(xt, ['0.01', '1'])
+            ylabel('ISI (s)')
+            text(-1.0, 0.5, s=names[st], va="center", ha="left", transform=gca().transAxes)
+
+
+# Colorbar
+axip = gca().inset_axes([1.2, 2.3, 0.1, 0.7])
+# noaxis(axip)
+cbar = colorbar(im, cax=axip)
+axip.set_title("%", y=0.8)
+
+
+
+
+for i, st in enumerate(['adn', 'lmn']):
+    subplot(gs2[i+1,3])
+    simpleaxis(gca())
+    linestyle = ['-', '--']
+
+    for j, e in enumerate(['wak', 'sws']):
+        cut = -40
+        bins = pisi[st]['bins'][0:cut]
+        tmp = pisi[st][e].mean(0)[0:cut]
+        y = tmp.mean(1)
+        y = (y/y.sum())*100
+        semilogy(y, bins[0:-1], linestyle=linestyle[j], linewidth=0.8, color=colors[st],
+                 label=epochs[e]
+                 )
+
+    yticks([0.01, 1], ['0.01', '1'])
+    xlim(0, 1.8)
+    if i == 0:
+        xticks([0, 1], ['',''])
+        legend(handlelength = 1.1, frameon=False, bbox_to_anchor=(1.2, 1.4, 0.5, 0.5))
+    if i == 1:
+        xticks([0, 1])
+        xlabel("%")
+
+
+
+
+
+
+#########################################
+# Gaussian Mixture fit
+#########################################
+
+data = cPickle.load(open(os.path.join(dropbox_path, 'All_ISI.pickle'), 'rb'))
+
+pr2 = data['pr2']
+
+
+
+
+gs3 = gridspec.GridSpecFromSubplotSpec(2,2, gs_top[0,2],
+                                       wspace = 0.6, hspace = 0.9, height_ratios=[0.5, 0.5])
+
+
+
+bins = np.geomspace(0.001, 10.0, 50)
+
+# for i, st in enumerate(['adn']):
+st = 'adn'
+subplot(gs3[0,:])
+simpleaxis(gca())
+# for j, ep in enumerate([sws_ep]):
+
+td = spikes[ex_neurons[0]].time_diff(epochs=sws_ep)
+
+counts, edges = np.histogram(td.values, bins)
+bin_widths = np.diff(edges)
+pmf = (counts/counts.sum())*100
+
+fill_between(bins[0:-1], pmf, step='post', alpha=0.5, color='grey', edgecolor='None')
+plot(bins[0:-1], pmf, drawstyle='steps-post', color='k', linewidth=0)  # outline
+
+# Plotting the fit
+# x_plot = np.linspace(np.log(bins.min()), np.log(bins.max()), 100).reshape(-1, 1)
+x_plot = np.log(bins).reshape(-1, 1)
+from sklearn.mixture import GaussianMixture
+gmms = []
+for n_components in [1, 2]:
+    gmm = GaussianMixture(n_components=n_components, random_state=0)
+    gmm.fit(np.log(td.values)[:,None])
+    gmms.append(gmm)
+
+colors2 = ['#1b9e77', '#d95f02']
+
+for k, gmm in enumerate(gmms):
+    logprob = gmm.score_samples(x_plot)
+    pdf = np.exp(logprob)
+    pdf = (pdf/pdf.sum())*100
+    plot(bins, pdf, linewidth=1, color=colors2[k], alpha=0.5)
+
+    # legend()
+    if k == 0:
+        annotate(f"$Ll_1={np.round(np.sum(logprob),1)}$",
+                 xy=(bins[25], pdf[25]),
+                 xytext = (bins[34], pdf[25]-0.8),
+                 arrowprops=dict(
+                     arrowstyle="-",
+                     linewidth=0.1,
+                     color=COLOR,
+                     shrinkB=0,
+                     shrinkA=0.1
+                 ),
+                 ha="left",
+                 va="center",
+                 fontsize=fontsize-2
+                 )
+    if k == 1:
+        annotate(f"$Ll_2={np.round(np.sum(logprob),1)}$",
+                 xy=(bins[16], pdf[16]),
+                 xytext = (bins[31], pdf[16]-0.4),
+                 arrowprops=dict(
+                     arrowstyle="-",
+                     linewidth=0.1,
+                     color=COLOR,
+                     shrinkB=0,
+                     shrinkA=0.1
+                 ),
+                 ha="left",
+                 va="center",
+                 fontsize=fontsize-2
+                 )
+
+
+gca().spines['bottom'].set_bounds(bins[0], bins[-1])
+xscale("log")
+title("Ex. " + names[st] + "\n Gaussian Mixture", y=0.8)
+xticks([0.001, 0.1, 10], ['0.001', '0.1', '10'])
+xlabel("ISI (s)")
+ylabel("Prop. (%)")
+
+#################
+# PR2
+#################
+
+
+for j, e in enumerate(['wak', 'sws']):
+
+    subplot(gs3[1,j])
+
     simpleaxis(gca())
 
-    s, e = ranges[1], ranges[2]
-    rect = patches.Rectangle((s, 1.8), width=e - s, height=0.2,
-                             linewidth=0, facecolor=opto_color)
-    gca().add_patch(rect)
-    [axvline(t, color=COLOR, linewidth=0.1, alpha=0.5) for t in [s, e]]
+    title(epochs[e], y=0.9)
 
-    keys = orders
-    tmp = allfr[keys[0]][keys[1]][keys[2]]
-    tmp = tmp.apply(lambda x: gaussian_filter1d(x, sigma=1.5, mode='constant'))
-    tmp = tmp.loc[ranges[0]:ranges[-1]]
-    m = tmp.mean(1)
-    s = tmp.std(1)
+    tmp = [pr2[st][e] for st in ['adn', 'lmn']]
 
-    # plot(tmp, color = 'grey', alpha=0.2)
-    plot(tmp.mean(1), color=COLOR, linewidth=0.75)
-    fill_between(m.index.values, m.values - s.values, m.values + s.values, color=COLOR, alpha=0.2, ec=None)
+    vp = violinplot(tmp, [1,2], showmeans=False,
+                    showextrema=False, vert=True)#, side='high')
 
-    xlabel("Opto. time (s)", labelpad=1)
-    xlim(ranges[0], ranges[-1])
-    # ylim(0.0, 4.0)
-    title(titles[i])#, fontweight='bold')
-    xticks([ranges[1], ranges[2]])
-    ylim(0, 2)
-    ylabel("Norm. rate\n(a.u.)")
-
-    subplot(gs_fr[1, 0])
-    simpleaxis(gca())
-
-    # ch_fr = change_fr[keys[0]][keys[1]][keys[2]]['opto']
-
-    chfr = change_fr[keys[0]][keys[1]][keys[2]]
-    delta = (chfr['opto'] - chfr['pre']) / chfr['pre']
-
-    num_bins = 30
-    bins = np.linspace(-1, 1, num_bins + 1)
-
-    hist(delta.values, bins=bins, histtype="stepfilled", facecolor=COLOR, edgecolor=COLOR)
-    axvline(0, color=COLOR, linestyle='--', linewidth=0.5)
-
-    ylabel("Prop (%)", labelpad=1)
-    xlabel("Rate mod.", labelpad=1)
-    ylim(0, 30)
-
-    # zw, p = scipy.stats.ttest_1samp(np.array(delta.values).astype(float), popmean=0)
-    zw, p = scipy.stats.wilcoxon(np.array(delta.values).astype(float))
-    signi = np.digitize(p, [1, 0.05, 0.01, 0.001, 0.0])
-    text(0.6, 0.8, s=map_significance[signi], va="center", ha="left", transform=gca().transAxes)
-
-    print("Rate mode Wilcoxon", zw, p, len(np.array(delta.values).astype(float)),
-          np.mean(np.array(delta.values).astype(float)))
-
-    colors2 = [opto_color, "#FF7F50"]
-
-    ###############################
-    # CHRIMSON CHRIMSON COMPARAISON
-    ###############################
-
-    gs_opto = gridspec.GridSpecFromSubplotSpec(2, 1, gs_corr[0, 2], hspace=0.4)
-
-    orders2 = [('adn', 'opto', f, 'opto'),
-               ('adn', 'opto', f, 'decimated')]
-
-    ###########################
-    ax1 = subplot(gs_opto[0, 0])
-    simpleaxis(gca())
-    title("Matching FR", y=0.8)
-    gca().spines['bottom'].set_bounds(1, 2)
-    # gca().spines['left'].set_visible(False)
-    # yticks([])
-
-    corr3 = corr['adn']['opto'][f]
-    corr3 = corr3[corr3['n'] > 4]
-    base3 = baseline['adn']['opto'][f]
-    base3 = base3.loc[corr3.index.values]
-
-    corr3 = corr3[['opto', 'decimated']]
-    base3 = base3[['opto', 'decimated']]
-
-    for s in corr3.index:
-        plot([1, 2], corr3.loc[s, ['opto', 'decimated']], '-', color=COLOR, linewidth=0.1)
-    plot(np.ones(len(corr3)), corr3['opto'], 'o', color=opto_color, markersize=1)
-    plot(np.ones(len(corr3)) * 2, corr3['decimated'], 'o', color="grey", markersize=1)
-
-    # ymin = corr3['opto'].min()
-    ymin = -0.12
-    ylim(ymin, 1.1)
-    xlim(0.5, 3)
-    gca().spines['left'].set_bounds(ymin, 1.0)
-    ylabel("Pop. coherence (r)", y=0, labelpad=3)
-
-    # ylabel("Pearson r")
-    xticks([1, 2], ['Chrimson', 'Control'], fontsize=fontsize)
-
-    ##########################
-    ax2 = subplot(gs_opto[1, 0])
-    simpleaxis(gca())
-    # gca().spines['left'].set_visible(False)
-    # yticks([])
-    ylim(-0.5, 1)
-    xlim(0.5, 3)
-    gca().spines['bottom'].set_bounds(1, 2)
-    xlabel("minus baseline", labelpad=1)
-    plot([1, 2.2], [0, 0], linestyle='--', color=COLOR, linewidth=0.2)
-    plot([2.2], [0], 'o', color=COLOR, markersize=0.5)
-
-    tmp = corr3 - base3
-
-    vp = violinplot(tmp, showmeans=False,
-                    showextrema=False, vert=True, side='high'
-                    )
-    colors4 = [opto_color, "grey"]
     for k, p in enumerate(vp['bodies']):
-        p.set_color(colors4[k])
+        p.set_color(colors[['adn','lmn'][k]])
         p.set_alpha(1)
 
-    m = tmp.mean(0).values
+    m = [tmp[i].mean(0) for i in range(2)]
     plot([1, 2], m, 'o', markersize=0.5, color=COLOR)
 
-    xticks([1, 2], ['', ''])
-    # ylabel(r"Mean$\Delta$")
+    xticks([1, 2], ['ADN', 'LMN'], rotation=45)
+    ylim(-0.01, 0.3)
 
-    # COmputing tests
-    for i in range(2):
-        zw, p = scipy.stats.mannwhitneyu(corr3.iloc[:, i], base3.iloc[:, i], alternative='greater')
-        signi = np.digitize(p, [1, 0.05, 0.01, 0.001, 0.0])
-        text(i + 0.9, m[i] - 0.07, s=map_significance[signi], va="center", ha="right")
-
-        print("mannwhitneyu", i, f, zw, p)
+    # # COmputing tests
+    # for i in range(2):
+    #     zw, p = scipy.stats.wilcoxon(tmp[i])
+    #     signi = np.digitize(p, [1, 0.05, 0.01, 0.001, 0.0])
+    #     text(i+0.9, m[i]-0.01, s=map_significance[signi], va="center", ha="right")
 
     xl, xr = 2.5, 2.6
     plot([xl, xr], [m[0], m[0]], linewidth=0.2, color=COLOR)
     plot([xr, xr], [m[0], m[1]], linewidth=0.2, color=COLOR)
     plot([xl, xr], [m[1], m[1]], linewidth=0.2, color=COLOR)
-    zw, p = scipy.stats.mannwhitneyu(tmp['opto'].dropna(), tmp['decimated'].dropna())
+    zw, p = scipy.stats.mannwhitneyu(tmp[0].dropna(), tmp[1].dropna())
     signi = np.digitize(p, [1, 0.05, 0.01, 0.001, 0.0])
-    text(xr + 0.1, np.mean(m) - 0.07, s=map_significance[signi], va="center", ha="left")
+    text(xr+0.1, np.mean(m)-0.01, s=map_significance[signi], va="center", ha="left")
 
-    print("mannwhitneyu across", f, zw, p)
+    if j == 1:
+        yticks([0.0, 0.3], ['', ''])
+    else:
+        yticks([0.0, 0.3])
+        ylabel(r"Bimodality ($pR^{2}$)")
 
-outergs.update(top=0.92, bottom=0.06, right=0.99, left=0.07)
+    gca().spines['bottom'].set_bounds(1, 2)
+
+    print("mannwhitneyu", e, zw, p)
+
+
+
+
+outergs.update(top=0.91, bottom=0.12, right=0.98, left=0.06)
+
 
 savefig(
     os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2025/fig5.pdf",
