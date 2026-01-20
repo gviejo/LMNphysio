@@ -46,11 +46,11 @@ def smoothAngularTuningCurves(tuning_curves, window=20, deviation=3.0):
 
 # 5
 # np.random.seed(5)
-np.random.seed(0)
+np.random.seed(42)
 
 N_t = 10000
 
-m_wake = Model(D_lmn=0.0, noise_lmn_ = 2.0, N_t=N_t)  # Wake
+m_wake = Model(D_lmn=0.0, noise_lmn_ = 1.0, N_t=N_t)  # Wake
 m_wake.run()
 
 m_sws = Model(I_lmn=0.0, N_t=N_t)  # Sleep
@@ -311,5 +311,5 @@ datatosave = {
 }
 import _pickle as cPickle
 
-filepath = os.path.join(os.path.expanduser("~") + "/Dropbox/LMNphysio/model/model_rings.pickle")
-cPickle.dump(datatosave, open(filepath, 'wb'))
+# filepath = os.path.join(os.path.expanduser("~") + "/Dropbox/LMNphysio/model/model_rings.pickle")
+# cPickle.dump(datatosave, open(filepath, 'wb'))

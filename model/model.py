@@ -61,17 +61,17 @@ class Model:
     noise_lmn_ = 6.0
     noise_adn_ = 0.1
     noise_trn_ = 0.1
-    w_lmn_adn_ = 0.39    # LMN to ADN weight
+    w_lmn_adn_ = 0.32    # LMN to ADN weight
     w_adn_trn_ = 1.0    # ADN to TRN weight
-    w_trn_adn_ = 0.05   # TRN to ADN weight
-    beta_adn = 3.0      # ADN non-linearity slope
+    w_trn_adn_ = 0.04   # TRN to ADN weight
+    beta_adn = 4.0      # ADN non-linearity slope
     thr_adn = 1.0       # ADN non-linearity threshold
     sigma_adn_lmn = 100 # LMN to ADN weight spread
     D_lmn = 0.025        # LMN drive during sleep
 
-    w_psb_lmn_ = 0.11    # OPTO PSB Feedback
+    w_psb_lmn_ = 0.12    # OPTO PSB Feedback
     sigma_psb_lmn = 100  # PSB to LMN weight spread
-    I_lmn = 0.43         # LMN wakefulness drive
+    I_lmn = 0.4         # LMN wakefulness drive
 
 
     def __init__(self, N_t=2000, **kwargs):

@@ -179,7 +179,7 @@ Epochs = ['Wake', 'Sleep']
 # MODEL
 gs_top = gridspec.GridSpecFromSubplotSpec(
     1, 2, subplot_spec=outergs[0,0],
-    width_ratios=[0.5, 0.8], wspace=0.1
+    width_ratios=[0.7, 0.8], wspace=0.2
 )
 
 
@@ -367,12 +367,12 @@ for name, hex_color in colors.items():
 
 
 gs_activity = gridspec.GridSpecFromSubplotSpec(
-    2, 3, subplot_spec=gs_top[0,1], wspace=0.3
+    2, 3, subplot_spec=gs_top[0,1], wspace=0.2, hspace=0.4
 )
 
 
-durations = [3000, 3000, 400]
-offset = 50
+durations = [2000, 1000, 400]
+offset = 100
 
 titles = ["'Wake'", "'Sleep'", "'Opto.'\n No PSB feedback"]
 
@@ -385,10 +385,11 @@ for i, st in enumerate(['adn', 'lmn']):
 
         # tmp = data[st][start:start+durations[j]].T
         tmp = data_model[st][e][offset:offset+durations[j]]
-        tmp = tmp/tmp.max()
+        tmp = gaussian_filter(tmp, sigma=(1, 1))
+        tmp = tmp / tmp.max()
 
         # im=imshow(tmp.T, origin='lower', aspect='auto', cmap=cmaps[st])
-        im=imshow(tmp.T, origin='lower', aspect='auto', cmap='turbo', vmin=0, vmax=1)
+        im=imshow(tmp.T, origin='lower', aspect='auto', cmap='turbo', vmax=1)
 
         if j == 0:
             ylabel(st.upper(), rotation=0, labelpad=6, y=0.5)
@@ -396,23 +397,74 @@ for i, st in enumerate(['adn', 'lmn']):
         else:
             yticks([0, tmp.shape[1]], ["", ""])
 
-        if i == 1:
-            xticks([0, durations[j]], [0, durations[j]])
-        else:
+
+
+        if i == 0:
+            title(titles[j], y=0.9)
             xticks([0, durations[j]], ["", ""])
-            title(titles[j])
 
-
-        if i == 1 and j == 1:
+        if i == 1:
             xlabel("Simulation steps")
+            xticks([0, durations[j]], [0, durations[j]])
 
         if j == 2:
             # Colorbar
-            axip = gca().inset_axes([1.3, 0.0, 0.1, 0.6])
+            axip = gca().inset_axes([1.2, 0.0, 0.05, 0.6])
             # noaxis(axip)
             cbar = colorbar(im, cax=axip)
             axip.set_title("Rate", y=1.0)
             axip.set_yticks([0, 1])
+
+# gs_parameters = gridspec.GridSpecFromSubplotSpec(
+#     2, 3, subplot_spec=gs_activity[2,:], wspace=0.2, hspace=0.5
+# )
+#
+# # Input parameters
+#
+# subplot(gs_parameters[0,0])
+# fill_between([0, durations[0]], [0, 0], [1, 1], color='lightgrey', alpha=0.4, linewidth=0)
+# plot([0, durations[0]], [1, 1], color='lightgrey', alpha=1, linewidth=1)
+# simpleaxis(gca())
+# xticks([0, durations[0]], ["", ""])
+# ylim(0, 1)
+# yticks([0, 1], [0, "$I_{ext}$"])
+# xlim(0, durations[0])
+#
+# for i in [1, 2]:
+#     subplot(gs_parameters[0,i])
+#     fill_between([0, durations[i]], [0, 0], [0, 0], color='lightgrey', alpha=0.4, linewidth=0)
+#     plot([0, durations[i]], [0, 0], color='lightgrey', alpha=1, linewidth=1)
+#     simpleaxis(gca())
+#     xticks([0, durations[i]], ["", ""])
+#     yticks([0, 1], ["", ""])
+#     xlim(0, durations[i])
+#     ylim(0, 1)
+#
+#
+# # PSB feedback
+#
+# for i in [0, 1]:
+#     subplot(gs_parameters[1,i])
+#     fill_between([0, durations[i]], [0, 0], [1, 1], color=colors['psb'], alpha=0.4, linewidth=0)
+#     plot([0, durations[i]], [1, 1], color=colors['psb'], alpha=1, linewidth=1)
+#     simpleaxis(gca())
+#     xticks([0, durations[i]], [0, durations[i]])
+#     if i == 0:
+#         yticks([0, 1], [0, r"$W_{PSB \rightarrow LMN}$"])
+#     else:
+#         yticks([0, 1], ["", ""])
+#     xlabel("Simulation steps")
+#     xlim(0, durations[i])
+#     ylim(0, 1)
+#
+# subplot(gs_parameters[1,2])
+# fill_between([0, durations[2]], [0, 0], [0, 0], color=colors['psb'])
+# simpleaxis(gca())
+# xticks([0, durations[2]], [0, durations[2]])
+# yticks([0, 1], ["", ""])
+# xlabel("Simulation steps")
+# xlim(0, durations[2])
+# ylim(0, 1)
 
 
 ###########################################
@@ -457,7 +509,7 @@ for row, region in enumerate(['adn', 'lmn']):
         np.random.shuffle(idx)
 
         ax.scatter(embedding[idx, 0], embedding[idx, 1],
-                   c=rgb_colors[idx], s=0.2, alpha=1)
+                   c=rgb_colors[idx], s=1, alpha=1, edgecolors='none')
 
         ax.set_xticks([])
         ax.set_yticks([])
@@ -580,7 +632,7 @@ for i, st in enumerate(['adn', 'lmn']):
 
 
 
-outergs.update(top=0.91, bottom=0.05, right=0.92, left=0.1)
+outergs.update(top=0.93, bottom=0.05, right=0.94, left=0.1)
 
 
 savefig(
