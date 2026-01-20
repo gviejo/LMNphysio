@@ -24,6 +24,7 @@ from scipy.stats import zscore
 
 # matplotlib.style.use('seaborn-paper')
 import matplotlib.image as mpimg
+import matplotlib.cm as cm
 
 from pycircstat.descriptive import mean as circmean
 import _pickle as cPickle
@@ -64,7 +65,7 @@ def figsize(scale):
     golden_mean = (np.sqrt(5.0) - 1.0) / 2  # Aesthetic ratio (you could change this)
     # fig_width = fig_width_pt*inches_per_pt*scale    # width in inches
     fig_width = 6
-    fig_height = fig_width * golden_mean * 0.56  # height in inches
+    fig_height = fig_width * golden_mean * 0.75  # height in inches
     fig_size = [fig_width, fig_height]
     return fig_size
 
@@ -160,7 +161,7 @@ markers = ["d", "o", "v"]
 
 fig = figure(figsize=figsize(1))
 
-outergs = GridSpec(1, 1)#, hspace = 0.6)#, height_ratios=[0.5,0.5])
+outergs = GridSpec(2, 1, hspace = 0.6)#, height_ratios=[0.5,0.5])
 
 
 names = {'adn':"ADN", 'lmn':"LMN"}
@@ -176,10 +177,11 @@ Epochs = ['Wake', 'Sleep']
 # BOTTOM
 # ##########################################
 # MODEL
-
-gs_bottom = gridspec.GridSpecFromSubplotSpec(
-    1, 2, subplot_spec=outergs[0,0], width_ratios = [0.4, 0.8], wspace=0.1
+gs_top = gridspec.GridSpecFromSubplotSpec(
+    1, 2, subplot_spec=outergs[0,0],
+    width_ratios=[0.5, 0.8], wspace=0.1
 )
+
 
 def ellipse_points(t, center, width, height, angle=0):
     x0, y0 = center
@@ -196,7 +198,7 @@ def ellipse_points(t, center, width, height, angle=0):
     return x_final, y_final
 
 # Diagram
-ax = subplot(gs_bottom[0,0])
+ax = subplot(gs_top[0,0])
 title("Model")
 noaxis(ax)
 from matplotlib.patches import Ellipse
@@ -348,9 +350,9 @@ for i, y in enumerate([y_lmn, y_adn, 0.75]):
 # Activity
 ######################################
 
-filepath = os.path.join(os.path.expanduser("~") + "/Dropbox/LMNphysio/model/model.pickle")
-data = cPickle.load(open(filepath, 'rb'))
-popcoh = data['popcoh']
+filepath = os.path.join(os.path.expanduser("~") + "/Dropbox/LMNphysio/model/model_rings.pickle")
+data_model = cPickle.load(open(filepath, 'rb'))
+popcoh = data_model['popcoh']
 
 import matplotlib.colors as mcolors
 cmaps = {}
@@ -359,18 +361,18 @@ for name, hex_color in colors.items():
     cmaps[name] = mcolors.LinearSegmentedColormap.from_list(name, ['white', hex_color])
 
 
-gs_bottom2 = gridspec.GridSpecFromSubplotSpec(
-    1, 3, subplot_spec=gs_bottom[0,1], wspace=0.4, width_ratios=[0.6, 0.01, 0.4]
-)
+# gs_top2 = gridspec.GridSpecFromSubplotSpec(
+#     1, 3, subplot_spec=gs_top[0,1], wspace=0.4, width_ratios=[0.6, 0.01, 0.4]
+# )
 
 
 gs_activity = gridspec.GridSpecFromSubplotSpec(
-    2, 3, subplot_spec=gs_bottom2[0,0], wspace=0.5
+    2, 3, subplot_spec=gs_top[0,1], wspace=0.3
 )
 
 
-durations = [2000, 1000, 100]
-offset = 100
+durations = [3000, 3000, 400]
+offset = 50
 
 titles = ["'Wake'", "'Sleep'", "'Opto.'\n No PSB feedback"]
 
@@ -382,11 +384,11 @@ for i, st in enumerate(['adn', 'lmn']):
         # start = int(sl.start + (sl.stop - sl.start)/2)
 
         # tmp = data[st][start:start+durations[j]].T
-        tmp = data[st][e][offset:offset+durations[j]]
+        tmp = data_model[st][e][offset:offset+durations[j]]
         tmp = tmp/tmp.max()
 
         # im=imshow(tmp.T, origin='lower', aspect='auto', cmap=cmaps[st])
-        im=imshow(tmp.T, origin='lower', aspect='auto', cmap='bwr', vmin=0, vmax=1)
+        im=imshow(tmp.T, origin='lower', aspect='auto', cmap='turbo', vmin=0, vmax=1)
 
         if j == 0:
             ylabel(st.upper(), rotation=0, labelpad=6, y=0.5)
@@ -413,11 +415,76 @@ for i, st in enumerate(['adn', 'lmn']):
             axip.set_yticks([0, 1])
 
 
+###########################################
+# BOTTOM
+###########################################
+gs_bottom = gridspec.GridSpecFromSubplotSpec(
+    1, 2, subplot_spec=outergs[1,0], width_ratios = [0.4, 0.2], wspace=0.3
+)
+
+
+######################################
+# Embeddings
+######################################
+embeddings = data_model['embeddings']
+
+# Angles for coloring
+angles_dict = {
+    'wake': data_model['angle_tsd'],
+    'sws': data_model['decoded_sws'][data_model['mask_sws']],
+    'opto': data_model['decoded_opto'][data_model['mask_opto']]
+}
+
+gs_embeddings = gridspec.GridSpecFromSubplotSpec(
+    2, 3, subplot_spec=gs_bottom[0,0], wspace=0.3, hspace=0.3
+)
+
+titles_emb = ["'Wake'", "'Sleep'", "'Opto. No PSB feedback'"]
+
+for row, region in enumerate(['adn', 'lmn']):
+    for col, name in enumerate(['wake', 'sws', 'opto']):
+        ax = subplot(gs_embeddings[row, col])
+        simpleaxis(ax)
+
+        embedding = embeddings[region][name]
+        ang = angles_dict[name][1000:]
+        ang_normalized = (ang % (2 * np.pi)) / (2 * np.pi)
+        rgb_colors = cm.twilight_shifted(ang_normalized)
+
+        # Select random points for visualization
+        n_points = min(4000, len(embedding))
+        idx = np.random.choice(np.arange(len(embedding)), size=n_points, replace=False)
+        np.random.shuffle(idx)
+
+        ax.scatter(embedding[idx, 0], embedding[idx, 1],
+                   c=rgb_colors[idx], s=0.2, alpha=1)
+
+        ax.set_xticks([])
+        ax.set_yticks([])
+
+        if row == 0:
+            ax.set_title(titles_emb[col])
+        if col == 0:
+            ax.set_ylabel(region.upper(), rotation=0, labelpad=15, y=0.5)
+
+        xmin, xmax = ax.get_xlim()
+        ymin, ymax = ax.get_ylim()
+        ax = gca()
+        # ax.set_aspect('equal', 'box')
+        if col == 0:
+            ax.spines['left'].set_bounds(ymin, ymin + 0.2 * (ymax - ymin))
+            ax.spines['bottom'].set_bounds(xmin, xmin + 0.2 * (xmax - xmin))
+            xticks([xmin + 0.1 * (xmax - xmin)], ["PC1"])
+            yticks([ymin + 0.1 * (ymax - ymin)], ["PC2"])
+        else:
+            noaxis(ax)
+
+
 ######################################
 # Population Coherence
 ######################################
 gs_popcoh = gridspec.GridSpecFromSubplotSpec(
-    2, 2, subplot_spec=gs_bottom2[0,2], wspace=0.04
+    2, 2, subplot_spec=gs_bottom[0,1], wspace=0.04
 )
 
 # Real data
@@ -456,8 +523,9 @@ for i, st in enumerate(['adn', 'lmn']):
 
     m = corrs.loc[[f"{st}-sws", f"{st}-opto"], "mean"]
     s = corrs.loc[[f"{st}-sws", f"{st}-opto"], "std"]
-    # print(st, m)
+    print(st, m)
     plot(xx[i], m, '-', color=colors[st])
+
     errorbar(xx[i], m, yerr=s, fmt='o',
              elinewidth=0.5,              # Error bar line width
              capsize=1,                 # Length of the cap
@@ -482,7 +550,7 @@ for i, st in enumerate(['adn', 'lmn']):
         xticks([0, 1], ["", ""])
 
 
-# Model
+
 from scipy.stats import pearsonr
 
 for i, st in enumerate(['adn', 'lmn']):
@@ -512,7 +580,7 @@ for i, st in enumerate(['adn', 'lmn']):
 
 
 
-outergs.update(top=0.86, bottom=0.12, right=0.99, left=0.01)
+outergs.update(top=0.91, bottom=0.05, right=0.92, left=0.1)
 
 
 savefig(

@@ -28,37 +28,51 @@ def make_circular_weights(N_in, N_out, sigma=10):
     w = np.zeros((N_out, N_in))
     for i in range(N_in):
         w[:,i] = np.roll(y, i*N_out//N_in)
-    
+
     return w
 
 @njit
-def sigmoide(x, beta=10, thr=1):
+def sigmoide(x, beta=10.0, thr=1.0):
     return 1/(1+np.exp(-(x-thr)*beta))
 
+# tau = 0.1
+# N_lmn = 36
+# N_adn = 360
+# noise_lmn_ = 6.0
+# noise_adn_ = 1.0
+# noise_trn_ = 1.0
+# w_lmn_adn_ = 0.39   # LMN to ADN weight
+# w_adn_trn_ = 1.0    # ADN to TRN weight
+# w_trn_adn_ = 0.05   # TRN to ADN weight
+# beta_adn = 3.0      # ADN non-linearity slope
+# thr_adn = 1.0       # ADN non-linearity threshold
+# sigma_adn_lmn = 100 # LMN to ADN weight spread
+# D_lmn = 0.02        # LMN drive during sleep
+#
+# w_psb_lmn_ = 0.11    # OPTO PSB Feedback
+# sigma_psb_lmn = 100  # PSB to LMN weight spread
+# I_lmn = 0.43          # LMN wakefulness drive
 
 
 class Model:
     tau = 0.1
     N_lmn = 36
     N_adn = 360
-    noise_lmn_ = 1.0  # Set to 0 during wake
-    noise_adn_ = 1.0  # Set to 0 during wake
-    noise_trn_ = 0.1  # Set to 0 during wake
-    w_lmn_adn_ = 0.9
-    w_adn_trn_ = 1.0
-    w_trn_adn_ = 0.04
-    beta_adn = 5.0
-    thr_adn = 1.0
+    noise_lmn_ = 6.0
+    noise_adn_ = 0.1
+    noise_trn_ = 0.1
+    w_lmn_adn_ = 0.39    # LMN to ADN weight
+    w_adn_trn_ = 1.0    # ADN to TRN weight
+    w_trn_adn_ = 0.05   # TRN to ADN weight
+    beta_adn = 3.0      # ADN non-linearity slope
+    thr_adn = 1.0       # ADN non-linearity threshold
+    sigma_adn_lmn = 100 # LMN to ADN weight spread
+    D_lmn = 0.025        # LMN drive during sleep
 
-    # thr_cal = 1.0
-    # thr_shu = 1.0
+    w_psb_lmn_ = 0.11    # OPTO PSB Feedback
+    sigma_psb_lmn = 100  # PSB to LMN weight spread
+    I_lmn = 0.43         # LMN wakefulness drive
 
-    w_psb_lmn_ = 0.03  # OPTO PSB Feedback
-    
-    sigma_adn_lmn = 100
-    sigma_psb_lmn = 10
-    D_lmn = 1.0
-    I_lmn = 1.0  # 0 for sleep
 
     def __init__(self, N_t=2000, **kwargs):
         self.N_t = N_t
@@ -74,8 +88,9 @@ class Model:
         # LMN
         #############################
         self.inp_lmn = np.zeros((self.N_t, self.N_lmn))
+        # gaussian version
         x = np.arange(-self.N_lmn // 2, self.N_lmn // 2)
-        y = np.exp(-(x * x) / 100)
+        y = np.exp(-(x * x) / 10)
 
         for i in range(self.N_t):
             self.inp_lmn[i] = y
@@ -153,4 +168,24 @@ class Model:
             self.r_trn[i] = np.maximum(0, self.x_trn[i])
             # self.r_trn[i] = np.maximum(0, np.tanh(self.x_trn[i]))  # Optional alternative
 
+    def get_parameters(self):
+        params = {
+            "tau": self.tau,
+            "N_lmn": self.N_lmn,
+            "N_adn": self.N_adn,
+            "noise_lmn_": self.noise_lmn_,
+            "noise_adn_": self.noise_adn_,
+            "noise_trn_": self.noise_trn_,
+            "w_lmn_adn_": self.w_lmn_adn_,
+            "w_adn_trn_": self.w_adn_trn_,
+            "w_trn_adn_": self.w_trn_adn_,
+            "beta_adn": self.beta_adn,
+            "thr_adn": self.thr_adn,
+            "w_psb_lmn_": self.w_psb_lmn_,
+            "sigma_adn_lmn": self.sigma_adn_lmn,
+            "sigma_psb_lmn": self.sigma_psb_lmn,
+            "D_lmn": self.D_lmn,
+            "I_lmn": self.I_lmn,
+        }
+        return params
         

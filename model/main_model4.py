@@ -51,7 +51,7 @@ datatosave = {
 }
 import _pickle as cPickle
 filepath = os.path.join(os.path.expanduser("~") + "/Dropbox/LMNphysio/model/model.pickle")
-cPickle.dump(datatosave, open(filepath, 'wb'))
+# cPickle.dump(datatosave, open(filepath, 'wb'))
 
 
 figure(figsize = (12, 5))
