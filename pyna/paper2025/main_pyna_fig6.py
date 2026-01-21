@@ -65,7 +65,7 @@ def figsize(scale):
     golden_mean = (np.sqrt(5.0) - 1.0) / 2  # Aesthetic ratio (you could change this)
     # fig_width = fig_width_pt*inches_per_pt*scale    # width in inches
     fig_width = 6
-    fig_height = fig_width * golden_mean * 0.75  # height in inches
+    fig_height = fig_width * golden_mean * 0.5  # height in inches
     fig_size = [fig_width, fig_height]
     return fig_size
 
@@ -161,7 +161,7 @@ markers = ["d", "o", "v"]
 
 fig = figure(figsize=figsize(1))
 
-outergs = GridSpec(2, 1, hspace = 0.6)#, height_ratios=[0.5,0.5])
+outergs = GridSpec(1, 1, hspace = 0.6)#, height_ratios=[0.5,0.5])
 
 
 names = {'adn':"ADN", 'lmn':"LMN"}
@@ -178,8 +178,8 @@ Epochs = ['Wake', 'Sleep']
 # ##########################################
 # MODEL
 gs_top = gridspec.GridSpecFromSubplotSpec(
-    1, 2, subplot_spec=outergs[0,0],
-    width_ratios=[0.7, 0.8], wspace=0.2
+    1, 4, subplot_spec=outergs[0,0],
+    width_ratios=[0.5, 0.3, 0.6, 0.2], wspace=0.5
 )
 
 
@@ -342,7 +342,7 @@ for i, y in enumerate([y_lmn, y_adn, 0.75]):
                                        facecolor=facecolors[i], linewidth=0.5, linestyle='--')
     ax.add_patch(outerrect)
     ax.text(x_lefts[i]+0.12, y,
-            ['Mammilary\nBody', 'Anterior\nThalamus', 'Cortex'][i], ha='center', va='center', fontsize=4)
+            ['Mammillary\nBody', 'Anterior\nThalamus', 'Cortex'][i], ha='center', va='center', fontsize=4)
 
 
 
@@ -367,14 +367,14 @@ for name, hex_color in colors.items():
 
 
 gs_activity = gridspec.GridSpecFromSubplotSpec(
-    2, 3, subplot_spec=gs_top[0,1], wspace=0.2, hspace=0.4
+    3, 3, subplot_spec=gs_top[0,1], wspace=0.2, hspace=0.4
 )
 
 
-durations = [2000, 1000, 400]
-offset = 100
+durations = [2000, 100, 100]
+offsets = [500, 2300, 200]
 
-titles = ["'Wake'", "'Sleep'", "'Opto.'\n No PSB feedback"]
+titles = ["'Wake'", "'Sleep'", "'Opto.'"]
 
 for i, st in enumerate(['adn', 'lmn']):
     for j, e in enumerate(['wak', 'sws', 'opto']):
@@ -384,12 +384,12 @@ for i, st in enumerate(['adn', 'lmn']):
         # start = int(sl.start + (sl.stop - sl.start)/2)
 
         # tmp = data[st][start:start+durations[j]].T
-        tmp = data_model[st][e][offset:offset+durations[j]]
-        tmp = gaussian_filter(tmp, sigma=(1, 1))
+        tmp = data_model[st][e][offsets[j]:offsets[j]+durations[j]]
+        tmp = gaussian_filter(tmp, sigma=(2, 2), mode='reflect')
         tmp = tmp / tmp.max()
 
         # im=imshow(tmp.T, origin='lower', aspect='auto', cmap=cmaps[st])
-        im=imshow(tmp.T, origin='lower', aspect='auto', cmap='turbo', vmax=1)
+        im=imshow(tmp.T, origin='lower', aspect='auto', cmap='turbo', vmax=1, vmin=0)
 
         if j == 0:
             ylabel(st.upper(), rotation=0, labelpad=6, y=0.5)
@@ -403,13 +403,15 @@ for i, st in enumerate(['adn', 'lmn']):
             title(titles[j], y=0.9)
             xticks([0, durations[j]], ["", ""])
 
-        if i == 1:
+        if i == 1 and j == 1:
             xlabel("Simulation steps")
-            xticks([0, durations[j]], [0, durations[j]])
+
+        if i == 1:
+            xticks([0, durations[j]], ["", durations[j]])
 
         if j == 2:
             # Colorbar
-            axip = gca().inset_axes([1.2, 0.0, 0.05, 0.6])
+            axip = gca().inset_axes([1.35, 0.0, 0.1, 0.6])
             # noaxis(axip)
             cbar = colorbar(im, cax=axip)
             axip.set_title("Rate", y=1.0)
@@ -470,9 +472,9 @@ for i, st in enumerate(['adn', 'lmn']):
 ###########################################
 # BOTTOM
 ###########################################
-gs_bottom = gridspec.GridSpecFromSubplotSpec(
-    1, 2, subplot_spec=outergs[1,0], width_ratios = [0.4, 0.2], wspace=0.3
-)
+# gs_bottom = gridspec.GridSpecFromSubplotSpec(
+#     1, 2, subplot_spec=outergs[1,0], width_ratios = [0.4, 0.2], wspace=0.3
+# )
 
 
 ######################################
@@ -488,14 +490,14 @@ angles_dict = {
 }
 
 gs_embeddings = gridspec.GridSpecFromSubplotSpec(
-    2, 3, subplot_spec=gs_bottom[0,0], wspace=0.3, hspace=0.3
+    2, 3, subplot_spec=gs_top[0,2], wspace=0.2, hspace=0.3
 )
 
-titles_emb = ["'Wake'", "'Sleep'", "'Opto. No PSB feedback'"]
+titles_emb = ["'Wake'", "'Sleep'", "'Opto.'\nNo PSB feedback'"]
 
 for row, region in enumerate(['adn', 'lmn']):
     for col, name in enumerate(['wake', 'sws', 'opto']):
-        ax = subplot(gs_embeddings[row, col])
+        ax = subplot(gs_embeddings[row, col], aspect='equal')
         simpleaxis(ax)
 
         embedding = embeddings[region][name]
@@ -517,7 +519,7 @@ for row, region in enumerate(['adn', 'lmn']):
         if row == 0:
             ax.set_title(titles_emb[col])
         if col == 0:
-            ax.set_ylabel(region.upper(), rotation=0, labelpad=15, y=0.5)
+            ax.set_ylabel(region.upper(), rotation=0, labelpad=0, y=0.5)
 
         xmin, xmax = ax.get_xlim()
         ymin, ymax = ax.get_ylim()
@@ -536,7 +538,7 @@ for row, region in enumerate(['adn', 'lmn']):
 # Population Coherence
 ######################################
 gs_popcoh = gridspec.GridSpecFromSubplotSpec(
-    2, 2, subplot_spec=gs_bottom[0,1], wspace=0.04
+    2, 2, subplot_spec=gs_top[0,3], wspace=0.04
 )
 
 # Real data
@@ -597,7 +599,7 @@ for i, st in enumerate(['adn', 'lmn']):
         xticks([])
 
     if i == 1:
-        xticks([0, 1], ["Sleep", "Opto."])
+        xticks([0, 1], ["Sleep", "Opto."], rotation=45, ha='right')
     else:
         xticks([0, 1], ["", ""])
 
@@ -626,13 +628,13 @@ for i, st in enumerate(['adn', 'lmn']):
         xticks([])
 
     if i == 1:
-        xticks([0, 1], ["\'Sleep\'", "\'Opto.\'"])
+        xticks([0, 1], ["\'Sleep\'", "\'Opto.\'"], rotation=45, ha='right')
     else:
         xticks([0, 1], ["", ""])
 
 
 
-outergs.update(top=0.93, bottom=0.05, right=0.94, left=0.1)
+outergs.update(top=0.9, bottom=0.15, right=1, left=0.01)
 
 
 savefig(
