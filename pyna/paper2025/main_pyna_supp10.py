@@ -57,10 +57,9 @@ def figsize(scale):
     golden_mean = (np.sqrt(5.0) - 1.0) / 2  # Aesthetic ratio (you could change this)
     # fig_width = fig_width_pt*inches_per_pt*scale    # width in inches
     fig_width = 6
-    fig_height = fig_width * golden_mean * 0.5  # height in inches
+    fig_height = fig_width * golden_mean * 1.2  # height in inches
     fig_size = [fig_width, fig_height]
     return fig_size
-
 
 def simpleaxis(ax):
     ax.spines["top"].set_visible(False)
@@ -145,6 +144,9 @@ dropbox_path = os.path.expanduser("~") + "/Dropbox/LMNphysio/data"
 
 m = Model(I_lmn = 0.0) # Sleep
 
+filepath_rings = os.path.join(os.path.expanduser("~") + "/Dropbox/LMNphysio/model/model_rings.pickle")
+data_model = cPickle.load(open(filepath_rings, 'rb'))
+
 
 
 ###############################################################################################################
@@ -155,7 +157,8 @@ markers = ["d", "o", "v"]
 
 fig = figure(figsize=figsize(1))
 
-outergs = GridSpec(1, 2, hspace = 0.4, wspace=0.5, width_ratios=[0.7, 0.3])
+outergs = GridSpec(3, 2, hspace=0.4, wspace=0.5,
+    height_ratios=[0.4, 0.4, 0.4], width_ratios=[0.7, 0.3])
 
 
 names = {'adn':"ADN", 'lmn':"LMN"}
@@ -166,11 +169,108 @@ epochs = {'wak':'Wake', 'sws':'Sleep'}
 
 
 # ##########################################
-# 
+# Simulation activity (model_rings)
+# ##########################################
+
+gs_activity = gridspec.GridSpecFromSubplotSpec(
+    2, 3, subplot_spec=outergs[1, :], wspace=0.2, hspace=0.4
+    )
+
+durations = [5000, 5000, 5000]
+offsets = [0, 0, 0]
+titles_act = ["'Wake'", "'Sleep'", "'Opto.'"]
+
+durations_z = [2000, 100, 100]
+offsets_z   = [500, 2300, 200]
+
+for i, st in enumerate(['adn', 'lmn']):
+    for j, e in enumerate(['wak', 'sws', 'opto']):
+        subplot(gs_activity[i, j])
+
+        tmp = data_model[st][e][offsets[j]:offsets[j]+durations[j]]
+        tmp = gaussian_filter(tmp, sigma=(2, 2), mode='reflect')
+        tmp = tmp / tmp.max()
+
+        im = imshow(tmp.T, origin='lower', aspect='auto', cmap='turbo', vmax=1, vmin=0)
+
+        # box showing the zoomed region
+        rect = patches.Rectangle(
+            (offsets_z[j], 0), durations_z[j], tmp.shape[1],
+            linewidth=0.8, edgecolor='white', facecolor='none', linestyle='--'
+        )
+        gca().add_patch(rect)
+
+        if j == 0:
+            ylabel(st.upper(), rotation=0, labelpad=6, y=0.5)
+            yticks([0, tmp.shape[1]])
+        else:
+            yticks([0, tmp.shape[1]], ["", ""])
+
+        if i == 0:
+            title(titles_act[j], y=0.9)
+            xticks([0, durations[j]], ["", ""])
+
+        if i == 1 and j == 1:
+            xlabel("Simulation steps")
+
+        if i == 1:
+            xticks([0, durations[j]], ["", durations[j]])
+
+        if j == 2:
+            axip = gca().inset_axes([1.35, 0.0, 0.1, 0.6])
+            noaxis(axip)
+            cbar = colorbar(im, cax=axip)
+            axip.set_title("Rate", y=1.0)
+            axip.set_yticks([0, 1])
+
+
+# ##########################################
+# Zoomed simulation activity
+# ##########################################
+
+gs_zoom = gridspec.GridSpecFromSubplotSpec(
+    2, 3, subplot_spec=outergs[2, :], wspace=0.2, hspace=0.4
+    )
+
+for i, st in enumerate(['adn', 'lmn']):
+    for j, e in enumerate(['wak', 'sws', 'opto']):
+        subplot(gs_zoom[i, j])
+
+        tmp = data_model[st][e][offsets_z[j]:offsets_z[j]+durations_z[j]]
+        tmp = gaussian_filter(tmp, sigma=(1, 1), mode='reflect')
+        tmp = tmp / tmp.max()
+
+        im = imshow(tmp.T, origin='lower', aspect='auto', cmap='turbo', vmax=1, vmin=0)
+
+        if j == 0:
+            ylabel(st.upper(), rotation=0, labelpad=6, y=0.5)
+            yticks([0, tmp.shape[1]])
+        else:
+            yticks([0, tmp.shape[1]], ["", ""])
+
+        if i == 0:
+            title(titles_act[j] + " (zoom)", y=0.9)
+            xticks([0, durations_z[j]], ["", ""])
+
+        if i == 1 and j == 1:
+            xlabel("Simulation steps")
+
+        if i == 1:
+            xticks([0, durations_z[j]], ["", durations_z[j]])
+
+        if j == 2:
+            axip = gca().inset_axes([1.35, 0.0, 0.1, 0.6])
+            noaxis(axip)
+            cbar = colorbar(im, cax=axip)
+            axip.set_title("Rate", y=1.0)
+            axip.set_yticks([0, 1])
+
+# ##########################################
+# Weight matrices
 # ##########################################
 
 gs_top1 = gridspec.GridSpecFromSubplotSpec(
-    1, 2, subplot_spec=outergs[0,0], wspace=0.9
+    1, 2, subplot_spec=outergs[0, 0], wspace=0.9
     )
 
 
@@ -210,7 +310,7 @@ data = cPickle.load(open(filepath, 'rb'))
 popcoh = data['popcoh']
 
 gs_top2 = gridspec.GridSpecFromSubplotSpec(
-    2, 2, subplot_spec=outergs[0,1], wspace=0.9, hspace=0.9
+    2, 2, subplot_spec=outergs[0, 1], wspace=0.9, hspace=0.9
     )
 
 for i, st in enumerate(['adn', 'lmn']):
@@ -243,11 +343,11 @@ for i, st in enumerate(['adn', 'lmn']):
             text(1.5, 1.2, st.upper())
 
 
-outergs.update(top=0.92, bottom=0.15, right=0.99, left=0.1)
+outergs.update(top=0.95, bottom=0.05, right=0.98, left=0.08)
 
 
 savefig(
-    os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/supp8.pdf",
+    os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2025/supp10.pdf",
     dpi=200,
     facecolor="white",
 )

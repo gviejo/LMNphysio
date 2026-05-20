@@ -470,7 +470,7 @@ outergs.update(top=0.97, bottom=0.06, right=0.97, left=0.08)
 
 
 savefig(
-    os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/supp3.pdf",
+    os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2025/supp6.pdf",
     dpi=200,
     facecolor="white",
 )

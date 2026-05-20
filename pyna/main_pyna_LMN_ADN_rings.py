@@ -223,47 +223,5 @@ for j, name in enumerate(['wake', 'rem', 'sws']):
         ax.set_title(f"{loc} {name}")
 
 plt.suptitle("Projections Scatter Plots")
-plt.savefig(os.path.expanduser("~/Dropbox/LMNphysio/data/projections_scatter_KPCA_v1.png"), dpi=300)
+# plt.savefig(os.path.expanduser("~/Dropbox/LMNphysio/data/projections_scatter_KPCA_v1.png"), dpi=300)
 
-#%%
-# --------------------------
-# Histogram (2D) of projections
-# --------------------------
-fig = plt.figure(figsize=(12, 5))
-gs = GridSpec(2, 3, wspace=0.3, hspace=0.3)
-
-for j, name in enumerate(['wake', 'rem', 'sws']):
-    for i, loc in enumerate(['adn', 'lmn']):
-        ax = fig.add_subplot(gs[i, j])
-        Y = proj[name][loc]
-        x = Y[:, 0]
-        y = Y[:, 1]
-        bins = [np.linspace(-1.5, 1.5, 50), np.linspace(-1.5, 1.5, 50)]
-        H, xedges, yedges = np.histogram2d(x, y, bins=bins, density=True)
-        Hsmooth = gaussian_filter(H, sigma=2.0)
-
-        img = ax.imshow(
-            Hsmooth.T,
-            origin="lower",
-            extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]],
-            aspect="auto",
-            cmap="turbo"
-        )
-        ax.plot(
-            proj_ex[name][loc][:, 0],
-            proj_ex[name][loc][:, 1],
-            'o',
-            color='black',
-            markersize=2,
-            markeredgecolor='white',
-            markeredgewidth=0.5,
-        )
-
-        plt.colorbar(img, ax=ax)
-        ax.set_title(f"{loc} {name}")
-
-plt.suptitle("Histogram of Projections")
-plt.savefig(os.path.expanduser("~/Dropbox/LMNphysio/data/projections_hist_KPCA_v1.png"), dpi=300)
-plt.show()
-
-#%%

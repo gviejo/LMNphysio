@@ -605,7 +605,8 @@ for i, st in enumerate(['adn', 'lmn']):
 
 
 
-from scipy.stats import pearsonr
+from scipy.stats import pearsonr, mannwhitneyu
+
 
 for i, st in enumerate(['adn', 'lmn']):
     ax = subplot(gs_popcoh[i,1])

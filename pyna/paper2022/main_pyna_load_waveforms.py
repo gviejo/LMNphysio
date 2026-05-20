@@ -8,6 +8,7 @@ import pandas as pd
 import pynapple as nap
 import os, sys
 
+import yaml
 
 
 def loadXML(path):
@@ -136,23 +137,54 @@ def loadMeanWaveforms(path):
 ############################################################################################### 
 # LOADING DATA
 ###############################################################################################
-data_directory = '/mnt/DataGuillaume/'
-datasets = np.genfromtxt(os.path.join(data_directory,'datasets_UFO.list'), delimiter = '\n', dtype = str, comments = '#')
+# data_directory = '/mnt/DataGuillaume/'
+data_directory = "/mnt/ceph/users/gviejo"
 
+# datasets = np.genfromtxt(os.path.join(data_directory,'datasets_UFO.list'), delimiter = '\n', dtype = str, comments = '#')
+datasets = yaml.safe_load(open("/mnt/ceph/users/gviejo/datasets_OPTO.yaml", "r"))
+datasets = datasets['opto']['psb']
+tmp = []
+for gr in ['opto', 'ctrl']:
+    for ep in ['wake', 'sleep']:
+        for s in datasets[gr]['ipsi'][ep]:
+            tmp.append("OPTO/" + s)
+datasets = np.unique(tmp)
 
-# 53 1 73
+mwfs = []
 
 for s in datasets:
+    print(s)
     path = os.path.join(data_directory, s)
-    data = nap.load_session(path, 'neurosuite')
+    basename = os.path.basename(path)
 
-    meanwavef = loadMeanWaveforms(path)
+    filepath = os.path.join(path, "kilosort4", basename + ".nwb")
+    if os.path.exists(filepath):
+        nwb = nap.load_file(filepath)
+        spikes = nwb['units']
+        # data = nap.load_session(path, 'neurosuite')
+        meanwavef = loadMeanWaveforms(os.path.join(path, "kilosort4"))
 
+        assert meanwavef[0].shape[1] == len(spikes), "Number of clusters in meanwavef and spikes don't match for session "+s
 
-    import _pickle as cPickle
+    else:
+        data = nap.load_session(path, 'neurosuite')
+        spikes = data.spikes
+        spikes = spikes[(spikes.location=="psb")|(spikes.location=="PSB")]
 
-    cPickle.dump(meanwavef, open(os.path.join(path, 'pynapplenwb', 'MeanWaveForms.pickle'), 'wb'))
+        meanwavef = loadMeanWaveforms(path)
 
+        assert meanwavef[0].shape[1] == len(spikes), "Number of clusters in meanwavef and spikes don't match for session " + s
 
+    meanwavef[0].columns = pd.Index([basename+"_"+str(c) for c in meanwavef[0].columns])
 
+    mwfs.append(meanwavef[0])
+
+mwfs = pd.concat(mwfs, axis=1)
+
+dropbox_path = "/mnt/home/gviejo/Dropbox/LMNphysio/data"
+filepath = os.path.join(dropbox_path, "meanwaveforms_psb_opto.pickle")
+import _pickle as cPickle
+
+with open(filepath, 'wb') as f:
+    cPickle.dump(mwfs, f)
 

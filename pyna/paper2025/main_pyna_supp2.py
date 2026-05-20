@@ -53,7 +53,7 @@ def figsize(scale):
     golden_mean = (np.sqrt(5.0) - 1.0) / 2  # Aesthetic ratio (you could change this)
     # fig_width = fig_width_pt*inches_per_pt*scale    # width in inches
     fig_width = 6
-    fig_height = fig_width * golden_mean * 2.0 # height in inches
+    fig_height = fig_width * golden_mean * 1.7 # height in inches
     fig_size = [fig_width, fig_height]
     return fig_size
 
@@ -141,19 +141,19 @@ allinfo = data['allinfo']
 
 fig = figure(figsize=figsize(1))
 
-outergs = GridSpec(3, 1, hspace = 0.3, height_ratios=[0.2, 0.6, 0.3])
+outergs = GridSpec(3, 1, hspace = 0.3, height_ratios=[0.2, 0.5, 0.05])
 
 
 #########################
 # TUNING CURVES SELECTION
 #########################
 
-gs1 = gridspec.GridSpecFromSubplotSpec(1,4, outergs[0,0], 
-    wspace = 0.6, width_ratios=[-0.1, 0.5, 0.5, 0.25]
+gs1 = gridspec.GridSpecFromSubplotSpec(2,3, outergs[0,0],
+    wspace = 0.5, width_ratios=[0.6, 0.5, 0.3], hspace=0.5
     )
 
 for i, st in enumerate(['adn', 'lmn']):
-    gs1_1 = gridspec.GridSpecFromSubplotSpec(2,2, gs1[0,i+1], wspace=0.5, hspace=0.5        
+    gs1_1 = gridspec.GridSpecFromSubplotSpec(2,2, gs1[i,0], wspace=0.5, hspace=0.85
         )
 
     idx = allinfo[allinfo['location'] == st].index.values
@@ -168,14 +168,16 @@ for i, st in enumerate(['adn', 'lmn']):
     loglog(allinfo.loc[idx, 'rate'], allinfo.loc[idx, 'SI'], '.', markersize=1, color=COLOR)
     loglog(allinfo.loc[tokeep, 'rate'], allinfo.loc[tokeep, 'SI'], 'o', color=colors[st], markersize=1)
 
-    xlabel("Rate (Hz)")
-    ylabel("HD info. (bits/spk)", labelpad=5)
+    if i == 1:
+        xlabel("Rate (Hz)")
+        ylabel("HD info. (bits/spk)", labelpad=5, y=1.0)
 
     axvline(1.0, linewidth=0.5, color=COLOR)
     axhline(0.1, linewidth=0.5, color=COLOR)
 
     tc = centerTuningCurves_with_peak(alltc[tokeep])
     tc = tc/tc.max()
+    title(st.upper(), y=0.9, x=1.14)
 
     # Tuning curves
     subplot(gs1_1[0,1])
@@ -193,17 +195,120 @@ for i, st in enumerate(['adn', 'lmn']):
 
     xticks([0, tmp.shape[1]], [-180, 180])
     yticks([0], [tmp.shape[0]])
-    xlabel("Angle (deg.)", labelpad=-1)
+    if i == 1:
+        xlabel("Angle (deg.)", labelpad=-1)
 
-    axip = gca().inset_axes([0, -0.65, 0.5, 0.08])
-    noaxis(axip)
-    cbar = colorbar(im, cax=axip, orientation='horizontal')
-    axip.text(1.05, 0.5, "Rate", transform=axip.transAxes,
+    if i == 1:
+        axip = gca().inset_axes([-0.2, -1.4, 0.5, 0.2])
+        noaxis(axip)
+        cbar = colorbar(im, cax=axip, orientation='horizontal')
+        axip.text(1.05, 0.5, "Rate", transform=axip.transAxes,
           va='center', ha='left')
-    # axip.set_title("Rate")
-    # axip.set_yticks([0, 3])
+        # axip.set_title("Rate")
+        # axip.set_yticks([0, 3])
 
 
+
+##############################
+# REM EXAMPLE
+###############################
+dropbox_path = os.path.expanduser("~") + "/Dropbox/LMNphysio/data"
+
+s = "A5011-201014A"
+name = s
+
+data = cPickle.load(open(dropbox_path + "/DATA_FIG_LMN_ADN_{}.pickle".format(s), "rb"))
+# decoding = {
+#     "wak": nap.Tsd(t=data["wak"].index.values, d=data["wak"].values, time_units="s"),
+#     "sws": nap.Tsd(t=data["sws"].index.values, d=data["sws"].values, time_units="s"),
+#     "rem": nap.Tsd(t=data["rem"].index.values, d=data["rem"].values, time_units="s"),
+# }
+angle = data["angle"]
+tcurves = data["tcurves"]
+peaks = data["peaks"]
+spikes = data["spikes"]
+tokeep = data["tokeep"]
+adn = data["adn"][1:]
+lmn = data["lmn"]
+waveforms = data['waveforms']
+position = data['position']
+exs = {"wak": data["ex_wak"], "rem": data["ex_rem"], "sws": data["ex_sws"]}
+
+
+
+# Raster SWS ######################
+gs_raster = gridspec.GridSpecFromSubplotSpec(
+    3, 1, subplot_spec=gs1[:, 1],
+    height_ratios=[1, 1, 0.6]
+)
+e = 'rem'
+for i, (g, idx) in enumerate(zip(['adn', 'lmn'], [adn, lmn])):
+    subplot(gs_raster[i, 0])
+    simpleaxis(gca())
+    gca().spines["bottom"].set_visible(False)
+    gca().spines['left'].set_bounds(0, len(idx) - 1)
+    for k, n in enumerate(idx):
+        plot(spikes[n].restrict(exs[e]).fillna(k),
+             '|',
+             markersize=1.8, markeredgewidth=0.6,
+             color=colors[g])
+    xlim(exs[e].start[0], exs[e].end[0])
+    yticks([len(idx) - 1], [len(idx)])
+    if i == 0: ylabel("Neurons", y=0)  # , rotation=0, y=0.2, labelpad=10)
+    xticks([])
+    if i == 0: title("REM sleep")
+
+# Decoding #####################
+subplot(gs_raster[2, 0])
+simpleaxis(gca())
+
+exex = nap.IntervalSet(exs[e].start[0] - 10, exs[e].end[0] + 10)
+
+tuning_curves = nap.compute_1d_tuning_curves(spikes[adn], angle, 24, minmax=(0, 2 * np.pi),
+                                             ep=angle.time_support.loc[[0]])
+tuning_curves = smoothAngularTuningCurves(tuning_curves)
+
+da, P = nap.decode_1d(tuning_curves, spikes[adn].count(0.005, exex).smooth(0.01, size_factor=10), exex, 0.005)
+da = smoothAngle(da, 1)
+d = gaussian_filter(P.values, 3)
+tmp2 = nap.TsdFrame(t=P.index.values, d=d, time_support=exs[e])
+
+im = imshow(tmp2.values.T, aspect='auto',
+            origin='lower',
+            cmap='coolwarm',
+            extent=(exs[e].start[0], exs[e].end[0], 0, 2 * np.pi),
+            vmin=0
+            )
+
+H = np.sum(P * np.log(P.values), 1)
+H = H - H.min()
+H = H / H.max()
+a_ex = H.threshold(0.12).time_support.intersect(exs[e])
+
+# da = da.restrict(a_ex)
+# clrs = np.array([hsluv.hsluv_to_rgb([h, 100, 50]) for h in np.rad2deg(da.values)])
+# scatter(da.index.values, da.values, s=0.75, c=clrs, edgecolors='none', zorder=2)
+
+for s_, e_ in a_ex.values:
+    plot(da.get(s_, e_), 'o', markersize=0.5, markerfacecolor=COLOR, markeredgecolor=None, markeredgewidth=0)
+plot(da.get(s_, e_), 'o', markersize=0.5, markerfacecolor=COLOR, markeredgecolor=None, markeredgewidth=0,
+     label="Decoded HD")
+legend(
+    handlelength=1,
+    loc="center",
+    bbox_to_anchor=(0.0, -0.55, 0.5, 0.5),
+    framealpha=0,
+    markerscale=4
+)
+yticks([0, 2 * np.pi], [0, 360])
+ylabel("Direction (°)", labelpad=3)
+gca().spines["bottom"].set_bounds(exs[e].end[0] - 1, exs[e].end[0])
+xticks([exs[e].end[0] - 1, exs[e].end[0]], ["", ""])
+text(exs[e].end[0] - 0.5, -2.2, s="1 sec.", va="center", ha="center")
+axip = gca().inset_axes([1.03, 0, 0.04, 0.6])
+cbar = colorbar(im, cax=axip)
+axip.set_title("P", fontsize=fontsize - 1, y=0.8)
+axip.set_yticks([0, 0.1], [0, 0.1])
 
 
 
@@ -214,7 +319,7 @@ for i, st in enumerate(['adn', 'lmn']):
 
 
 gs_bottom_left = gridspec.GridSpecFromSubplotSpec(
-    2, 1, subplot_spec=gs1[0,-1], hspace=0.6, height_ratios=[0.4, 0.4]
+    2, 1, subplot_spec=gs1[:,-1], hspace=0.6, height_ratios=[0.4, 0.4]
 )
 
 
@@ -243,7 +348,7 @@ gca().spines['left'].set_bounds(0, 1.1)
 
 ylabel("Pop. coherence (r)", y=0, labelpad=3)
 xticks([1, 2], [names['adn'], names['lmn']])
-title("Wake vs REM")
+title("Wake vs REM", y=0.99)
 
 
 subplot(gs_bottom_left[1,0])
@@ -298,7 +403,7 @@ print("REM acrross", zw, p, len(tmp[0]), len(tmp[1]))
 # PAIRWISE CORRELATION / ANIMAL
 ################################
 gs2 = gridspec.GridSpecFromSubplotSpec(2,1, outergs[1,0], 
-    height_ratios=[0.3, 0.7], hspace=0.4
+    height_ratios=[0.3, 0.7], hspace=0.2
     )
 
 i = 0
@@ -333,7 +438,7 @@ for k, e in enumerate(['sws', 'rem']):
         xlim(-1, 1)
         ylim(-1,1)        
 
-        gca().text(0.5, -0.9, f"r={np.round(r,2)}", fontsize=fontsize-1)
+        gca().text(0.3, -0.9, f"r={np.round(r,2)}", fontsize=fontsize-1)
 
         if j == 0:
             ylabel(short_epochs[e], labelpad=15)
@@ -416,139 +521,85 @@ for k, e in enumerate(['sws', 'rem']):
         m, b = np.polyfit(allr.loc[index, 'wak'].values, allr.loc[index, e].values, 1)
         x = np.linspace(allr.loc[index, 'wak'].values.min(), allr.loc[index, 'wak'].values.max(),5)
         plot(x, x*m + b, color=COLOR, linewidth=0.5)
-         
+
 
 ###############
-# Connected pairs
+# Random sampling
 ###############
+gs3 = gridspec.GridSpecFromSubplotSpec(1,4, outergs[2,0],
+    wspace=0.3, #width_ratios=[0.3, 0.25, 0.25, 0.1]
+     )
 
-gs3 = gridspec.GridSpecFromSubplotSpec(2,1, outergs[2,0],
-    hspace=0.6
-    )
+data_rand = cPickle.load(open(os.path.join(dropbox_path, 'random_LMN_comparison.pickle'), 'rb'))
+all_center_tc_real = data_rand['all_center_tc_real']
+all_center_tc_fake = data_rand['all_center_tc_fake']
+allr_fake = data_rand['allr']
 
-data = cPickle.load(open(os.path.join(dropbox_path, 'CC_LMN-ADN.pickle'), 'rb'))
+data_real = cPickle.load(open(os.path.join(dropbox_path, 'All_correlation_LMN.pickle'), 'rb'))
+allr_real = data_real['allr'].dropna()
 
-index = data['zorder'].index.values
-zcc = data['zcc']
-order = data['order']
-allcc = data['allcc']
+# gs_rand = gridspec.GridSpecFromSubplotSpec(2, 2, gs3[0, 0], hspace=0.5)
 
-gs3_1 = gridspec.GridSpecFromSubplotSpec(
-    3, 5, subplot_spec=gs3[0,0], hspace = 0.5, wspace=0.2
-)
+# Panel 1: mean centered tuning curves real vs Poisson
+ax = subplot(gs3[0, 0])
+simpleaxis(ax)
+n_bins = all_center_tc_real.shape[0]
+x = np.linspace(-180, 180, n_bins)
+m_real = np.nanmean(all_center_tc_real, 1)
+s_real = np.nanstd(all_center_tc_real, 1) / np.sqrt(np.sum(np.isfinite(all_center_tc_real), 1))
+m_fake = np.nanmean(all_center_tc_fake, 1)
+s_fake = np.nanstd(all_center_tc_fake, 1) / np.sqrt(np.sum(np.isfinite(all_center_tc_fake), 1))
+plot(x, m_real, color=colors['lmn'], lw=1, label='Real')
+fill_between(x, m_real - s_real, m_real + s_real, color=colors['lmn'], alpha=0.2)
+plot(x, m_fake, color='r', lw=1, label='Sampled')
+fill_between(x, m_fake - s_fake, m_fake + s_fake, color='orange', alpha=0.2)
+xlabel('Angle from peak (°)')
+ylabel('Rate (Hz)')
+title(f'non-REM TC (n={all_center_tc_real.shape[1]})')
+legend(frameon=False, fontsize=fontsize-1, bbox_to_anchor=(1.0, 0.87), loc='center')
+xticks([-180, 0, 180])
 
-inds = np.indices((3, 5))
+# Panel 2: Poisson LMN fake correlation wak vs sws
+ax = subplot(gs3[0, 1])
+simpleaxis(ax)
+ax.spines['left'].set_position('center')
+ax.spines['bottom'].set_position('center')
+gca().set_aspect('equal')
+scatter(allr_fake['wak'], allr_fake['sws'], 0.4, color='orange', alpha=0.5)
+m, b = np.polyfit(allr_fake['wak'].values, allr_fake['sws'].values, 1)
+xfit = np.linspace(allr_fake['wak'].min(), allr_fake['wak'].max(), 5)
+plot(xfit, xfit * m + b, color=COLOR, linewidth=0.5)
+r_val = scipy.stats.pearsonr(allr_fake['wak'].values, allr_fake['sws'].values)[0]
+xlabel('Wake', labelpad=10)
+ylabel("non-REM", labelpad=20)
+title(f'Sampled - r={r_val:.2f}')
+xlim(-1, 1); ylim(-1, 1)
+xticks([-1, 1], ['-1', '1']); yticks([-1, 1], ['-1', '1'])
 
-count = 0
-for i, j in zip(inds[0].flat, inds[1].flat):
-
-    gsex = gridspec.GridSpecFromSubplotSpec(
-        1, 2, subplot_spec=gs3_1[i,j], wspace=0.2
-    )
-
-    pair = order[count]
-
-    subplot(gsex[0,0])
-    simpleaxis(gca())
-    axvline(0, linewidth=0.5, color=COLOR)    
-
-    tmp = allcc['sws'][pair].loc[-0.01:0.01]
-    x = tmp.index.values
-    dt = np.mean(np.diff(x))
-    x = np.hstack((x-dt/2, np.array([x[-1]+dt/2])))
-    # axvspan(0.002, 0.008, alpha=0.2, linewidth=0)
-    stairs(tmp.values, x, fill=True, color=COLOR)
-
-    if i in [0, 1]:
-        xticks([])
-    if i == 2:
-        xticks([-0.01, 0, 0.01], [-10, 0, 10])
-    if i==2 and j == 2:
-        xlabel("Time lag (ms)")
-    if i==1 and j== 0:
-        ylabel("Rate (norm.)", y=0, labelpad=10)
-
-    subplot(gsex[0,1], projection='polar')
-    # simpleaxis(gca())
-    for n, st in zip(pair, ['lmn', 'adn']):
-        tmp =  alltc[n]
-        tmp = tmp/tmp.max()
-        plot(tmp, color=colors[st], linewidth=0.8)
-
-    if i == 0 and j == 0:
-        title("Norm.")
-    xticks([])
-    yticks([])
-
-
-
-
-    count += 1
-
-
-gs3_2 = gridspec.GridSpecFromSubplotSpec(
-    1, 4, subplot_spec=gs3[1,0], hspace = 0.5, wspace=0.5
-)
-
-subplot(gs3_2[0,0])
-
-simpleaxis(gca())
-
-tmp = data['angdiff'][index]
-h, b = np.histogram(tmp, np.linspace(-np.pi, np.pi, 22), range = (-np.pi, np.pi))
-h = h/h.sum()*100
-
-# stairs(h, b, fill=True, color=cmap(8), alpha=1, edgecolor=COLOR)
-
-bar(b[0:-1]+np.diff(b)/2, h, np.diff(b).mean(), color=cmap(8))
+# Panel 3: real LMN correlation wak vs sws
+ax = subplot(gs3[0, 2])
+simpleaxis(ax)
+ax.spines['left'].set_position('center')
+ax.spines['bottom'].set_position('center')
+gca().set_aspect('equal')
+scatter(allr_real['wak'], allr_real['sws'], 0.4, color=colors['lmn'], alpha=0.5)
+m, b = np.polyfit(allr_real['wak'].values, allr_real['sws'].values, 1)
+xfit = np.linspace(allr_real['wak'].min(), allr_real['wak'].max(), 5)
+plot(xfit, xfit * m + b, color=COLOR, linewidth=0.5)
+r_val = scipy.stats.pearsonr(allr_real['wak'].values, allr_real['sws'].values)[0]
+xlabel('Wake', labelpad=10)
+ylabel("non-REM", labelpad=20)
+title(f'Real LMN - r={r_val:.2f}')
+xlim(-1, 1); ylim(-1, 1)
+xticks([-1, 1], ['-1', '1']); yticks([-1, 1], ['-1', '1'])
 
 
-xlim(-np.pi, np.pi)
-xticks([-np.pi, 0, np.pi], [-180, 0, 180])
-xlabel("Ang. diff. (deg)")
-ylabel("%")
 
-title(r"$LMN \rightarrow ADN$", pad=3)
-
-subplot(gs3_2[0,1])
-
-simpleaxis(gca())
-
-angdiff = np.abs(data['angdiff'][order])
-z = data['zorder'][order]
-
-plot(angdiff.values, z.values, 'o', markersize=1, color=COLOR)
-
-m, b = np.polyfit(angdiff.values, z.values, 1)
-x = np.linspace(angdiff.values.min(), angdiff.values.max(),5)
-plot(x, x*m + b, linewidth=0.5, color='red')
-xlabel("|Ang. diff.| (deg) ")
-ylabel("Z")
-title("$Z_{LMN/ADN} > 3$", pad=3)
-
-
-subplot(gs3_2[0,2])
-
-simpleaxis(gca())
-
-peak = data['zcc']['sws'][order].loc[0.001:0.008].idxmax()
-
-hist_, bin_edges = np.histogram(peak.values, bins = np.linspace(0, 0.01, 25), range = (0, 0.01))
-
-hist_percent = hist_ / hist_.sum() * 100
-
-stairs(hist_percent, bin_edges, fill=True, color=COLOR, alpha=1)
-
-xticks([0, 0.005, 0.01], [0, 5, 10])
-xlabel("Lag (ms)")
-ylabel("%")
-title(f"mean lag = {np.round(peak.mean()*1e3, 2)} ms")
-
-outergs.update(top=0.97, bottom=0.04, right=0.97, left=0.08)
+outergs.update(top=0.97, bottom=0.04, right=0.98, left=0.08)
 
 
 savefig(
-    os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2024/supp2.pdf",
+    os.path.expanduser("~") + "/Dropbox/LMNphysio/paper2025/supp2.pdf",
     dpi=200,
     facecolor="white",
 )
