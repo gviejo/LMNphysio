@@ -583,7 +583,7 @@ def load_data(filepath):
     return spikes, position, {'wake_ep':wake_ep, 'sws_ep':sws_ep}
 
 def load_opto_data(path, st):
-    dropbox_path = os.path.join(os.path.expanduser("~"), "Dropbox/LMNphysio/data/" + os.path.basename(path) + ".pickle")
+    dropbox_path = os.path.join("/home/gviejo/Dropbox/LMNphysio/data", os.path.basename(path) + ".pickle")
     if os.path.exists(dropbox_path):
         import _pickle as cPickle
         data = cPickle.load(open(dropbox_path, 'rb'))
@@ -657,7 +657,7 @@ def load_opto_data(path, st):
             'opto_ep':opto_ep, 'sws_ep':sws_ep,
             'tuning_curves':tuning_curves
             }
-        savepath = os.path.join(os.path.expanduser("~"), "Dropbox/LMNphysio/data/" + os.path.basename(path) + ".pickle")
+        savepath = os.path.join("/home/gviejo/Dropbox/LMNphysio/data", os.path.basename(path) + ".pickle")
         import _pickle as cPickle
         cPickle.dump(datatosave, open(savepath, 'wb'))
 

@@ -240,7 +240,6 @@ for st in ['adn', 'lmn']:
                         tmp['pre'] = scipy.stats.pearsonr(r['wak'], r['pre'])[0]
                         tmp['opto'] = scipy.stats.pearsonr(r['wak'], r['opto'])[0]
                         tmp['n'] = len(spikes)
-                        corr[st][gr][sd].append(tmp)
 
                         #########################
                         # FIRING RATE MODULATION DURING OPTO
@@ -254,23 +253,23 @@ for st in ['adn', 'lmn']:
                         pre_spikes = spikes.restrict(pre_ep)
                         percent = 1+delta
                         percent[percent>1] = 1.0
-                        bin_size = 0.02
+                        bin_size, std = 0.1, 3  # same binning/smoothing as the wak/pre/opto rates above
 
                         allr_dec = []
                         r_dec = []
 
-
+                        rng = np.random.default_rng(42)  # reproducible decimation
 
                         for i in range(1000):
 
                             # Matching spike counts
                             decimated_spikes = nap.TsGroup(
-                                {n:nap.Ts(np.sort(np.random.choice(pre_spikes[n].t, int(len(pre_spikes[n])*percent[n]), replace=False))) for n in pre_spikes
+                                {n:nap.Ts(np.sort(rng.choice(pre_spikes[n].t, int(len(pre_spikes[n])*percent[n]), replace=False))) for n in pre_spikes
                                 }, time_support=pre_ep)
                                     
-                            count = decimated_spikes.count(bin_size, pre_ep.drop_short_intervals(bin_size*21))
+                            count = decimated_spikes.count(bin_size, pre_ep)
                             rate = count/bin_size
-                            rate = rate.smooth(std=bin_size*2, windowsize=bin_size*20).as_dataframe()
+                            rate = rate.smooth(std=bin_size*std).as_dataframe()
                             rate = rate.apply(zscore)
                             rate = nap.TsdFrame(rate, time_support = pre_ep)            
 
@@ -328,9 +327,10 @@ for st in ['adn', 'lmn']:
                         # SHUFFLING TO COMPUTE BASELINE
                         #######################
                         tmp = pd.DataFrame(index=[basename], columns=['pre', 'opto', 'decimated'], dtype="float")
+                        rng = np.random.default_rng(42)  # one generator per session: a new permutation each iteration, reproducible
                         for c in ['pre', 'opto', 'decimated']:
                             tmp.loc[basename,c] = np.mean([
-                                scipy.stats.pearsonr(r['wak'].values, r[c].sample(frac=1, random_state=42).values)[0]
+                                scipy.stats.pearsonr(r['wak'].values, r[c].sample(frac=1, random_state=rng).values)[0]
                                 for i in range(1000)
                                 ])
                         baseline[st][gr][sd].append(tmp)                        
@@ -373,13 +373,13 @@ for st in allfr.keys():
         change_fr[st][gr] = {}        
         for sd in allfr[st][gr]:
             change_fr[st][gr][sd] = pd.concat([
-                allfr[st][gr][sd].loc[-0.8:0].mean(),
-                allfr[st][gr][sd].loc[0:1].mean()], axis=1)
+                allfr[st][gr][sd].loc[-5:-0.5].mean(),
+                allfr[st][gr][sd].loc[0.5:9.5].mean()], axis=1)
             change_fr[st][gr][sd].columns = ['pre', 'opto']
             
         
 
-pdf_filename = os.path.expanduser("~/Dropbox/LMNphysio/summary_opto/fig_OPTO_WAKE.pdf")
+pdf_filename = os.path.expanduser("/home/gviejo/Dropbox/LMNphysio/summary_opto/fig_OPTO_WAKE.pdf")
 
 with PdfPages(pdf_filename) as pdf:
 
@@ -626,7 +626,7 @@ datatosave = {
 }
 
 
-dropbox_path = os.path.expanduser("~/Dropbox/LMNphysio/data")
+dropbox_path = os.path.expanduser("/home/gviejo/Dropbox/LMNphysio/data")
 file_name = "OPTO_WAKE.pickle"
 
 import _pickle as cPickle

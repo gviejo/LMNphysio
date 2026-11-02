@@ -251,13 +251,13 @@ for st in ['adn', 'lmn']:
                         allr_dec = []
                         r_dec = []
 
-
+                        rng = np.random.default_rng(42)  # reproducible decimation
 
                         for i in range(1000):
 
                             # Matching spike counts
                             decimated_spikes = nap.TsGroup(
-                                {n:nap.Ts(np.sort(np.random.choice(sws2_spikes[n].t, int(len(sws2_spikes[n])*percent[n]), replace=False))) for n in sws2_spikes
+                                {n:nap.Ts(np.sort(rng.choice(sws2_spikes[n].t, int(len(sws2_spikes[n])*percent[n]), replace=False))) for n in sws2_spikes
                                 }, time_support=sws2_ep)
                                     
                             count = decimated_spikes.count(bin_size, sws2_ep.drop_short_intervals(bin_size*21))
@@ -291,9 +291,10 @@ for st in ['adn', 'lmn']:
                         # SHUFFLING TO COMPUTE BASELINE
                         #######################
                         tmp = pd.DataFrame(index=[basename], columns=['sws', 'opto', 'decimated'], dtype="float")
+                        rng = np.random.default_rng(42)  # one generator per session: a new permutation each iteration, reproducible
                         for c in ['sws', 'opto', 'decimated']:
                             tmp.loc[basename,c] = np.mean([
-                                scipy.stats.pearsonr(r['wak'].values, r[c].sample(frac=1, random_state=42).values)[0]
+                                scipy.stats.pearsonr(r['wak'].values, r[c].sample(frac=1, random_state=rng).values)[0]
                                 for i in range(1000)
                                 ])
                         baseline[st][gr][sd].append(tmp)
@@ -332,7 +333,7 @@ for st in allfr.keys():
         
 
 
-pdf_filename = os.path.expanduser("~/Dropbox/LMNphysio/summary_opto/fig_OPTO_SLEEP.pdf")
+pdf_filename = os.path.expanduser("/home/gviejo/Dropbox/LMNphysio/summary_opto/fig_OPTO_SLEEP.pdf")
 
 with PdfPages(pdf_filename) as pdf:
 
@@ -492,7 +493,7 @@ datatosave = {
 }
 
 
-dropbox_path = os.path.expanduser("~/Dropbox/LMNphysio/data")
+dropbox_path = os.path.expanduser("/home/gviejo/Dropbox/LMNphysio/data")
 file_name = "OPTO_SLEEP.pickle"
 
 import _pickle as cPickle

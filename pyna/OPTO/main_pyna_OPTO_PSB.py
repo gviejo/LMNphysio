@@ -350,7 +350,7 @@ for gr in ['opto', 'ctrl']:
         title(ep)
     tight_layout()
 
-    savefig(os.path.expanduser(f"~/Dropbox/LMNphysio/summary_opto/fig_PSB_{gr.upper()}.png"))
+    savefig(os.path.expanduser(f"/home/gviejo/Dropbox/LMNphysio/summary_opto/fig_PSB_{gr.upper()}.png"))
 
 show()
 
@@ -366,7 +366,7 @@ datatosave = {
 }
 
 
-dropbox_path = os.path.expanduser("~/Dropbox/LMNphysio/data")
+dropbox_path = os.path.expanduser("/home/gviejo/Dropbox/LMNphysio/data")
 file_name = "OPTO_PSB.pickle"
 
 import _pickle as cPickle
